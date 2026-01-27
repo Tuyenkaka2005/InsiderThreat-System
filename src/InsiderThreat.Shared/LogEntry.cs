@@ -17,6 +17,10 @@ namespace InsiderThreat.Shared
         public string IPAddress { get; set; } = string.Empty;
 
         public string ActionTaken { get; set; } = "None"; // Blocked, Reported
+        
+        // USB Device specific fields
+        public string? DeviceId { get; set; }  // Full DeviceId (USB\VID_XXXX&PID_YYYY\Serial)
+        public string? DeviceName { get; set; }  // Device friendly name
 
         public DateTime Timestamp { get; set; } = DateTime.Now;
     }
