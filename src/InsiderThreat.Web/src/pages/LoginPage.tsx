@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, Card, message, Typography } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, ScanOutlined } from '@ant-design/icons';
 import { authService } from '../services/auth';
 import './LoginPage.css';
 
@@ -72,8 +72,16 @@ function LoginPage() {
                             htmlType="submit"
                             loading={loading}
                             block
+                            style={{ marginBottom: 12 }}
                         >
                             Đăng nhập
+                        </Button>
+                        <Button
+                            block
+                            icon={<ScanOutlined />}
+                            onClick={() => navigate('/face-login')}
+                        >
+                            Đăng nhập bằng Face ID
                         </Button>
                     </Form.Item>
                 </Form>

@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage';
 import StaffPage from './pages/StaffPage';
 import UsbMonitorPage from './pages/UsbMonitorPage';
 import DocumentsPage from './pages/DocumentsPage';
+import FaceLoginPage from './pages/FaceLoginPage';
 import './App.css';
 
 // Component bảo vệ route - kiểm tra đăng nhập
@@ -33,6 +34,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/face-login" element={<FaceLoginPage />} />
           <Route
             path="/dashboard"
             element={

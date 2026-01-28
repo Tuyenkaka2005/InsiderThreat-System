@@ -8,6 +8,7 @@ import {
     LogoutOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
+    TeamOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth';
@@ -17,6 +18,7 @@ import WhitelistTable from '../components/WhitelistTable';
 import RecentLogsTable from '../components/RecentLogsTable';
 import UsersPage from './UsersPage';
 import DocumentsPage from './DocumentsPage';
+import AttendancePage from './AttendancePage';
 import './DashboardPage.css';
 
 const { Header, Sider, Content } = Layout;
@@ -49,16 +51,21 @@ function DashboardPage() {
         {
             key: 'documents',
             icon: <FileTextOutlined />,
-            label: 'Nhật ký Tài liệu',
+            label: 'Document Logs', // Changed label
+        },
+        {
+            key: 'attendance',
+            icon: <TeamOutlined />,
+            label: 'Attendance',
         },
     ];
 
     // Chỉ Admin mới thấy menu quản lý nhân viên
     if (user?.role === 'Admin') {
-        menuItems.push({
+        menuItems.splice(1, 0, { // Changed from push to splice, and label changed
             key: 'users',
             icon: <UserOutlined />,
-            label: 'Quản lý Nhân viên',
+            label: 'User Management',
         });
     }
 
@@ -86,6 +93,11 @@ function DashboardPage() {
             key: 'whitelist',
             label: '✅ Whitelisted Devices',
             children: <WhitelistTable />,
+        },
+        {
+            key: 'alerts',
+            label: '⚠️ Security Alerts',
+            children: <RecentLogsTable defaultFilter="Warning" />,
         },
         {
             key: 'recent-logs',

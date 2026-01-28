@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Input, Select, message, Popconfirm, Tag, Space } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, CameraOutlined } from '@ant-design/icons';
+import FaceRegistrationModal from '../components/FaceRegistrationModal';
 import { api } from '../services/api';
 import type { User } from '../types';
 import type { ColumnsType } from 'antd/es/table';
@@ -13,6 +14,14 @@ function UsersPage() {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [form] = Form.useForm();
+    const [isFaceModalVisible, setIsFaceModalVisible] = useState(false);
+    const [selectedUserForFace, setSelectedUserForFace] = useState<{ id: string; name: string } | null>(null);
+
+    const handleRegisterFace = (user: User) => {
+        if (!user.id) return;
+        setSelectedUserForFace({ id: user.id, name: user.fullName });
+        setIsFaceModalVisible(true);
+    };
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -118,6 +127,11 @@ function UsersPage() {
             render: (_, record) => (
                 <Space size="middle">
                     <Button
+                        icon={<CameraOutlined />}
+                        title="Đăng ký Face ID"
+                        onClick={() => handleRegisterFace(record)}
+                    />
+                    <Button
                         icon={<EditOutlined />}
                         onClick={() => handleEdit(record)}
                     />
@@ -138,8 +152,11 @@ function UsersPage() {
         },
     ];
 
+
+
     return (
         <div style={{ padding: 24 }}>
+            {/* ... (existing table and add modal) ... */}
             <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>👤 Quản lý Nhân viên</h2>
                 <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -208,6 +225,14 @@ function UsersPage() {
                     </Form.Item>
                 </Form>
             </Modal>
+
+            {/* Face Registration Modal */}
+            <FaceRegistrationModal
+                visible={isFaceModalVisible}
+                onCancel={() => setIsFaceModalVisible(false)}
+                userId={selectedUserForFace?.id || null}
+                userName={selectedUserForFace?.name || ''}
+            />
         </div>
     );
 }

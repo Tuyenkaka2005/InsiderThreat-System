@@ -49,3 +49,11 @@ export interface LoginResponse {
     token: string;
     user: User;
 }
+
+export interface AttendanceLog {
+    id: string;
+    userId: string;
+    userName: string;
+    checkInTime: string;
+    method: string;
+}

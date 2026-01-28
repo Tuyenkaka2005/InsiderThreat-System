@@ -16,6 +16,12 @@ export const authService = {
         return response;
     },
 
+    // Lưu session sau khi login thành công (dùng cho FaceID)
+    setSession(user: any, token: string) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+    },
+
     // Đăng xuất
     logout(): void {
         localStorage.removeItem('token');

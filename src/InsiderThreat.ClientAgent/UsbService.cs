@@ -70,7 +70,12 @@ namespace InsiderThreat.ClientAgent
 
         private async Task OnDeviceInserted()
         {
-            _logger.LogInformation("USB Inserted! Checking device...");
+            _logger.LogInformation("USB Inserted! Waiting for driver initialization...");
+
+            // Wait for Windows to mount the device strings
+            await Task.Delay(1000);
+
+            _logger.LogInformation("Checking device info...");
 
             // Vì WMI event không trả về thông tin chi tiết ngay lập tức, ta cần quét lại danh sách thiết bị
             var device = GetLastInsertedUsbDevice();
@@ -199,31 +204,28 @@ namespace InsiderThreat.ClientAgent
 
         private UsbDeviceInfo? GetLastInsertedUsbDevice()
         {
-            // Query đơn giản lấy USB Mass Storage
-            // Để chính xác hơn cần so sánh snapshot trước/sau, nhưng ở đây ta lấy cái mới nhất có status OK
             try
             {
-                var searcher = new ManagementObjectSearcher(@"SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0");
-                foreach (ManagementObject device in searcher.Get())
+                _logger.LogInformation("Executing WMI Query (Win32_DiskDrive)...");
+
+                // Use Win32_DiskDrive which is much more stable and faster for USB Storage devices
+                var searcher = new ManagementObjectSearcher("SELECT PNPDeviceID, Caption FROM Win32_DiskDrive WHERE InterfaceType='USB'");
+
+                foreach (ManagementObject drive in searcher.Get()) // This should not hang
                 {
-                    // Kiểm tra nếu là USB Mass Storage
-                    var service = device["Service"]?.ToString();
-                    var pnpId = device["DeviceID"]?.ToString();
+                    string pnpId = drive["PNPDeviceID"]?.ToString() ?? "Unknown";
+                    string description = drive["Caption"]?.ToString() ?? "Unknown USB Device";
 
-                    if ((service == "USBSTOR" || (pnpId != null && pnpId.Contains("USB"))) && pnpId != null)
+                    _logger.LogInformation($"Found Drive: {description}");
+
+                    return new UsbDeviceInfo
                     {
-                        // Lấy HardwareID (mảng string)
-                        string[] hardwareIds = (string[])device["HardwareID"];
-                        string hardwareId = hardwareIds.Length > 0 ? hardwareIds[0] : pnpId;
-
-                        return new UsbDeviceInfo
-                        {
-                            DeviceId = hardwareId,
-                            PnpDeviceId = pnpId,
-                            Description = device["Name"]?.ToString() ?? "Unknown Device"
-                        };
-                    }
+                        DeviceId = pnpId,     // Win32_DiskDrive uses PNPDeviceID as the unique identifier
+                        PnpDeviceId = pnpId,  // Used for Ejection based on Instance ID
+                        Description = description
+                    };
                 }
+                _logger.LogInformation("No USB Disk Drives found.");
             }
             catch (Exception ex)
             {

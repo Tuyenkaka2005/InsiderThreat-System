@@ -14,12 +14,14 @@ namespace InsiderThreat.Server.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IMongoDatabase _database;
+    private readonly IMongoCollection<LogEntry> _logsCollection;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(IMongoDatabase database, IConfiguration configuration, ILogger<AuthController> logger)
     {
         _database = database;
+        _logsCollection = database.GetCollection<LogEntry>("Logs");
         _configuration = configuration;
         _logger = logger;
     }
@@ -111,6 +113,97 @@ public class AuthController : ControllerBase
                 Message = "Lỗi hệ thống: " + ex.Message
             });
         }
+    }
+
+    [HttpPost("face-login")]
+    public async Task<ActionResult<LoginResponse>> FaceLogin([FromBody] double[] descriptor)
+    {
+        try
+        {
+            var usersCollection = _database.GetCollection<User>("Users");
+            var users = await usersCollection
+                .Find(u => u.FaceEmbeddings != null)
+                .ToListAsync();
+
+            User? matchedUser = null;
+            double minDistance = double.MaxValue;
+            double threshold = 0.5; // Stricter threshold for security
+
+            foreach (var user in users)
+            {
+                var distance = EuclideanDistance(descriptor, user.FaceEmbeddings!);
+                if (distance < threshold && distance < minDistance)
+                {
+                    minDistance = distance;
+                    matchedUser = user;
+                }
+            }
+
+            if (matchedUser == null)
+            {
+                // Log failure
+                var log = new LogEntry
+                {
+                    LogType = "Auth",
+                    Severity = "Warning",
+                    Message = "Face Login failed: No matching face found",
+                    ComputerName = "WebClient",
+                    IPAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    ActionTaken = "Access Denied",
+                    Timestamp = DateTime.Now
+                };
+                await _logsCollection.InsertOneAsync(log);
+
+                return Unauthorized(new LoginResponse
+                {
+                    Success = false,
+                    Message = "Không nhận diện được khuôn mặt hoặc chưa đăng ký Face ID"
+                });
+            }
+
+            // Log Attendance
+            var attendanceLog = new AttendanceLog
+            {
+                UserId = matchedUser.Id!,
+                UserName = matchedUser.FullName, // Use FullName for display
+                CheckInTime = DateTime.Now,
+                Method = "FaceID"
+            };
+            await _database.GetCollection<AttendanceLog>("AttendanceLogs").InsertOneAsync(attendanceLog);
+
+            // Generate Token
+            string token = GenerateJwtToken(matchedUser);
+
+            return Ok(new LoginResponse
+            {
+                Success = true,
+                Message = "Đăng nhập Face ID thành công",
+                Token = token,
+                User = new UserInfo
+                {
+                    Id = matchedUser.Id ?? "",
+                    Username = matchedUser.Username,
+                    FullName = matchedUser.FullName,
+                    Role = matchedUser.Role
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi Face Login");
+            return StatusCode(500, new LoginResponse { Success = false, Message = ex.Message });
+        }
+    }
+
+    private static double EuclideanDistance(double[] a, double[] b)
+    {
+        if (a.Length != b.Length) return double.MaxValue;
+        double sum = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            sum += Math.Pow(a[i] - b[i], 2);
+        }
+        return Math.Sqrt(sum);
     }
 
     // =============================================

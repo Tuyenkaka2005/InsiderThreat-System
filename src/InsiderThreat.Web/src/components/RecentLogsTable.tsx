@@ -6,10 +6,14 @@ import type { ColumnsType } from 'antd/es/table';
 
 const { Option } = Select;
 
-function RecentLogsTable() {
+interface RecentLogsTableProps {
+    defaultFilter?: string;
+}
+
+function RecentLogsTable({ defaultFilter = 'All' }: RecentLogsTableProps) {
     const [loading, setLoading] = useState(false);
     const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [filter, setFilter] = useState<string>('All');
+    const [filter, setFilter] = useState<string>(defaultFilter);
 
     const fetchLogs = async () => {
         setLoading(true);

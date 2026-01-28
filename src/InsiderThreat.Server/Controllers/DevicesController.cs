@@ -25,20 +25,33 @@ namespace InsiderThreat.Server.Controllers
 
             // Extract VID and PID từ deviceId (format: USB\VID_XXXX&PID_YYYY\...)
             var vidPid = ExtractVidPid(deviceId);
-            Console.WriteLine($"[CheckDevice] Extracted VID/PID: {vidPid}");
+            Console.WriteLine($"[CheckDevice] Extracted VID/PID: {vidPid ?? "None"}");
 
-            if (vidPid == null)
-                return StatusCode(403, new { Allowed = false, Message = "Invalid DeviceId format" });
+            // Allow fallback to exact DeviceId match even if VID/PID missing
+            // This supports Win32_DiskDrive IDs (USBSTOR\...)
 
-            // Tìm device trong whitelist có cùng VID/PID
+            // Tìm device trong whitelist
             var devices = await _devices.Find(_ => true).ToListAsync();
             Console.WriteLine($"[CheckDevice] Total devices in whitelist: {devices.Count}");
 
             var matchedDevice = devices.FirstOrDefault(d =>
             {
+                // 1. Try VID/PID match (Legacy/PnP IDs)
                 var dbVidPid = ExtractVidPid(d.DeviceId);
-                Console.WriteLine($"[CheckDevice] Comparing with DB DeviceId: {d.DeviceId} => Extracted: {dbVidPid}");
-                return dbVidPid != null && dbVidPid.Equals(vidPid, StringComparison.OrdinalIgnoreCase);
+                if (vidPid != null && dbVidPid != null && dbVidPid.Equals(vidPid, StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"[CheckDevice] ✅ VID/PID Match: {d.DeviceId}");
+                    return true;
+                }
+
+                // 2. Try Exact DeviceId match (Modern/DiskDrive IDs)
+                if (d.DeviceId.Equals(deviceId, StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"[CheckDevice] ✅ Exact ID Match: {d.DeviceId}");
+                    return true;
+                }
+
+                return false;
             });
 
             if (matchedDevice != null && matchedDevice.IsAllowed)

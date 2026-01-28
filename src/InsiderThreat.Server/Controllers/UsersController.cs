@@ -100,6 +100,27 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
+    // PUT: api/users/{id}/face-embeddings
+    [HttpPut("{id}/face-embeddings")]
+    public async Task<IActionResult> UpdateFaceEmbeddings(string id, [FromBody] double[] embeddings)
+    {
+        _logger.LogInformation($"UpdateFaceEmbeddings called for User ID: {id}");
+        _logger.LogInformation($"Embeddings length: {embeddings?.Length}");
+
+        var filter = Builders<User>.Filter.Eq(u => u.Id, id);
+        var update = Builders<User>.Update.Set(u => u.FaceEmbeddings, embeddings);
+
+        var result = await _usersCollection.UpdateOneAsync(filter, update);
+
+        if (result.MatchedCount == 0)
+        {
+            _logger.LogWarning($"User not found with ID: {id}");
+            return NotFound(new { Message = $"User not found with ID: {id}" });
+        }
+
+        return Ok(new { Message = "Face embeddings updated successfully" });
+    }
+
     private static string HashPassword(string password)
     {
         using var sha256 = SHA256.Create();
