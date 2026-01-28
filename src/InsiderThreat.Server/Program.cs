@@ -18,6 +18,21 @@ builder.Services.AddScoped<IMongoDatabase>(s =>
     s.GetRequiredService<IMongoClient>().GetDatabase(mongoSettings.GetValue<string>("DatabaseName")));
 // ==========================================
 
+// ==========================================
+// 3. CẤU HÌNH CORS (Cho Web Frontend)
+// ==========================================
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowWebApp", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Cho phép gửi Cookie/JWT
+    });
+});
+// ==========================================
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -32,6 +47,9 @@ if (app.Environment.IsDevelopment())
 }
 
 // app.UseHttpsRedirection(); // Tắt HTTPS để tránh lỗi kết nối LAN nếu chưa cấu hình SSL
+
+// Bật CORS
+app.UseCors("AllowWebApp");
 
 // ==========================================
 // 2. API TEST KẾT NỐI DATABASE (QUAN TRỌNG)
