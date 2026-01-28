@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using InsiderThreat.Shared;
+using Microsoft.AspNetCore.SignalR;
+using InsiderThreat.Server.Hubs;
 
 namespace InsiderThreat.Server.Controllers
 {
@@ -9,11 +11,15 @@ namespace InsiderThreat.Server.Controllers
     public class LogsController : ControllerBase
     {
         private readonly IMongoCollection<LogEntry> _logsCollection;
+        private readonly IHubContext<SystemHub> _hubContext;
+        private readonly ILogger<LogsController> _logger;
 
-        // Inject Database vào Controller
-        public LogsController(IMongoDatabase database)
+        // Inject Database và SignalR Hub vào Controller
+        public LogsController(IMongoDatabase database, IHubContext<SystemHub> hubContext, ILogger<LogsController> logger)
         {
             _logsCollection = database.GetCollection<LogEntry>("Logs");
+            _hubContext = hubContext;
+            _logger = logger;
         }
 
         // 1. API Gửi Log từ Client lên (POST api/logs)
@@ -25,6 +31,22 @@ namespace InsiderThreat.Server.Controllers
             newLog.Id = null; // Để MongoDB tự sinh ID
 
             await _logsCollection.InsertOneAsync(newLog);
+
+            // Nếu là log USB và bị chặn -> Gửi thông báo real-time cho Admin
+            if (newLog.LogType == "USB_INSERT" && newLog.ActionTaken == "Blocked")
+            {
+                _logger.LogInformation($"Broadcasting USB alert: {newLog.DeviceName}");
+                
+                await _hubContext.Clients.All.SendAsync("UsbAlert", new
+                {
+                    deviceId = newLog.DeviceId,
+                    deviceName = newLog.DeviceName,
+                    computerName = newLog.ComputerName,
+                    ipAddress = newLog.IPAddress,
+                    timestamp = newLog.Timestamp,
+                    message = newLog.Message
+                });
+            }
 
             return Ok(new { Message = "Đã ghi nhận Log thành công!", LogId = newLog.Id });
         }

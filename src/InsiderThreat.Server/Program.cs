@@ -1,6 +1,9 @@
 using MongoDB.Driver;
 using MongoDB.Bson; // Thêm cái này để làm việc với dữ liệu linh động
 using InsiderThreat.Shared;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +36,40 @@ builder.Services.AddCors(options =>
 });
 // ==========================================
 
+// ==========================================
+// 4. CẤU HÌNH JWT AUTHENTICATION
+// ==========================================
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(key)
+    };
+});
+
+builder.Services.AddAuthorization();
+// ==========================================
+
+// ==========================================
+// 5. CẤU HÌNH SIGNALR
+// ==========================================
+builder.Services.AddSignalR();
+// ==========================================
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -50,6 +87,10 @@ if (app.Environment.IsDevelopment())
 
 // Bật CORS
 app.UseCors("AllowWebApp");
+
+// Bật Authentication & Authorization
+app.UseAuthentication();
+app.UseAuthorization();
 
 // ==========================================
 // 2. API TEST KẾT NỐI DATABASE (QUAN TRỌNG)
@@ -74,6 +115,10 @@ app.MapGet("/test-db", (IMongoDatabase db) =>
 .WithOpenApi();
 
 // ==========================================
+
+// Map SignalR Hub
+app.MapHub<InsiderThreat.Server.Hubs.SystemHub>("/hubs/system");
+app.MapHub<InsiderThreat.Server.Hubs.ChatHub>("/hubs/chat");
 
 app.MapControllers();
 app.Run();
