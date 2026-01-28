@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Modal, Button, Typography, Space, Tag } from 'antd';
 import { WarningOutlined, UsbOutlined } from '@ant-design/icons';
 import * as signalR from '@microsoft/signalr';
+import { api } from '../services/api';
+import type { Device } from '../types';
 
 const { Text, Title } = Typography;
 
@@ -73,14 +75,34 @@ function UsbNotification({ userRole }: UsbNotificationProps) {
         }
     };
 
-    const handleAllow = () => {
-        setAlert(null);
+    const handleAllow = async () => {
+        if (alert) {
+            try {
+                await api.post<Device>('/api/devices', {
+                    deviceId: alert.deviceId,
+                    deviceName: alert.deviceName,
+                    description: `Approved via Notification from ${alert.computerName}`,
+                    isAllowed: true,
+                });
+                Modal.success({
+                    title: 'Đã phê duyệt',
+                    content: `Thiết bị ${alert.deviceName} đã được thêm vào whitelist.`,
+                });
+                setAlert(null);
+            } catch (error) {
+                console.error('Error approving device:', error);
+                Modal.error({
+                    title: 'Lỗi',
+                    content: 'Không thể phê duyệt thiết bị. Vui lòng thử lại.',
+                });
+            }
+        }
     };
 
     return (
         <Modal
             open={!!alert}
-            onCancel={handleAllow}
+            onCancel={() => setAlert(null)}
             footer={[
                 <Button key="allow" onClick={handleAllow}>
                     Cho phép

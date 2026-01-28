@@ -1,0 +1,176 @@
+import { useState, useEffect } from 'react';
+import { Layout, Menu, Typography, Button, Avatar, Dropdown, Tabs, message } from 'antd';
+import {
+    DashboardOutlined,
+    UsbOutlined,
+    FileTextOutlined,
+    UserOutlined,
+    LogoutOutlined,
+    MenuFoldOutlined,
+    MenuUnfoldOutlined,
+} from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { authService } from '../services/auth';
+import UsbNotification from '../components/UsbNotification';
+import BlockedDevicesTable from '../components/BlockedDevicesTable';
+import WhitelistTable from '../components/WhitelistTable';
+import RecentLogsTable from '../components/RecentLogsTable';
+import UsersPage from './UsersPage';
+import DocumentsPage from './DocumentsPage';
+import './DashboardPage.css';
+
+const { Header, Sider, Content } = Layout;
+const { Title } = Typography;
+
+function DashboardPage() {
+    const [collapsed, setCollapsed] = useState(true);
+    const [selectedKey, setSelectedKey] = useState('usb');
+    const navigate = useNavigate();
+    const user = authService.getCurrentUser();
+
+    useEffect(() => {
+        if (!user) {
+            navigate('/login');
+        }
+    }, [user, navigate]);
+
+    const handleLogout = () => {
+        authService.logout();
+        message.success('Đã đăng xuất!');
+        navigate('/login');
+    };
+
+    const menuItems = [
+        {
+            key: 'usb',
+            icon: <UsbOutlined />,
+            label: 'USB Management',
+        },
+        {
+            key: 'documents',
+            icon: <FileTextOutlined />,
+            label: 'Nhật ký Tài liệu',
+        },
+    ];
+
+    // Chỉ Admin mới thấy menu quản lý nhân viên
+    if (user?.role === 'Admin') {
+        menuItems.push({
+            key: 'users',
+            icon: <UserOutlined />,
+            label: 'Quản lý Nhân viên',
+        });
+    }
+
+    const userMenuItems = [
+        {
+            key: 'profile',
+            icon: <UserOutlined />,
+            label: 'Thông tin',
+        },
+        {
+            key: 'logout',
+            icon: <LogoutOutlined />,
+            label: 'Đăng xuất',
+            onClick: handleLogout,
+        },
+    ];
+
+    const tabItems = [
+        {
+            key: 'blocked',
+            label: '🚫 Blocked Devices',
+            children: <BlockedDevicesTable />,
+        },
+        {
+            key: 'whitelist',
+            label: '✅ Whitelisted Devices',
+            children: <WhitelistTable />,
+        },
+        {
+            key: 'recent-logs',
+            label: '📝 Recent Logs',
+            children: <RecentLogsTable />,
+        },
+    ];
+
+    if (!user) return null;
+
+    const renderContent = () => {
+        switch (selectedKey) {
+            case 'usb':
+                return (
+                    <div className="content-wrapper">
+                        <Title level={2}>🔐 USB Device Management</Title>
+                        <Tabs items={tabItems} defaultActiveKey="blocked" />
+                    </div>
+                );
+            case 'users':
+                return (
+                    <div className="content-wrapper">
+                        <UsersPage />
+                    </div>
+                );
+            case 'documents':
+                return (
+                    <div className="content-wrapper">
+                        <DocumentsPage />
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <Layout style={{ minHeight: '100vh' }}>
+            {/* Real-time USB Notification */}
+            <UsbNotification userRole={user.role} />
+
+            {/* Sidebar */}
+            <Sider trigger={null} collapsible collapsed={collapsed} theme="dark">
+                <div className="logo">
+                    <UsbOutlined style={{ fontSize: 24, color: '#fff' }} />
+                    {!collapsed && <span style={{ marginLeft: 12 }}>InsiderThreat</span>}
+                </div>
+                <Menu
+                    theme="dark"
+                    mode="inline"
+                    defaultSelectedKeys={['usb']}
+                    selectedKeys={[selectedKey]}
+                    items={menuItems}
+                    onClick={({ key }) => setSelectedKey(key)}
+                />
+            </Sider>
+
+            <Layout>
+                {/* Header */}
+                <Header className="site-header">
+                    <Button
+                        type="text"
+                        icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                        onClick={() => setCollapsed(!collapsed)}
+                        className="trigger"
+                    />
+
+                    <div className="header-right">
+                        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+                            <div className="user-info">
+                                <Avatar icon={<UserOutlined />} />
+                                <span className="username">{user.fullName}</span>
+                                <span className="role-badge">{user.role}</span>
+                            </div>
+                        </Dropdown>
+                    </div>
+                </Header>
+
+                {/* Main Content */}
+                <Content className="site-content">
+                    {renderContent()}
+                </Content>
+            </Layout>
+        </Layout>
+    );
+}
+
+export default DashboardPage;

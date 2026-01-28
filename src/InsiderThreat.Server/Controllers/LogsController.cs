@@ -36,7 +36,7 @@ namespace InsiderThreat.Server.Controllers
             if (newLog.LogType == "USB_INSERT" && newLog.ActionTaken == "Blocked")
             {
                 _logger.LogInformation($"Broadcasting USB alert: {newLog.DeviceName}");
-                
+
                 await _hubContext.Clients.All.SendAsync("UsbAlert", new
                 {
                     deviceId = newLog.DeviceId,
@@ -51,13 +51,24 @@ namespace InsiderThreat.Server.Controllers
             return Ok(new { Message = "Đã ghi nhận Log thành công!", LogId = newLog.Id });
         }
 
-        // 2. API Lấy 10 log mới nhất để hiển thị Dashboard (GET api/logs)
+        // 2. API Lấy logs với filter (GET api/logs?type=FileAccess&limit=20)
         [HttpGet]
-        public async Task<IActionResult> GetRecentLogs()
+        public async Task<IActionResult> GetRecentLogs([FromQuery] string? type, [FromQuery] int limit = 20)
         {
-            var logs = await _logsCollection.Find(_ => true)
+            var filterBuilder = Builders<LogEntry>.Filter;
+            var filter = filterBuilder.Empty;
+
+            if (!string.IsNullOrEmpty(type))
+            {
+                filter = filterBuilder.Eq(l => l.LogType, type);
+            }
+
+            // Giới hạn max limit là 100 để tránh load quá nhiều
+            if (limit > 100) limit = 100;
+
+            var logs = await _logsCollection.Find(filter)
                                             .SortByDescending(l => l.Timestamp)
-                                            .Limit(10)
+                                            .Limit(limit)
                                             .ToListAsync();
             return Ok(logs);
         }

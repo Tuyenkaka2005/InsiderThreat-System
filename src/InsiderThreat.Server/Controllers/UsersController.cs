@@ -1,0 +1,109 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using MongoDB.Driver;
+using InsiderThreat.Shared;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace InsiderThreat.Server.Controllers;
+
+[Authorize(Roles = "Admin")] // Chỉ Admin mới được quản lý User
+[ApiController]
+[Route("api/[controller]")]
+public class UsersController : ControllerBase
+{
+    private readonly IMongoCollection<User> _usersCollection;
+    private readonly ILogger<UsersController> _logger;
+
+    public UsersController(IMongoDatabase database, ILogger<UsersController> logger)
+    {
+        _usersCollection = database.GetCollection<User>("Users");
+        _logger = logger;
+    }
+
+    // GET: api/users
+    [HttpGet]
+    public async Task<ActionResult<List<User>>> GetUsers()
+    {
+        var users = await _usersCollection.Find(_ => true).ToListAsync();
+        // Ẩn hash password trước khi trả về
+        users.ForEach(u => u.PasswordHash = "");
+        return Ok(users);
+    }
+
+    // GET: api/users/{id}
+    [HttpGet("{id}")]
+    public async Task<ActionResult<User>> GetUser(string id)
+    {
+        var user = await _usersCollection.Find(u => u.Id == id).FirstOrDefaultAsync();
+        if (user == null) return NotFound();
+        user.PasswordHash = "";
+        return Ok(user);
+    }
+
+    // POST: api/users
+    [HttpPost]
+    public async Task<ActionResult<User>> CreateUser(User newUser)
+    {
+        // Check username exists
+        var existingUser = await _usersCollection.Find(u => u.Username == newUser.Username).FirstOrDefaultAsync();
+        if (existingUser != null)
+        {
+            return BadRequest(new { Message = "Username đã tồn tại" });
+        }
+
+        // Hash password (giả sử client gửi plain text password trong PasswordHash tạm thời, hoặc thêm DTO)
+        // Để đơn giản, ta sẽ quy ước: Khi tạo mới, field PasswordHash chứa password chưa hash
+        if (!string.IsNullOrEmpty(newUser.PasswordHash))
+        {
+            newUser.PasswordHash = HashPassword(newUser.PasswordHash);
+        }
+
+        newUser.Id = null; // Auto gen ID
+        newUser.CreatedAt = DateTime.Now;
+
+        await _usersCollection.InsertOneAsync(newUser);
+
+        newUser.PasswordHash = ""; // Hide for response
+        return CreatedAtAction(nameof(GetUser), new { id = newUser.Id }, newUser);
+    }
+
+    // PUT: api/users/{id}
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateUser(string id, User updatedUser)
+    {
+        var user = await _usersCollection.Find(u => u.Id == id).FirstOrDefaultAsync();
+        if (user == null) return NotFound();
+
+        // Update basic info
+        user.FullName = updatedUser.FullName;
+        user.Role = updatedUser.Role;
+        user.Department = updatedUser.Department;
+        // user.Username thường không cho đổi để tránh conflict ID hệ thống khác
+
+        // Nếu có gửi password mới thì hash và update
+        if (!string.IsNullOrEmpty(updatedUser.PasswordHash))
+        {
+            user.PasswordHash = HashPassword(updatedUser.PasswordHash);
+        }
+
+        await _usersCollection.ReplaceOneAsync(u => u.Id == id, user);
+        return NoContent();
+    }
+
+    // DELETE: api/users/{id}
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteUser(string id)
+    {
+        var result = await _usersCollection.DeleteOneAsync(u => u.Id == id);
+        if (result.DeletedCount == 0) return NotFound();
+        return NoContent();
+    }
+
+    private static string HashPassword(string password)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(bytes);
+    }
+}
