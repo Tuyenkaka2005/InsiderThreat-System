@@ -7,7 +7,7 @@ import { api } from '../services/api';
 import { authService } from '../services/auth';
 import type { LoginResponse } from '../types';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 function FaceLoginPage() {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -73,7 +73,7 @@ function FaceLoginPage() {
             // Call API
             const response = await api.post<LoginResponse>('/api/auth/face-login', descriptor);
 
-            if (response.success && response.token) {
+            if (response.token) {
                 message.success('Login successful!');
                 // Fix: Dùng setSession thay vì gọi lại hàm login (gây lỗi 400)
                 authService.setSession(response.user, response.token);

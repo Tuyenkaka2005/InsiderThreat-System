@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Card, message, Typography } from 'antd';
+import { Form, Input, Button, Card, message, Typography, Alert } from 'antd';
 import { UserOutlined, LockOutlined, ScanOutlined } from '@ant-design/icons';
 import { authService } from '../services/auth';
 import './LoginPage.css';
@@ -9,10 +9,12 @@ const { Title, Text } = Typography;
 
 function LoginPage() {
     const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const navigate = useNavigate();
 
     const onFinish = async (values: { username: string; password: string }) => {
         setLoading(true);
+        setErrorMessage(null); // Clear previous errors
         try {
             const response = await authService.login(values.username, values.password);
             message.success(`Chào mừng ${response.user.fullName}!`);
@@ -24,7 +26,9 @@ function LoginPage() {
                 navigate('/chat');
             }
         } catch (error: any) {
-            message.error(error.response?.data?.message || 'Đăng nhập thất bại!');
+            const errMsg = error.response?.data?.message || 'Đăng nhập thất bại! Kiểm tra lại tên đăng nhập và mật khẩu.';
+            setErrorMessage(errMsg);
+            message.error(errMsg);
             console.error('Login error:', error);
         } finally {
             setLoading(false);
@@ -36,8 +40,19 @@ function LoginPage() {
             <Card className="login-card">
                 <div className="login-header">
                     <Title level={2}>🔐 InsiderThreat System</Title>
-                    <Text type="secondary">Quản lý bảo mật thiết bị USB</Text>
                 </div>
+
+                {errorMessage && (
+                    <Alert
+                        message="Đăng nhập thất bại"
+                        description={errorMessage}
+                        type="error"
+                        showIcon
+                        closable
+                        onClose={() => setErrorMessage(null)}
+                        style={{ marginBottom: 16 }}
+                    />
+                )}
 
                 <Form
                     name="login"
@@ -87,9 +102,13 @@ function LoginPage() {
                 </Form>
 
                 <div className="login-footer">
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                        Demo: admin / 123456
-                    </Text>
+                    <Button
+                        type="link"
+                        onClick={() => navigate('/forgot-password')}
+                        style={{ padding: 0, marginBottom: 8 }}
+                    >
+                        Quên mật khẩu?
+                    </Button>
                 </div>
             </Card>
         </div>

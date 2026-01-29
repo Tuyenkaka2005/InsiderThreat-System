@@ -56,7 +56,7 @@ public class UsersController : ControllerBase
         // Để đơn giản, ta sẽ quy ước: Khi tạo mới, field PasswordHash chứa password chưa hash
         if (!string.IsNullOrEmpty(newUser.PasswordHash))
         {
-            newUser.PasswordHash = HashPassword(newUser.PasswordHash);
+            newUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newUser.PasswordHash);
         }
 
         newUser.Id = null; // Auto gen ID
@@ -79,12 +79,13 @@ public class UsersController : ControllerBase
         user.FullName = updatedUser.FullName;
         user.Role = updatedUser.Role;
         user.Department = updatedUser.Department;
+        user.Email = updatedUser.Email; // Update email
         // user.Username thường không cho đổi để tránh conflict ID hệ thống khác
 
         // Nếu có gửi password mới thì hash và update
         if (!string.IsNullOrEmpty(updatedUser.PasswordHash))
         {
-            user.PasswordHash = HashPassword(updatedUser.PasswordHash);
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(updatedUser.PasswordHash);
         }
 
         await _usersCollection.ReplaceOneAsync(u => u.Id == id, user);
@@ -119,12 +120,5 @@ public class UsersController : ControllerBase
         }
 
         return Ok(new { Message = "Face embeddings updated successfully" });
-    }
-
-    private static string HashPassword(string password)
-    {
-        using var sha256 = SHA256.Create();
-        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToBase64String(bytes);
     }
 }

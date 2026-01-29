@@ -30,10 +30,18 @@ apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            // Unauthorized - xóa token và redirect về login
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
+            // Chỉ redirect nếu KHÔNG PHẢI đang ở trang login hoặc forgot-password
+            const currentPath = window.location.pathname;
+            const isAuthPage = currentPath === '/login' ||
+                currentPath === '/face-login' ||
+                currentPath === '/forgot-password';
+
+            if (!isAuthPage) {
+                // Unauthorized - xóa token và redirect về login
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

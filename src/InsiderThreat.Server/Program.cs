@@ -29,7 +29,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowWebApp", policy =>
     {
         policy.WithOrigins(
-            "http://localhost:5173", "http://localhost:3000", 
+            "http://localhost:5173", "http://localhost:3000",
             "http://127.0.0.1:5173", "http://127.0.0.1:3000",
             "http://localhost:5174", "http://127.0.0.1:5174",
             "http://localhost:5175", "http://127.0.0.1:5175",
@@ -71,7 +71,13 @@ builder.Services.AddAuthorization();
 // ==========================================
 
 // ==========================================
-// 5. CẤU HÌNH SIGNALR
+// 6. CẤU HÌNH EMAIL SERVICE
+// ==========================================
+builder.Services.AddScoped<InsiderThreat.Server.Services.IEmailService, InsiderThreat.Server.Services.EmailService>();
+// ==========================================
+
+// ==========================================
+// 7. CẤU HÌNH SIGNALR
 // ==========================================
 builder.Services.AddSignalR();
 // ==========================================

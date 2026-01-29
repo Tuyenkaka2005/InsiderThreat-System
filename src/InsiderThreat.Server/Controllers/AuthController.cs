@@ -74,9 +74,8 @@ public class AuthController : ControllerBase
                 });
             }
 
-            // 2. Kiểm tra mật khẩu
-            string hashedPassword = HashPassword(request.Password);
-            if (user.PasswordHash != hashedPassword)
+            // 2. Kiểm tra mật khẩu với BCrypt
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
                 return Unauthorized(new LoginResponse
                 {
@@ -238,7 +237,7 @@ public class AuthController : ControllerBase
             var newUser = new User
             {
                 Username = request.Username,
-                PasswordHash = HashPassword(request.Password),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 FullName = request.FullName,
                 Role = request.Role,
                 CreatedAt = DateTime.Now
@@ -285,12 +284,5 @@ public class AuthController : ControllerBase
         var tokenHandler = new JwtSecurityTokenHandler();
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
-    }
-
-    private static string HashPassword(string password)
-    {
-        using var sha256 = SHA256.Create();
-        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToBase64String(bytes);
     }
 }

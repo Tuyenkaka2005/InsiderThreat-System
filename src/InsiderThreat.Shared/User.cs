@@ -13,6 +13,11 @@ namespace InsiderThreat.Shared
         public string PasswordHash { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
         public string Role { get; set; } = "User"; // Admin, Manager, User
+
+        // Email for security features
+        public string Email { get; set; } = string.Empty;
+        public bool EmailVerified { get; set; } = false;
+
         public string Department { get; set; } = string.Empty;
 
         // Mảng chứa vector khuôn mặt (512 chiều hoặc 128 chiều tùy thuật toán)

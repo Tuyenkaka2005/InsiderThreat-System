@@ -107,6 +107,11 @@ function UsersPage() {
             key: 'username',
         },
         {
+            title: 'Email',
+            dataIndex: 'email',
+            key: 'email',
+        },
+        {
             title: 'Vai trò',
             dataIndex: 'role',
             key: 'role',
@@ -203,6 +208,17 @@ function UsersPage() {
                         rules={[{ required: true, message: 'Vui lòng nhập họ tên!' }]}
                     >
                         <Input />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="email"
+                        label="Email"
+                        rules={[
+                            { required: true, message: 'Vui lòng nhập email!' },
+                            { type: 'email', message: 'Email không hợp lệ!' }
+                        ]}
+                    >
+                        <Input placeholder="example@gmail.com" />
                     </Form.Item>
 
                     <Form.Item
