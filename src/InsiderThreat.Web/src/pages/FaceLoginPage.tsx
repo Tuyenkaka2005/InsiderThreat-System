@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, message, Spin, Typography, Card } from 'antd';
+import { Button, message, Spin, Typography, Card, Alert } from 'antd';
 import { LoginOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { loadFaceApiModels, detectFace } from '../services/faceApi';
@@ -15,6 +15,7 @@ function FaceLoginPage() {
     const [loading, setLoading] = useState(true);
     const [scanning, setScanning] = useState(false);
     const [stream, setStream] = useState<MediaStream | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
         initFaceApi();
@@ -55,9 +56,13 @@ function FaceLoginPage() {
         if (!videoRef.current) return;
 
         setScanning(true);
+        setErrorMessage(null); // Clear previous errors
+
         try {
             const detection = await detectFace(videoRef.current);
             if (!detection) {
+                const errorMsg = '⚠️ Không phát hiện khuôn mặt! Vui lòng đặt mặt vào giữa khung hình.';
+                setErrorMessage(errorMsg);
                 message.warning('No face detected!');
                 setScanning(false);
                 return;
@@ -74,11 +79,15 @@ function FaceLoginPage() {
                 authService.setSession(response.user, response.token);
                 navigate('/dashboard');
             } else {
+                const errorMsg = '❌ Khuôn mặt không khớp! Bạn chưa đăng ký Face ID hoặc khuôn mặt không được nhận diện.';
+                setErrorMessage(errorMsg);
                 message.error('Face not recognized');
             }
         } catch (error: any) {
             console.error(error);
-            message.error(error.response?.data?.message || 'Login failed');
+            const errorMsg = error.response?.data?.message || 'Đăng nhập thất bại! Khuôn mặt không hợp lệ hoặc chưa được đăng ký.';
+            setErrorMessage(`🚫 ${errorMsg}`);
+            message.error(errorMsg);
         } finally {
             setScanning(false);
         }
@@ -108,6 +117,18 @@ function FaceLoginPage() {
                         />
                     )}
                 </div>
+
+                {errorMessage && (
+                    <Alert
+                        message="Đăng nhập thất bại"
+                        description={errorMessage}
+                        type="error"
+                        showIcon
+                        closable
+                        onClose={() => setErrorMessage(null)}
+                        style={{ marginBottom: 16, textAlign: 'left' }}
+                    />
+                )}
 
                 <Button
                     type="primary"
