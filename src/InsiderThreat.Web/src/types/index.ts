@@ -8,6 +8,7 @@ export interface User {
     email?: string;
     department?: string;
     passwordHash?: string;
+    publicKey?: string;
 }
 
 export interface LogEntry {

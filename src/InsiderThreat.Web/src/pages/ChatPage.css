@@ -1,0 +1,284 @@
+/* ChatPage.css */
+:root {
+    --color-primary: #3b82f6;
+    --color-primary-hover: #2563eb;
+    --color-dark-bg: #0f1115;
+    --color-dark-surface: #1e2126;
+    --color-dark-surface-lighter: #2a2e35;
+    --color-text-main: #f3f4f6;
+    --color-text-muted: #9ca3af;
+    --font-display: 'Be Vietnam Pro', sans-serif;
+    --header-height: 64px;
+}
+
+.chat-page-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-dark-bg);
+    color: var(--color-text-main);
+    font-family: var(--font-display);
+    overflow: hidden;
+}
+
+/* Reusing Header Styles from FeedPage roughly for consistency, 
+   but specific to Chat layout if needed. 
+   Ideally we'd extract a common Header component. 
+   For now, we copy the visual style. */
+.chat-header {
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background-color: var(--color-dark-surface);
+    border-bottom: 1px solid var(--color-dark-surface-lighter);
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+/* Chat Layout */
+.chat-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Sidebar */
+.chat-sidebar {
+    width: 320px;
+    background-color: var(--color-dark-surface);
+    border-right: 1px solid var(--color-dark-surface-lighter);
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-search {
+    padding: 16px;
+    border-bottom: 1px solid var(--color-dark-surface-lighter);
+}
+
+.chat-search-input-wrapper {
+    display: flex;
+    align-items: center;
+    background-color: var(--color-dark-bg);
+    border-radius: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--color-dark-surface-lighter);
+}
+
+.chat-search-input {
+    background: transparent;
+    border: none;
+    color: white;
+    margin-left: 8px;
+    width: 100%;
+    outline: none;
+}
+
+.conversation-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.conversation-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-bottom: 4px;
+}
+
+.conversation-item:hover,
+.conversation-item.active {
+    background-color: var(--color-dark-surface-lighter);
+}
+
+.conversation-avatar {
+    position: relative;
+    margin-right: 12px;
+}
+
+.avatar-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+}
+
+.status-indicator {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--color-dark-surface);
+}
+
+.status-online {
+    background-color: #22c55e;
+}
+
+.status-offline {
+    background-color: var(--color-text-muted);
+}
+
+.conversation-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.conversation-name {
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.conversation-last-msg {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Main Chat Window */
+.chat-window {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-dark-bg);
+    position: relative;
+}
+
+.chat-window-header {
+    height: 64px;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--color-dark-surface-lighter);
+    background-color: var(--color-dark-surface);
+    /* Optional: distinct header or transparent */
+}
+
+.chat-window-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.chat-messages-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.message-group {
+    display: flex;
+    margin-bottom: 8px;
+    width: 100%;
+    /* Ensure full width for justify-content to work */
+}
+
+.message-group.sent {
+    justify-content: flex-end;
+}
+
+.message-bubble {
+    width: fit-content;
+    max-width: 100%;
+    /* Relative to the wrapper which is 70% */
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 15px;
+    line-height: 1.5;
+    position: relative;
+    word-wrap: break-word;
+}
+
+.message-group.received .message-bubble {
+    background-color: var(--color-dark-surface-lighter);
+    color: var(--color-text-main);
+    border-bottom-left-radius: 4px;
+    border-top-left-radius: 16px;
+}
+
+.message-group.sent .message-bubble {
+    background-color: var(--color-primary);
+    color: white;
+    border-bottom-right-radius: 4px;
+    border-top-right-radius: 16px;
+}
+
+.message-time {
+    font-size: 11px;
+    margin-top: 4px;
+    opacity: 0.7;
+    text-align: right;
+    display: block;
+}
+
+/* Input Area */
+.chat-input-area {
+    padding: 16px 24px;
+    background-color: var(--color-dark-surface);
+    border-top: 1px solid var(--color-dark-surface-lighter);
+}
+
+.chat-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: var(--color-dark-bg);
+    border-radius: 24px;
+    padding: 8px 16px;
+    border: 1px solid var(--color-dark-surface-lighter);
+}
+
+.chat-input-field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: white;
+    padding: 8px 0;
+    outline: none;
+    font-size: 14px;
+}
+
+.chat-action-btn {
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.chat-action-btn:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.secondary-btn {
+    color: var(--color-text-muted);
+}
+
+.secondary-btn:hover {
+    color: var(--color-text-main);
+    background-color: var(--color-dark-surface-lighter);
+}

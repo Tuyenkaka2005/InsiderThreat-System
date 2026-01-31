@@ -23,6 +23,9 @@ namespace InsiderThreat.Shared
         // Mảng chứa vector khuôn mặt (512 chiều hoặc 128 chiều tùy thuật toán)
         public double[]? FaceEmbeddings { get; set; }
 
+        // E2EE Public Key (Base64 encoded JWK or PEM)
+        public string? PublicKey { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }

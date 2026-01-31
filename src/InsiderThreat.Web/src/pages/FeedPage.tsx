@@ -99,7 +99,7 @@ export default function FeedPage() {
                         <span className="material-symbols-outlined">notifications</span>
                         <span className="notification-badge"></span>
                     </button>
-                    <button className="header-icon-btn">
+                    <button className="header-icon-btn" onClick={() => navigate('/chat')}>
                         <span className="material-symbols-outlined">chat_bubble</span>
                     </button>
                     <div className="user-avatar" onClick={() => navigate('/profile')} style={{ backgroundImage: `url(https://i.pravatar.cc/150?u=${user?.username || 'me'})` }}></div>
@@ -119,6 +119,10 @@ export default function FeedPage() {
                         <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/profile'); }}>
                             <span className="material-symbols-outlined">person</span>
                             <span>Profile</span>
+                        </a>
+                        <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/chat'); }}>
+                            <span className="material-symbols-outlined">chat</span>
+                            <span>Chat</span>
                         </a>
                         <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
                             <span className="material-symbols-outlined">video_call</span>

@@ -7,7 +7,7 @@ using System.Text;
 
 namespace InsiderThreat.Server.Controllers;
 
-[Authorize(Roles = "Admin")] // Chỉ Admin mới được quản lý User
+[Authorize] // Cho phép tất cả user đã đăng nhập
 [ApiController]
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
@@ -42,6 +42,7 @@ public class UsersController : ControllerBase
     }
 
     // POST: api/users
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<ActionResult<User>> CreateUser(User newUser)
     {
@@ -93,6 +94,7 @@ public class UsersController : ControllerBase
     }
 
     // DELETE: api/users/{id}
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(string id)
     {
@@ -120,5 +122,22 @@ public class UsersController : ControllerBase
         }
 
         return Ok(new { Message = "Face embeddings updated successfully" });
+    }
+
+    // PUT: api/users/{id}/public-key
+    [HttpPut("{id}/public-key")]
+    public async Task<IActionResult> UpdatePublicKey(string id, [FromBody] string publicKey)
+    {
+        var filter = Builders<User>.Filter.Eq(u => u.Id, id);
+        var update = Builders<User>.Update.Set(u => u.PublicKey, publicKey);
+
+        var result = await _usersCollection.UpdateOneAsync(filter, update);
+
+        if (result.MatchedCount == 0)
+        {
+            return NotFound(new { Message = "User not found" });
+        }
+
+        return Ok(new { Message = "Public key updated successfully" });
     }
 }

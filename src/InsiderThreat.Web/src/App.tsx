@@ -3,12 +3,13 @@ import { ConfigProvider } from 'antd';
 import viVN from 'antd/locale/vi_VN';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import StaffPage from './pages/StaffPage';
+
 import UsbMonitorPage from './pages/UsbMonitorPage';
 import DocumentsPage from './pages/DocumentsPage';
 import FaceLoginPage from './pages/FaceLoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import FeedPage from './pages/FeedPage';
+import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import './App.css';
 
@@ -51,7 +52,7 @@ function App() {
             path="/chat"
             element={
               <PrivateRoute>
-                <StaffPage />
+                <ChatPage />
               </PrivateRoute>
             }
           />
