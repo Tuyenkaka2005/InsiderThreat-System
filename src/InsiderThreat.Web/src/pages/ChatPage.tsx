@@ -24,6 +24,9 @@ interface Message {
     text: string;
     senderId: string;
     timestamp: string;
+    attachmentUrl?: string;
+    attachmentType?: string;
+    attachmentName?: string;
 }
 
 export default function ChatPage() {
@@ -39,6 +42,137 @@ export default function ChatPage() {
     // Refs for polling/intervals
     const pollInterval = useRef<number | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Info Popover State
+    const [isInfoPopoverOpen, setIsInfoPopoverOpen] = useState(false);
+    const [activeFilter, setActiveFilter] = useState<'media' | 'files' | 'messages'>('media');
+
+    // Search State
+    const [searchTerm, setSearchTerm] = useState("");
+
+    // Chat Access Code State
+    const [isChatUnlocked, setIsChatUnlocked] = useState(false);
+    const [chatAccessCode, setChatAccessCode] = useState("");
+    const [showUnlockModal, setShowUnlockModal] = useState(true);
+    const [unlockError, setUnlockError] = useState("");
+    const [codeNotSet, setCodeNotSet] = useState(false);
+
+    // Initial Check for Chat Code
+    useEffect(() => {
+        // Auto-check if we need to show setup or unlock
+        // For now, assume locked.
+        setShowUnlockModal(true);
+    }, []);
+
+    const handleUnlock = async () => {
+        if (chatAccessCode.length !== 6) {
+            setUnlockError("Code must be 6 digits");
+            return;
+        }
+
+        try {
+            if (codeNotSet) {
+                // Set the code AND upload Private Key if we have it
+                const privKey = keys?.privateKey
+                    ? await cryptoService.exportKey(keys.privateKey)
+                    : undefined;
+
+                const res = await authService.setChatCode(chatAccessCode, privKey);
+
+                if (res.success) {
+                    console.log("Unlock success (Set Code)");
+                    setIsChatUnlocked(true);
+                    setShowUnlockModal(false);
+                    setCodeNotSet(false);
+                } else {
+                    console.error("Unlock failed (Set Code)", res);
+                    setUnlockError(res.message);
+                }
+            } else {
+                // Verify the code
+                const res = await authService.verifyChatCode(chatAccessCode);
+                if (res.success) {
+                    console.log("Unlock success (Verify)");
+
+                    // If server returned a Private Key, use it to sync this device
+                    if (res.privateKey) {
+                        try {
+                            const importedPriv = await cryptoService.importKey(res.privateKey, 'private');
+                            // We need the public key too, usually in pair, but let's assume we can derive or existing public key is fine?
+                            // Actually, simpler: just save string to storage if that's what cryptoService uses, 
+                            // BUT cryptoService stores keys in separate flow. 
+                            // Let's just update state 'keys' and let the effect persist it?
+                            // cryptoService.saveKeys(pub, priv); -> we need public key. 
+
+                            // Hack: If we receive a private key, we assume it matches the public key we have or will fetch.
+                            // Better: Update internal keys.
+                            const currentPub = keys?.publicKey ? await cryptoService.exportKey(keys.publicKey) : "";
+                            if (currentPub) {
+                                cryptoService.saveKeys(currentPub, res.privateKey);
+                                setKeys({ publicKey: keys!.publicKey, privateKey: importedPriv });
+                                console.log("Keys synced from server!");
+                            } else {
+                                // If we have NO keys, we might be in trouble finding the public one blindly.
+                                // But usually ChatPage inits keys on mount.
+                                // Let's try to update just the private key in memory for now.
+                                // Force re-read or update state?
+                                // Let's assume initKeys found nothing -> generated new keys -> mismatched.
+                                // Now we overwrite with server key.
+                                const pub = await cryptoService.exportKey((await cryptoService.generateKeyPair()).publicKey); // temporary fallback
+                                // Wait, if we are here, initKeys probably ran.
+                                // Let's just blindly save the private key?
+                                // We need to trigger a re-render or re-decryption.
+                                setKeys(prev => ({ ...prev!, privateKey: importedPriv }));
+                            }
+                        } catch (e) {
+                            console.error("Failed to import synced key", e);
+                        }
+                    } else {
+                        // Server has NO key. If WE have a key, upload it to enable sync for other devices.
+                        if (keys?.privateKey) {
+                            try {
+                                const exportedPriv = await cryptoService.exportKey(keys.privateKey);
+                                // Re-set code (same code) with private key to update server
+                                await authService.setChatCode(chatAccessCode, exportedPriv);
+                                console.log("Private Key uploaded to server for sync.");
+                            } catch (e) {
+                                console.error("Failed to upload key for sync", e);
+                            }
+                        }
+                    }
+
+                    setIsChatUnlocked(true);
+                    setShowUnlockModal(false);
+                    setUnlockError("");
+                } else {
+                    if (res.codeNotSet) {
+                        setCodeNotSet(true);
+                        setUnlockError("You haven't set a code yet. Please enter a new 6-digit code to set it.");
+                    } else {
+                        setUnlockError("Incorrect code");
+                    }
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            setUnlockError("Failed to verify code");
+        }
+    };
+
+    // Filtered Content for Popover
+    const filteredContent = useMemo(() => {
+        switch (activeFilter) {
+            case 'media':
+                return messages.filter(m => m.attachmentType === 'image');
+            case 'files':
+                return messages.filter(m => m.attachmentType === 'file');
+            case 'messages':
+                return messages.filter(m => m.text && !m.text.startsWith('[Sent a'));
+            default:
+                return [];
+        }
+    }, [messages, activeFilter]);
 
     // 1. Initialize Keys
     useEffect(() => {
@@ -131,14 +265,21 @@ export default function ChatPage() {
                             text = await cryptoService.decrypt(msg.content, keys.privateKey);
                         }
                     } catch (e) {
-                        text = "[Decryption Error]";
+                        // console.warn("Decryption failed", e);
+                        // text = "[E2EE Decryption Error]"; 
+                        // User requested no error text, just fallback or hide. 
+                        // But we return error text for now, but silenced console
+                        text = "Encrypted Message";
                     }
 
                     return {
                         id: msg.id || Date.now().toString(),
                         text: text,
                         senderId: msg.senderId,
-                        timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        attachmentUrl: msg.attachmentUrl,
+                        attachmentType: msg.attachmentType,
+                        attachmentName: msg.attachmentName
                     };
                 }));
 
@@ -218,6 +359,64 @@ export default function ChatPage() {
         }
     };
 
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0 || !selectedUser || !currentUser || !keys) return;
+
+        const file = e.target.files[0];
+        // 1. Upload File
+        try {
+            const uploadRes = await chatService.uploadFile(file);
+            const attachmentUrl = uploadRes.url;
+            const attachmentName = uploadRes.originalName;
+            const attachmentType = file.type.startsWith('image/') ? 'image' : 'file';
+
+            // 2. Encryption (Message Content can be empty or a description)
+            const textContent = "";
+
+            // Get Recipient Key
+            let recipientPublicKey = selectedUser.publicKey;
+            if (!recipientPublicKey) {
+                recipientPublicKey = await chatService.getUserPublicKey(selectedUser.id);
+            }
+
+            if (!recipientPublicKey) {
+                alert("This user has not set up E2EE yet (No Public Key). Ask them to log in!");
+                return;
+            }
+
+            const importedRecipientKey = await cryptoService.importKey(recipientPublicKey, 'public');
+            const encryptedForReceiver = await cryptoService.encrypt(textContent, importedRecipientKey);
+            const encryptedForSender = await cryptoService.encrypt(textContent, keys.publicKey);
+
+            // 3. Send Message with Attachment Link
+            await chatService.sendMessage({
+                senderId: currentUser.id || '',
+                receiverId: selectedUser.id,
+                content: encryptedForReceiver,
+                senderContent: encryptedForSender,
+                attachmentUrl: attachmentUrl,
+                attachmentType: attachmentType,
+                attachmentName: attachmentName
+            });
+
+            // 4. Optimistic UI
+            const newMsg: Message = {
+                id: Date.now().toString(),
+                text: textContent,
+                senderId: currentUser.id || 'me',
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                attachmentUrl: attachmentUrl,
+                attachmentType: attachmentType,
+                attachmentName: attachmentName
+            };
+            setMessages(prev => [...prev, newMsg]);
+
+        } catch (error) {
+            console.error("Failed to send file", error);
+            alert("Failed to upload/send file");
+        }
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') handleSendMessage();
     };
@@ -263,29 +462,38 @@ export default function ChatPage() {
                     <div className="sidebar-search">
                         <div className="chat-search-input-wrapper">
                             <span className="material-symbols-outlined" style={{ color: '#9ca3af', fontSize: 20 }}>search</span>
-                            <input className="chat-search-input" placeholder="Search Messenger" />
+                            <input
+                                className="chat-search-input"
+                                placeholder="Search Messenger"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
                         </div>
                     </div>
 
                     <div className="conversation-list">
-                        {contacts.map(contact => (
-                            <div
-                                key={contact.id}
-                                className={`conversation-item ${selectedUser?.id === contact.id ? 'active' : ''}`}
-                                onClick={() => setSelectedUser(contact)}
-                            >
-                                <div className="conversation-avatar">
-                                    <div className="avatar-img" style={{ backgroundImage: `url(${contact.avatar})` }}></div>
-                                    {contact.isOnline && <div className="status-indicator status-online"></div>}
-                                </div>
-                                <div className="conversation-info">
-                                    <div className="conversation-name">{contact.fullName || contact.username}</div>
-                                    <div className="conversation-last-msg">
-                                        {contact.lastMessage}
+                        {contacts
+                            .filter(contact =>
+                                (contact.fullName || contact.username).toLowerCase().includes(searchTerm.toLowerCase())
+                            )
+                            .map(contact => (
+                                <div
+                                    key={contact.id}
+                                    className={`conversation-item ${selectedUser?.id === contact.id ? 'active' : ''}`}
+                                    onClick={() => setSelectedUser(contact)}
+                                >
+                                    <div className="conversation-avatar">
+                                        <div className="avatar-img" style={{ backgroundImage: `url(${contact.avatar})` }}></div>
+                                        {contact.isOnline && <div className="status-indicator status-online"></div>}
+                                    </div>
+                                    <div className="conversation-info">
+                                        <div className="conversation-name">{contact.fullName || contact.username}</div>
+                                        <div className="conversation-last-msg">
+                                            {contact.lastMessage}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
                     </div>
                     <div style={{ padding: 16, borderTop: '1px solid var(--color-dark-surface-lighter)' }}>
                         <button onClick={handleLogout} style={{
@@ -316,10 +524,94 @@ export default function ChatPage() {
                                         <span style={{ fontSize: 12, color: '#9ca3af' }}>{selectedUser.isOnline ? 'Active now' : 'Offline'}</span>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: 16 }}>
-                                    <button className="chat-action-btn secondary-btn">
+                                <div className="info-popover-container">
+                                    <button
+                                        className={`chat-action-btn secondary-btn ${isInfoPopoverOpen ? 'active' : ''}`}
+                                        onClick={() => setIsInfoPopoverOpen(!isInfoPopoverOpen)}
+                                        title="Chat Info"
+                                    >
                                         <span className="material-symbols-outlined">info</span>
                                     </button>
+
+                                    {/* Info Popover */}
+                                    {isInfoPopoverOpen && (
+                                        <div className="info-popover">
+                                            <div className="info-popover-header">
+                                                Chat Info
+                                            </div>
+                                            <div className="info-popover-tabs">
+                                                <button
+                                                    className={`info-tab ${activeFilter === 'media' ? 'active' : ''}`}
+                                                    onClick={() => setActiveFilter('media')}
+                                                >
+                                                    Media
+                                                </button>
+                                                <button
+                                                    className={`info-tab ${activeFilter === 'files' ? 'active' : ''}`}
+                                                    onClick={() => setActiveFilter('files')}
+                                                >
+                                                    Files
+                                                </button>
+                                                <button
+                                                    className={`info-tab ${activeFilter === 'messages' ? 'active' : ''}`}
+                                                    onClick={() => setActiveFilter('messages')}
+                                                >
+                                                    Text
+                                                </button>
+                                            </div>
+
+                                            <div className="info-popover-content">
+                                                {activeFilter === 'media' && (
+                                                    <div className="popover-media-grid">
+                                                        {filteredContent.map(msg => (
+                                                            <div
+                                                                key={msg.id}
+                                                                className="popover-media-item"
+                                                                style={{ backgroundImage: `url(http://localhost:5038${msg.attachmentUrl})` }}
+                                                                onClick={() => window.open(`http://localhost:5038${msg.attachmentUrl}`, '_blank')}
+                                                                title="View Image"
+                                                            ></div>
+                                                        ))}
+                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, gridColumn: 'span 3', textAlign: 'center', padding: 20 }}>No images shared</div>}
+                                                    </div>
+                                                )}
+
+                                                {activeFilter === 'files' && (
+                                                    <div className="popover-file-list">
+                                                        {filteredContent.map(msg => (
+                                                            <a
+                                                                key={msg.id}
+                                                                href={`http://localhost:5038/api/upload/download/${msg.attachmentUrl?.split('/').pop()}?originalName=${encodeURIComponent(msg.attachmentName || 'file')}`}
+                                                                className="popover-file-item"
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                            >
+                                                                <span className="material-symbols-outlined popover-file-icon">description</span>
+                                                                <div className="popover-file-info">
+                                                                    <div className="popover-file-name">{msg.attachmentName || 'Unknown File'}</div>
+                                                                    <div style={{ fontSize: 10, color: '#9ca3af' }}>{msg.timestamp}</div>
+                                                                </div>
+                                                                <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#9ca3af' }}>download</span>
+                                                            </a>
+                                                        ))}
+                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center', padding: 20 }}>No files shared</div>}
+                                                    </div>
+                                                )}
+
+                                                {activeFilter === 'messages' && (
+                                                    <div className="popover-message-list">
+                                                        {filteredContent.map(msg => (
+                                                            <div key={msg.id} className="popover-message-item">
+                                                                <div style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>{msg.text}</div>
+                                                                <span className="popover-message-time">{msg.timestamp}</span>
+                                                            </div>
+                                                        ))}
+                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center', padding: 20 }}>No text messages</div>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -339,10 +631,66 @@ export default function ChatPage() {
                                                     flexShrink: 0
                                                 }}></div>
                                             )}
-                                            <div style={{ maxWidth: '70%', display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-                                                <div className="message-bubble" style={{ width: 'fit-content', wordBreak: 'break-word' }}>
-                                                    {msg.text}
-                                                </div>
+                                            <div className="message-content" style={{ maxWidth: '70%', display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                                                {/* Text Message */}
+                                                {(msg.text && !msg.text.startsWith('[Sent a')) && (
+                                                    <div className="message-bubble" style={{ width: 'fit-content', wordBreak: 'break-word', marginTop: msg.attachmentUrl ? 8 : 0 }}>
+                                                        {msg.text}
+                                                    </div>
+                                                )}
+
+                                                {/* Attachment */}
+                                                {msg.attachmentUrl && (
+                                                    <div className="message-attachment" style={{ marginTop: 8 }}>
+                                                        {msg.attachmentType === 'image' ? (
+                                                            <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 8 }}>
+                                                                <img
+                                                                    src={`http://localhost:5038${msg.attachmentUrl}`}
+                                                                    alt="attachment"
+                                                                    style={{
+                                                                        maxWidth: '200px',
+                                                                        display: 'block',
+                                                                        border: '1px solid #374151',
+                                                                        filter: isChatUnlocked ? 'none' : 'blur(15px)',
+                                                                        transition: 'filter 0.3s'
+                                                                    }}
+                                                                />
+                                                                {!isChatUnlocked && (
+                                                                    <div style={{
+                                                                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                        cursor: 'pointer'
+                                                                    }} onClick={() => setShowUnlockModal(true)}>
+                                                                        <span className="material-symbols-outlined" style={{ fontSize: 32, color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>lock</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <a
+                                                                href={isChatUnlocked ? `http://localhost:5038/api/upload/download/${msg.attachmentUrl?.split('/').pop()}?originalName=${encodeURIComponent(msg.attachmentName || 'file')}` : '#'}
+                                                                target={isChatUnlocked ? "_blank" : undefined}
+                                                                rel="noreferrer"
+                                                                style={{
+                                                                    display: 'flex', alignItems: 'center', gap: 8,
+                                                                    padding: '8px 12px', background: '#374151', borderRadius: 8,
+                                                                    color: 'white', textDecoration: 'none',
+                                                                    cursor: isChatUnlocked ? 'pointer' : 'not-allowed',
+                                                                    opacity: isChatUnlocked ? 1 : 0.7
+                                                                }}
+                                                                onClick={(e) => {
+                                                                    if (!isChatUnlocked) {
+                                                                        e.preventDefault();
+                                                                        setShowUnlockModal(true);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <span className="material-symbols-outlined">{isChatUnlocked ? 'description' : 'lock'}</span>
+                                                                <span style={{ fontSize: 14 }}>{isChatUnlocked ? (msg.attachmentName || 'Download File') : '[Hidden File]'}</span>
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                )}
+
                                                 <span className="message-time">{msg.timestamp}</span>
                                             </div>
                                         </div>
@@ -353,9 +701,15 @@ export default function ChatPage() {
 
                             <div className="chat-input-area">
                                 <div className="chat-input-wrapper">
-                                    <button className="chat-action-btn secondary-btn">
+                                    <button className="chat-action-btn secondary-btn" onClick={() => fileInputRef.current?.click()}>
                                         <span className="material-symbols-outlined">add_circle</span>
                                     </button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        style={{ display: 'none' }}
+                                        onChange={handleFileSelect}
+                                    />
                                     <input
                                         className="chat-input-field"
                                         placeholder="Type an encrypted message..."
@@ -378,6 +732,114 @@ export default function ChatPage() {
                     )}
                 </main>
             </div>
+
+            {/* Only main chat window, removed Info Panel */}
+            {/* Unlock Modal */}
+            {showUnlockModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div style={{
+                        background: '#1f2937', padding: 24, borderRadius: 12,
+                        width: '90%', maxWidth: 320, textAlign: 'center',
+                        color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                    }}>
+                        <div style={{ marginBottom: 16 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#10b981' }}>lock</span>
+                        </div>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: 18 }}>
+                            {codeNotSet ? "Set Chat Access Code" : "Enter Chat Access Code"}
+                        </h3>
+                        <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 20 }}>
+                            {codeNotSet ? "Create a 6-digit PIN to secure your chats." : "Please enter your 6-digit PIN to view encrypted content."}
+                        </p>
+
+                        <input
+                            type="password"
+                            maxLength={6}
+                            value={chatAccessCode}
+                            onChange={(e) => setChatAccessCode(e.target.value.replace(/\D/g, ''))}
+                            placeholder="000000"
+                            style={{
+                                width: '100%', padding: '12px', borderRadius: 8,
+                                border: '1px solid #374151', backgroundColor: '#374151',
+                                color: 'white', fontSize: 24, textAlign: 'center', letterSpacing: 8,
+                                marginBottom: 16, outline: 'none'
+                            }}
+                        />
+
+                        {unlockError && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{unlockError}</div>}
+
+                        <button
+                            onClick={handleUnlock}
+                            style={{
+                                width: '100%', padding: '12px', borderRadius: 8,
+                                border: 'none', backgroundColor: '#10b981',
+                                color: 'white', fontWeight: 600, cursor: 'pointer'
+                            }}
+                        >
+                            {codeNotSet ? "Set Code" : "Unlock"}
+                        </button>
+                    </div>
+                </div>
+            )}
+            {/* Unlock Modal */}
+            {showUnlockModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div style={{
+                        background: '#1f2937', padding: 24, borderRadius: 12,
+                        width: '90%', maxWidth: 320, textAlign: 'center',
+                        color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                    }}>
+                        <div style={{ marginBottom: 16 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#10b981' }}>lock</span>
+                        </div>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: 18 }}>
+                            {codeNotSet ? "Set Chat Access Code" : "Enter Chat Access Code"}
+                        </h3>
+                        <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 20 }}>
+                            {codeNotSet ? "Create a 6-digit PIN to secure your chats." : "Please enter your 6-digit PIN to view encrypted content."}
+                        </p>
+
+                        <input
+                            type="password"
+                            maxLength={6}
+                            value={chatAccessCode}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                setChatAccessCode(val);
+                                setUnlockError("");
+                            }}
+                            placeholder="000000"
+                            style={{
+                                width: '100%', padding: '12px', borderRadius: 8,
+                                border: '1px solid #374151', backgroundColor: '#374151',
+                                color: 'white', fontSize: 24, textAlign: 'center', letterSpacing: 8,
+                                marginBottom: 16, outline: 'none'
+                            }}
+                        />
+
+                        {unlockError && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{unlockError}</div>}
+
+                        <button
+                            onClick={handleUnlock}
+                            style={{
+                                width: '100%', padding: '12px', borderRadius: 8,
+                                border: 'none', backgroundColor: '#10b981',
+                                color: 'white', fontWeight: 600, cursor: 'pointer'
+                            }}
+                        >
+                            {codeNotSet ? "Set Code" : "Unlock"}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

@@ -6,6 +6,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Authorization;
 
 namespace InsiderThreat.Server.Controllers;
 
@@ -214,6 +215,85 @@ public class AuthController : ControllerBase
         public string Password { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
         public string Role { get; set; } = "User";
+    }
+
+    // =============================================
+    // Chat Access Code Endpoints
+    // =============================================
+    public class SetChatCodeRequest
+    {
+        public string Code { get; set; } = string.Empty;
+        public string? PrivateKey { get; set; }
+    }
+
+    [HttpPost("set-chat-code")]
+    [Authorize]
+    public async Task<IActionResult> SetChatCode([FromBody] SetChatCodeRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(request.Code) || request.Code.Length != 6 || !request.Code.All(char.IsDigit))
+            {
+                return BadRequest(new { Success = false, Message = "Code must be 6 digits" });
+            }
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var usersCollection = _database.GetCollection<User>("Users");
+            var user = await usersCollection.Find(u => u.Id == userId).FirstOrDefaultAsync();
+            if (user == null) return NotFound();
+
+            var hash = BCrypt.Net.BCrypt.HashPassword(request.Code);
+
+            var updateDef = Builders<User>.Update.Set(u => u.ChatAccessCodeHash, hash);
+            if (!string.IsNullOrEmpty(request.PrivateKey))
+            {
+                updateDef = updateDef.Set(u => u.PrivateKey, request.PrivateKey);
+            }
+
+            await usersCollection.UpdateOneAsync(u => u.Id == userId, updateDef);
+
+            return Ok(new { Success = true, Message = "Chat access code set successfully" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Success = false, Message = ex.Message });
+        }
+    }
+
+    public class VerifyCodeRequest { public string Code { get; set; } = string.Empty; }
+
+    [HttpPost("verify-chat-code")]
+    [Authorize]
+    public async Task<IActionResult> VerifyChatCode([FromBody] VerifyCodeRequest request)
+    {
+        try
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var usersCollection = _database.GetCollection<User>("Users");
+            var user = await usersCollection.Find(u => u.Id == userId).FirstOrDefaultAsync();
+            if (user == null) return NotFound();
+
+            if (string.IsNullOrEmpty(user.ChatAccessCodeHash))
+            {
+                return Ok(new { Success = false, Message = "Code not set", CodeNotSet = true });
+            }
+
+            if (BCrypt.Net.BCrypt.Verify(request.Code, user.ChatAccessCodeHash))
+            {
+                // Return the private key if available so the client can decrypt messages
+                return Ok(new { Success = true, Message = "Verified", PrivateKey = user.PrivateKey });
+            }
+
+            return Ok(new { Success = false, Message = "Invalid code" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Success = false, Message = ex.Message });
+        }
     }
 
     [HttpPost("register")]

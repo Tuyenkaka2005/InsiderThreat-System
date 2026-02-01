@@ -46,6 +46,15 @@ export const authService = {
     getToken(): string | null {
         return localStorage.getItem('token');
     },
+
+    // Updated to accept optional privateKey
+    async setChatCode(code: string, privateKey?: string): Promise<{ success: boolean; message: string }> {
+        return await api.post('/api/auth/set-chat-code', { code, privateKey });
+    },
+
+    async verifyChatCode(code: string): Promise<{ success: boolean; message: string; codeNotSet?: boolean; privateKey?: string }> {
+        return await api.post('/api/auth/verify-chat-code', { code });
+    },
 };
 
 export default authService;

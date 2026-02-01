@@ -21,4 +21,9 @@ public class Message
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
     public bool IsRead { get; set; } = false;
+
+    // Attachments
+    public string? AttachmentUrl { get; set; }
+    public string? AttachmentType { get; set; } // "image", "file"
+    public string? AttachmentName { get; set; }
 }

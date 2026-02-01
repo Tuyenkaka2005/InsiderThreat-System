@@ -101,6 +101,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowWebApp");
 
 // Bật Authentication & Authorization
+app.UseStaticFiles(); // Cho phép serve file từ wwwroot
 app.UseAuthentication();
 app.UseAuthorization();
 

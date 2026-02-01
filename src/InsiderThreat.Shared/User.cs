@@ -25,6 +25,9 @@ namespace InsiderThreat.Shared
 
         // E2EE Public Key (Base64 encoded JWK or PEM)
         public string? PublicKey { get; set; }
+        public string? PrivateKey { get; set; } // Stored for multi-device sync (protected by PIN)
+
+        public string? ChatAccessCodeHash { get; set; } // Hashed 6-digit code
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }

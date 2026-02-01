@@ -9,12 +9,26 @@ export interface Message {
     senderContent?: string; // Encrypted for Sender
     timestamp: string;
     isRead: boolean;
+    attachmentUrl?: string;
+    attachmentType?: string;
+    attachmentName?: string;
 }
 
 export const chatService = {
     // Send Message
     sendMessage: async (message: Omit<Message, 'id' | 'timestamp' | 'isRead'>) => {
         return await api.post<Message>('/api/messages', message);
+    },
+
+    // Upload File
+    uploadFile: async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return await api.post<{ url: string, originalName: string }>('/api/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
     },
 
     // Get Messages
