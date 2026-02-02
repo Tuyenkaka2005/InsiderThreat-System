@@ -135,7 +135,14 @@ export default function ChatPage() {
                                 const exportedPriv = await cryptoService.exportKey(keys.privateKey);
                                 // Re-set code (same code) with private key to update server
                                 await authService.setChatCode(chatAccessCode, exportedPriv);
-                                console.log("Private Key uploaded to server for sync.");
+
+                                // ALSO upload Public Key now that we are "official"
+                                if (keys.publicKey && currentUser?.id) {
+                                    const exportedPub = await cryptoService.exportKey(keys.publicKey);
+                                    await chatService.uploadPublicKey(currentUser.id, exportedPub);
+                                }
+
+                                console.log("Keys (Public/Private) uploaded to server for sync.");
                             } catch (e) {
                                 console.error("Failed to upload key for sync", e);
                             }
@@ -198,10 +205,14 @@ export default function ChatPage() {
                 cryptoService.saveKeys(pubBase64, privBase64);
                 setKeys({ publicKey: keyPair.publicKey, privateKey: keyPair.privateKey });
 
-                // Upload to server
+                // DO NOT upload to server yet. We must wait for Chat Access Code unlock
+                // to see if we should download an existing key instead.
+                // If we upload now, we overwrite the user's identity on the server, breaking E2EE for others.
+                /*
                 if (currentUser?.id) {
                     await chatService.uploadPublicKey(currentUser.id, pubBase64);
                 }
+                */
             }
         };
         initKeys();
@@ -239,54 +250,32 @@ export default function ChatPage() {
         fetchContacts();
     }, [currentUser]);
 
-    // 3. Fetch Messages when User Selected & Keys Ready
+    // 3. Fetch Messages when User Selected
     useEffect(() => {
-        if (!selectedUser || !currentUser || !keys) return;
+        if (!selectedUser || !currentUser) return;
 
         const loadMessages = async () => {
             if (!currentUser?.id) return;
             try {
                 const apiMessages = await chatService.getMessages(selectedUser.id, currentUser.id);
 
-                // Decrypt messages
-                const decryptedMessages = await Promise.all(apiMessages.map(async (msg: ApiMessage) => {
-                    let text = "[Encrypted]";
-                    try {
-                        // BETTER FIX: The user asked for E2EE. 
-
-                        if (msg.senderId === currentUser.id) {
-                            // Implemented: Read from senderContent if available
-                            if (msg.senderContent) {
-                                text = await cryptoService.decrypt(msg.senderContent, keys.privateKey);
-                            } else {
-                                text = "[Legacy Message - Encrypted]";
-                            }
-                        } else {
-                            text = await cryptoService.decrypt(msg.content, keys.privateKey);
-                        }
-                    } catch (e) {
-                        // console.warn("Decryption failed", e);
-                        // text = "[E2EE Decryption Error]"; 
-                        // User requested no error text, just fallback or hide. 
-                        // But we return error text for now, but silenced console
-                        text = "Encrypted Message";
-                    }
-
+                // Map messages directly (No Decryption)
+                const mappedMessages = apiMessages.map((msg: ApiMessage) => {
                     return {
                         id: msg.id || Date.now().toString(),
-                        text: text,
+                        text: msg.content, // Show content directly
                         senderId: msg.senderId,
                         timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                         attachmentUrl: msg.attachmentUrl,
                         attachmentType: msg.attachmentType,
                         attachmentName: msg.attachmentName
                     };
-                }));
+                });
 
                 setMessages(prev => {
-                    const isDifferent = prev.length !== decryptedMessages.length ||
-                        prev[prev.length - 1]?.id !== decryptedMessages[decryptedMessages.length - 1]?.id;
-                    return isDifferent ? decryptedMessages : prev;
+                    const isDifferent = prev.length !== mappedMessages.length ||
+                        prev[prev.length - 1]?.id !== mappedMessages[mappedMessages.length - 1]?.id;
+                    return isDifferent ? mappedMessages : prev;
                 });
             } catch (error) {
                 console.error("Failed to load messages", error);
@@ -295,14 +284,14 @@ export default function ChatPage() {
 
         loadMessages();
 
-        // Polling for new messages (SignalR replacement for MVP)
+        // Polling for new messages
         pollInterval.current = window.setInterval(loadMessages, 3000);
 
         return () => {
             if (pollInterval.current) clearInterval(pollInterval.current);
         };
 
-    }, [selectedUser, currentUser, keys]);
+    }, [selectedUser, currentUser]);
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -310,43 +299,21 @@ export default function ChatPage() {
     }, [messages]);
 
     const handleSendMessage = async () => {
-        if (!messageInput.trim() || !selectedUser || !currentUser || !keys) return;
+        if (!messageInput.trim() || !selectedUser || !currentUser) return;
 
         try {
-            // 1. Get Recipient's Public Key
-            // We need to fetch IT FRESH to be sure, or use cached from contact list
-            // Ideally chatService.getUserPublicKey
-            let recipientPublicKey = selectedUser.publicKey;
-            if (!recipientPublicKey) {
-                recipientPublicKey = await chatService.getUserPublicKey(selectedUser.id);
-            }
-
-            if (!recipientPublicKey) {
-                alert("This user has not set up E2EE yet (No Public Key). Ask them to log in!");
-                return;
-            }
-
-            // 2. Import Recipient Key
-            const importedRecipientKey = await cryptoService.importKey(recipientPublicKey, 'public');
-
-            // 3. Encrypt for Receiver
-            const encryptedForReceiver = await cryptoService.encrypt(messageInput, importedRecipientKey);
-
-            // 3b. Encrypt for Self (Sender) so we can read it later
-            const encryptedForSender = await cryptoService.encrypt(messageInput, keys.publicKey);
-
-            // 4. Send to API
+            // Send Plain Text
             await chatService.sendMessage({
                 senderId: currentUser.id || '',
                 receiverId: selectedUser.id,
-                content: encryptedForReceiver,
-                senderContent: encryptedForSender
+                content: messageInput,
+                senderContent: messageInput // Same logic for sender view
             });
 
-            // 5. Update Local UI (Optimistic)
+            // Optimistic UI
             const newMsg: Message = {
                 id: Date.now().toString(),
-                text: messageInput, // We show plain text locally because we wrote it
+                text: messageInput,
                 senderId: currentUser.id || 'me',
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
@@ -355,54 +322,35 @@ export default function ChatPage() {
 
         } catch (error) {
             console.error("Failed to send message", error);
-            alert("Failed to send message E2EE");
+            alert("Failed to send message");
         }
     };
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0 || !selectedUser || !currentUser || !keys) return;
+        if (!e.target.files || e.target.files.length === 0 || !selectedUser || !currentUser) return;
 
         const file = e.target.files[0];
-        // 1. Upload File
         try {
             const uploadRes = await chatService.uploadFile(file);
             const attachmentUrl = uploadRes.url;
             const attachmentName = uploadRes.originalName;
             const attachmentType = file.type.startsWith('image/') ? 'image' : 'file';
 
-            // 2. Encryption (Message Content can be empty or a description)
-            const textContent = "";
-
-            // Get Recipient Key
-            let recipientPublicKey = selectedUser.publicKey;
-            if (!recipientPublicKey) {
-                recipientPublicKey = await chatService.getUserPublicKey(selectedUser.id);
-            }
-
-            if (!recipientPublicKey) {
-                alert("This user has not set up E2EE yet (No Public Key). Ask them to log in!");
-                return;
-            }
-
-            const importedRecipientKey = await cryptoService.importKey(recipientPublicKey, 'public');
-            const encryptedForReceiver = await cryptoService.encrypt(textContent, importedRecipientKey);
-            const encryptedForSender = await cryptoService.encrypt(textContent, keys.publicKey);
-
-            // 3. Send Message with Attachment Link
+            // Send Plain Text Message with Attachment
             await chatService.sendMessage({
                 senderId: currentUser.id || '',
                 receiverId: selectedUser.id,
-                content: encryptedForReceiver,
-                senderContent: encryptedForSender,
+                content: "", // Empty or description
+                senderContent: "",
                 attachmentUrl: attachmentUrl,
                 attachmentType: attachmentType,
                 attachmentName: attachmentName
             });
 
-            // 4. Optimistic UI
+            // Optimistic UI
             const newMsg: Message = {
                 id: Date.now().toString(),
-                text: textContent,
+                text: "",
                 senderId: currentUser.id || 'me',
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 attachmentUrl: attachmentUrl,

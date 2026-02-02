@@ -52,7 +52,7 @@ export const authService = {
         return await api.post('/api/auth/set-chat-code', { code, privateKey });
     },
 
-    async verifyChatCode(code: string): Promise<{ success: boolean; message: string; codeNotSet?: boolean; privateKey?: string }> {
+    async verifyChatCode(code: string): Promise<{ success: boolean; message: string; codeNotSet?: boolean; privateKey?: string; publicKey?: string }> {
         return await api.post('/api/auth/verify-chat-code', { code });
     },
 };
