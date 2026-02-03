@@ -22,8 +22,29 @@ export const feedService = {
         return api.put<{ message: string }>(`/api/SocialFeed/posts/${postId}`, { content });
     },
 
-    createPost: async (content: string, privacy = 'Public', mediaFiles: MediaFile[] = []) => {
-        return api.post<Post>('/api/SocialFeed/posts', { content, privacy, mediaFiles });
+    createPost: async (
+        content: string,
+        privacy: string = 'Public',
+        mediaFiles: MediaFile[] = [],
+        category: string = 'General',
+        type: string = 'Text',
+        allowedRoles: string[] = [],
+        allowedDepartments: string[] = [],
+        isUrgent: boolean = false,
+        urgentReason?: string
+    ) => {
+        const response = await api.post<Post>('/api/SocialFeed/posts', {
+            content,
+            privacy,
+            mediaFiles,
+            category,
+            type,
+            allowedRoles,
+            allowedDepartments,
+            isUrgent,
+            urgentReason
+        });
+        return response;
     },
 
     likePost: async (postId: string) => {
@@ -32,6 +53,22 @@ export const feedService = {
 
     savePost: async (postId: string) => {
         return api.post<{ saved: boolean }>(`/api/SocialFeed/posts/${postId}/save`);
+    },
+
+    pinPost: async (postId: string) => {
+        return api.post<{ pinned: boolean }>(`/api/SocialFeed/posts/${postId}/pin`);
+    },
+
+    reportPost: async (postId: string, reason: string) => {
+        return api.post<{ message: string }>(`/api/SocialFeed/posts/${postId}/report`, { reason });
+    },
+
+    hidePost: async (postId: string) => {
+        return api.post<{ message: string }>(`/api/SocialFeed/posts/${postId}/hide`);
+    },
+
+    reactToPost: async (postId: string, type: string) => {
+        return api.post<{ success: boolean; reactions: Record<string, string[]> }>(`/api/SocialFeed/posts/${postId}/react`, { type });
     },
 
     getComments: async (postId: string) => {
@@ -44,5 +81,10 @@ export const feedService = {
 
     deletePost: async (postId: string) => {
         return api.delete(`/api/SocialFeed/posts/${postId}`);
+    },
+
+    // Reports
+    getReports: async () => {
+        return api.get<any[]>('/api/SocialFeed/reports');
     }
 };

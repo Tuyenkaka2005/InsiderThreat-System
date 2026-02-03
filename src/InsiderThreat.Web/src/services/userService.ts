@@ -17,5 +17,11 @@ export const userService = {
     async getActivityLogs(userId: string): Promise<any[]> {
         const response = await api.get<any[]>(`/api/users/${userId}/logs`);
         return response;
+    },
+
+    // Get user by ID
+    async getUserById(userId: string): Promise<User> {
+        const response = await api.get<User>(`/api/users/${userId}`);
+        return response;
     }
 };

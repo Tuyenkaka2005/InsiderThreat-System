@@ -9,6 +9,7 @@ import {
     MenuUnfoldOutlined,
     TeamOutlined,
     MessageOutlined,
+    WarningOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth';
@@ -21,6 +22,7 @@ import UsersPage from './UsersPage';
 import PostManagementPage from './PostManagementPage';
 import DocumentsPage from './DocumentsPage';
 import AttendancePage from './AttendancePage';
+import ReportsPage from './ReportsPage';
 import './DashboardPage.css';
 
 const { Header, Sider, Content } = Layout;
@@ -79,6 +81,11 @@ function DashboardPage() {
             key: 'posts',
             icon: <MessageOutlined />,
             label: 'Post Management',
+        });
+        menuItems.splice(3, 0, {
+            key: 'reports',
+            icon: <WarningOutlined />,
+            label: 'Báo cáo vi phạm',
         });
     }
 
@@ -140,6 +147,12 @@ function DashboardPage() {
                 return (
                     <div className="content-wrapper">
                         <PostManagementPage />
+                    </div>
+                );
+            case 'reports':
+                return (
+                    <div className="content-wrapper">
+                        <ReportsPage />
                     </div>
                 );
             case 'documents':

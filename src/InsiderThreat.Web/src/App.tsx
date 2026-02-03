@@ -73,6 +73,14 @@ function App() {
             }
           />
           <Route
+            path="/profile/:userId"
+            element={
+              <PrivateRoute>
+                <ProfilePage />
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/feed"
             element={
               <PrivateRoute>

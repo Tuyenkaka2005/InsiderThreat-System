@@ -26,7 +26,7 @@ public class NotificationsController : ControllerBase
     public async Task<ActionResult<List<Notification>>> GetNotifications()
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        
+
         // Filter: Type == "Global" OR TargetUserId == userId
         var filter = Builders<Notification>.Filter.Or(
             Builders<Notification>.Filter.Eq(n => n.Type, "Global"),
@@ -48,8 +48,76 @@ public class NotificationsController : ControllerBase
     {
         notification.Id = null;
         notification.CreatedAt = DateTime.Now;
-        
+        notification.IsRead = false;
+
         await _notifications.InsertOneAsync(notification);
         return CreatedAtAction(nameof(GetNotifications), new { id = notification.Id }, notification);
+    }
+
+    // PUT: api/notifications/{id}/read
+    [HttpPut("{id}/read")]
+    public async Task<IActionResult> MarkAsRead(string id)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        var filter = Builders<Notification>.Filter.And(
+            Builders<Notification>.Filter.Eq(n => n.Id, id),
+            Builders<Notification>.Filter.Or(
+                Builders<Notification>.Filter.Eq(n => n.TargetUserId, userId),
+                Builders<Notification>.Filter.Eq(n => n.Type, "Global")
+            )
+        );
+
+        var update = Builders<Notification>.Update.Set(n => n.IsRead, true);
+        var result = await _notifications.UpdateOneAsync(filter, update);
+
+        if (result.MatchedCount == 0)
+            return NotFound();
+
+        return NoContent();
+    }
+
+    // GET: api/notifications/unread-count
+    [HttpGet("unread-count")]
+    public async Task<ActionResult<int>> GetUnreadCount()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        var filter = Builders<Notification>.Filter.And(
+            Builders<Notification>.Filter.Eq(n => n.IsRead, false),
+            Builders<Notification>.Filter.Or(
+                Builders<Notification>.Filter.Eq(n => n.TargetUserId, userId),
+                Builders<Notification>.Filter.Eq(n => n.Type, "Global")
+            )
+        );
+
+        var count = await _notifications.CountDocumentsAsync(filter);
+        return Ok(new { count });
+    }
+
+    // Helper method to create a notification (can be called from other controllers)
+    public async Task CreateSocialNotification(
+        string type,
+        string targetUserId,
+        string message,
+        string? actorUserId = null,
+        string? actorName = null,
+        string? link = null,
+        string? relatedId = null)
+    {
+        var notification = new Notification
+        {
+            Type = type,
+            TargetUserId = targetUserId,
+            ActorUserId = actorUserId,
+            ActorName = actorName,
+            Message = message,
+            Link = link,
+            RelatedId = relatedId,
+            IsRead = false,
+            CreatedAt = DateTime.Now
+        };
+
+        await _notifications.InsertOneAsync(notification);
     }
 }

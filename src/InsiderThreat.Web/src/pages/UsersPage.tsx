@@ -5,6 +5,8 @@ import FaceRegistrationModal from '../components/FaceRegistrationModal';
 import { api } from '../services/api';
 import type { User } from '../types';
 import type { ColumnsType } from 'antd/es/table';
+import { DEPARTMENTS } from '../constants';
+import { feedService } from '../services/feedService';
 
 const { Option } = Select;
 
@@ -16,6 +18,10 @@ function UsersPage() {
     const [form] = Form.useForm();
     const [isFaceModalVisible, setIsFaceModalVisible] = useState(false);
     const [selectedUserForFace, setSelectedUserForFace] = useState<{ id: string; name: string } | null>(null);
+
+    // Reports State
+    const [reports, setReports] = useState<any[]>([]);
+    const [loadingReports, setLoadingReports] = useState(false);
 
     const handleRegisterFace = (user: User) => {
         if (!user.id) return;
@@ -35,8 +41,21 @@ function UsersPage() {
         }
     };
 
+    const fetchReports = async () => {
+        setLoadingReports(true);
+        try {
+            const data = await feedService.getReports();
+            setReports(data);
+        } catch (error) {
+            message.error('Lỗi tải danh sách báo cáo!');
+        } finally {
+            setLoadingReports(false);
+        }
+    };
+
     useEffect(() => {
         fetchUsers();
+        fetchReports();
     }, []);
 
     const handleAdd = () => {
@@ -225,7 +244,11 @@ function UsersPage() {
                         name="department"
                         label="Phòng ban"
                     >
-                        <Input />
+                        <Select placeholder="Chọn phòng ban">
+                            {DEPARTMENTS.map(dept => (
+                                <Option key={dept} value={dept}>{dept}</Option>
+                            ))}
+                        </Select>
                     </Form.Item>
 
                     <Form.Item
@@ -241,6 +264,85 @@ function UsersPage() {
                     </Form.Item>
                 </Form>
             </Modal>
+
+            {/* Reports Section */}
+            <div style={{ marginTop: 32 }}>
+                <h2 style={{ marginBottom: 16, fontSize: 20, fontWeight: 600 }}>📋 Báo cáo vi phạm</h2>
+                <Table
+                    dataSource={reports}
+                    loading={loadingReports}
+                    rowKey="id"
+                    pagination={{ pageSize: 10 }}
+                    scroll={{ x: 'max-content' }}
+                >
+                    <Table.Column
+                        title="Bài viết"
+                        dataIndex="postId"
+                        key="postId"
+                        width={200}
+                        render={(postId: string) => (
+                            <a
+                                href={`/feed?postId=${postId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: '#1890ff', textDecoration: 'underline' }}
+                            >
+                                Xem bài viết #{postId.slice(-8)}
+                            </a>
+                        )}
+                    />
+                    <Table.Column
+                        title="Người báo cáo"
+                        dataIndex="reporterName"
+                        key="reporterName"
+                        width={150}
+                    />
+                    <Table.Column
+                        title="Lý do"
+                        dataIndex="reason"
+                        key="reason"
+                        ellipsis
+                        width={250}
+                    />
+                    <Table.Column
+                        title="Thời gian"
+                        dataIndex="createdAt"
+                        key="createdAt"
+                        width={160}
+                        render={(date: string) => new Date(date).toLocaleString('vi-VN')}
+                    />
+                    <Table.Column
+                        title="Trạng thái"
+                        dataIndex="status"
+                        key="status"
+                        width={120}
+                        render={(status: string) => {
+                            const colorMap: Record<string, string> = {
+                                'Pending': 'orange',
+                                'Reviewed': 'blue',
+                                'Resolved': 'green',
+                                'Dismissed': 'gray'
+                            };
+                            return <Tag color={colorMap[status] || 'default'}>{status || 'Pending'}</Tag>;
+                        }}
+                    />
+                    <Table.Column
+                        title="Hành động"
+                        key="action"
+                        width={150}
+                        render={(_, record: any) => (
+                            <Space>
+                                <Button size="small" type="primary">
+                                    Xử lý
+                                </Button>
+                                <Button size="small" danger>
+                                    Bỏ qua
+                                </Button>
+                            </Space>
+                        )}
+                    />
+                </Table>
+            </div>
 
             {/* Face Registration Modal */}
             <FaceRegistrationModal

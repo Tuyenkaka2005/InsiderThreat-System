@@ -87,6 +87,23 @@ export interface Post {
     shareCount: number;
     createdAt: string;
     updatedAt?: string;
+    category?: string;
+    type?: string;
+    linkInfo?: LinkMetadata;
+    isPinned?: boolean;
+    reactions?: Record<string, string[]>;
+    allowedRoles?: string[];
+    allowedDepartments?: string[];
+    isHidden?: boolean;
+    isUrgent?: boolean;
+    urgentReason?: string;
+}
+
+export interface LinkMetadata {
+    url: string;
+    title?: string;
+    description?: string;
+    imageUrl?: string;
 }
 
 export interface Comment {

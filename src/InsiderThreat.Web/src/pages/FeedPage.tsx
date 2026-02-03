@@ -1,26 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { message } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { authService } from '../services/auth';
 import { userService } from '../services/userService';
 import { chatService } from '../services/chatService';
 import { feedService } from '../services/feedService';
 import api from '../services/api';
-import type { User, Post, Comment } from '../types';
+import type { User, Post } from '../types';
 import PostCard from '../components/PostCard';
+import NotificationBell from '../components/NotificationBell';
+import SearchBar from '../components/SearchBar';
 import { confirmLogout } from '../utils/logoutUtils';
+import { DEPARTMENTS, POST_CATEGORIES } from '../constants';
+import { detectSensitiveContent } from '../utils/contentAnalyzer';
 import './FeedPage.css';
 
-interface Notification {
-    id: string;
-    title: string;
-    content: string;
-    type: string;
-    createdAt: string;
-}
+// Import Notification type
+import type { Notification } from '../services/notificationService';
 
 export default function FeedPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const user = authService.getCurrentUser();
     const [activeChatUser, setActiveChatUser] = useState<any | null>(null);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -34,7 +34,27 @@ export default function FeedPage() {
     const [isPosting, setIsPosting] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<string>('General');
+    const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
+    const [allowedDepartments, setAllowedDepartments] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Filter State
+    const [filterCategory, setFilterCategory] = useState<string>('All');
+    const [filterDate, setFilterDate] = useState<string>('All');
+
+    // Highlighted Post State
+    const [searchParams] = useSearchParams();
+    const highlightedPostId = searchParams.get('postId');
+
+    // Focused Post State (from notification hash)
+    const [focusedPostId, setFocusedPostId] = useState<string | null>(null);
+
+    // Sensitive Content Warning State
+    const [showWarning, setShowWarning] = useState(false);
+    const [warningMessage, setWarningMessage] = useState('');
+    const [detectedWords, setDetectedWords] = useState<string[]>([]);
+    const [proceedWithPost, setProceedWithPost] = useState(false);
 
     // Notification State
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -56,6 +76,27 @@ export default function FeedPage() {
         "👍 OK / Đã rõ"
     ];
 
+    // Detect hash for focused post (from notification)
+    useEffect(() => {
+        const hash = location.hash.slice(1); // Remove #
+        if (hash) {
+            console.log('Hash detected:', hash);
+            setFocusedPostId(hash);
+            // Scroll to post after small delay
+            setTimeout(() => {
+                const element = document.getElementById(`post-${hash}`);
+                if (element) {
+                    console.log('Scrolling to element:', element);
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    console.log('Element not found:', `post-${hash}`);
+                }
+            }, 500);
+        } else {
+            setFocusedPostId(null);
+        }
+    }, [location.hash, posts]); // Re-run when hash or posts change
+
     // Initial Data Fetch
     useEffect(() => {
         if (!user) return;
@@ -64,7 +105,14 @@ export default function FeedPage() {
             setIsLoading(true);
             try {
                 const postsData = await feedService.getPosts();
-                setPosts(postsData.posts);
+                // Sort: Pinned first, then by Date descending
+                const sortedPosts = postsData.posts.sort((a, b) => {
+                    if (a.isPinned === b.isPinned) {
+                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                    }
+                    return a.isPinned ? -1 : 1;
+                });
+                setPosts(sortedPosts);
 
                 const users = await userService.getAllUsers();
                 const otherUsers = users.filter(u => u.username !== user?.username);
@@ -157,22 +205,56 @@ export default function FeedPage() {
 
     const handleCreatePost = async () => {
         if (!newPostContent.trim() && !selectedFile) return;
+
+        // Check for sensitive content
+        const analysis = detectSensitiveContent(newPostContent);
+        if (analysis.isSensitive) {
+            setWarningMessage(analysis.warningMessage);
+            setShowWarning(true);
+            return; // Don't proceed until user confirms
+        }
+
+        await performCreatePost();
+    };
+
+    const performCreatePost = async () => {
+        if (!newPostContent.trim() && !selectedFile) return;
         setIsPosting(true);
         try {
             let mediaFiles: any[] = [];
+            let postType = 'Text';
+
             if (selectedFile) {
                 const uploadResult = await feedService.uploadFile(selectedFile);
+                const fileType = selectedFile.type.startsWith('image/') ? 'image' :
+                    selectedFile.type.startsWith('video/') ? 'video' : 'file';
+
                 mediaFiles.push({
-                    type: 'image',
+                    type: fileType,
                     url: `http://127.0.0.1:5038${uploadResult.url}`,
                     fileName: uploadResult.fileName,
                     fileSize: uploadResult.size
                 });
+
+                postType = fileType === 'image' ? 'Image' : fileType === 'video' ? 'Video' : 'File';
+            } else if (newPostContent.includes('http')) {
+                // Simple link detection
+                postType = 'Link';
             }
 
-            const newPost = await feedService.createPost(newPostContent, 'Public', mediaFiles);
+            const newPost = await feedService.createPost(
+                newPostContent,
+                'Public',
+                mediaFiles,
+                selectedCategory,
+                postType,
+                allowedRoles,
+                allowedDepartments
+            );
+
             setPosts([newPost, ...posts]);
             setNewPostContent('');
+            setSelectedCategory('General');
             removeSelectedFile();
         } catch (error) {
             console.error("Failed to create post", error);
@@ -189,6 +271,38 @@ export default function FeedPage() {
     const handlePostDeleted = (postId: string) => {
         setPosts(prev => prev.filter(p => p.id !== postId));
     };
+
+    // Filter Logic
+    const filteredPosts = posts.filter(post => {
+        // If highlightedPostId is present, only show that specific post
+        if (highlightedPostId && post.id !== highlightedPostId) {
+            return false;
+        }
+
+        // Category filter
+        if (filterCategory !== 'All' && post.category !== filterCategory) {
+            return false;
+        }
+
+        // Date filter
+        if (filterDate !== 'All') {
+            const postDate = new Date(post.createdAt);
+            const now = new Date();
+
+            if (filterDate === 'Today') {
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                if (postDate < today) return false;
+            } else if (filterDate === 'Week') {
+                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                if (postDate < weekAgo) return false;
+            } else if (filterDate === 'Month') {
+                const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                if (postDate < monthAgo) return false;
+            }
+        }
+
+        return true;
+    });
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-[var(--color-dark-bg)] text-[var(--color-text-main)] font-[Inter] overflow-x-hidden">
@@ -208,12 +322,7 @@ export default function FeedPage() {
                     </div>
 
                     <label className="flex flex-col min-w-40 !h-10 max-w-64 lg:w-96 hidden md:flex">
-                        <div className="flex w-full flex-1 items-stretch rounded-xl h-full">
-                            {/* <div className="text-[var(--color-text-muted)] flex border-none bg-[var(--color-dark-bg)] items-center justify-center pl-4 rounded-l-xl border-r-0 border border-[var(--color-border)]">
-                                <span className="material-symbols-outlined">search</span>
-                            </div> */}
-                            {/* <input className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-white focus:outline-0 focus:ring-0 border-none bg-[var(--color-dark-bg)] focus:border-none h-full placeholder:text-[var(--color-text-muted)] px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal border border-[var(--color-border)]" placeholder="Search..." /> */}
-                        </div>
+                        <SearchBar />
                     </label>
                 </div>
 
@@ -229,9 +338,15 @@ export default function FeedPage() {
                             </div>
                             <div className="flex flex-col">
                                 {notifications.length > 0 ? notifications.map(n => (
-                                    <div key={n.id} className="p-4 hover:bg-[var(--color-dark-surface-lighter)] border-b border-[var(--color-border)] cursor-pointer transition-colors">
-                                        <div className="text-white text-sm font-medium">{n.title}</div>
-                                        <div className="text-[var(--color-text-muted)] text-xs">{n.content}</div>
+                                    <div key={n.id} className="p-4 hover:bg-[var(--color-dark-surface-lighter)] border-b border-[var(--color-border)] cursor-pointer transition-colors" onClick={() => {
+                                        if (n.link) navigate(n.link);
+                                        setShowNotifications(false);
+                                    }}>
+                                        <div className="text-white text-sm font-medium">{n.message}</div>
+                                        <div className="text-[var(--color-text-muted)] text-xs mt-1">
+                                            {n.actorName && `${n.actorName} • `}
+                                            {new Date(n.createdAt).toLocaleString()}
+                                        </div>
                                     </div>
                                 )) : <div className="p-4 text-[var(--color-text-muted)] text-sm">No new notifications</div>}
                             </div>
@@ -310,35 +425,178 @@ export default function FeedPage() {
                             </div>
                         )}
 
-                        <div className="flex items-center gap-4 border-t border-[var(--color-border)] pt-3">
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileSelect}
-                                accept="image/*"
-                                style={{ display: 'none' }}
-                            />
-                            <button className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-white px-3 py-2 rounded-lg hover:bg-[var(--color-dark-surface-lighter)] transition-colors" onClick={() => fileInputRef.current?.click()}>
-                                <span className="material-symbols-outlined text-green-500">photo_library</span> Photo/Video
-                            </button>
+                        <div className="flex items-center gap-4 border-t border-[var(--color-border)] pt-3 justify-between">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileSelect}
+                                    accept="image/*,video/*,application/pdf"
+                                    style={{ display: 'none' }}
+                                />
+                                <button className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-white px-3 py-2 rounded-lg hover:bg-[var(--color-dark-surface-lighter)] transition-colors" onClick={() => fileInputRef.current?.click()}>
+                                    <span className="material-symbols-outlined text-green-500">attach_file</span> Media
+                                </button>
+
+                            </div>
+
+                            {/* Visibility Selector */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[var(--color-text-muted)] text-sm">To:</span>
+                                <select
+                                    className="bg-[var(--color-dark-bg)] text-white text-sm border border-[var(--color-border)] rounded-lg px-2 py-2 focus:outline-none focus:border-[var(--color-primary)] max-w-[120px]"
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setAllowedRoles([]);
+                                        setAllowedDepartments([]);
+
+                                        if (val === 'Public') {
+                                            // Default: All empty
+                                        } else if (val === 'Managers') {
+                                            setAllowedRoles(['Manager', 'Admin']);
+                                        } else if (DEPARTMENTS.includes(val)) {
+                                            setAllowedDepartments([val]);
+                                        }
+                                    }}
+                                >
+                                    <option value="Public">Everyone</option>
+                                    <option value="Managers">Managers Only</option>
+                                    <optgroup label="Departments">
+                                        {DEPARTMENTS.map(dept => (
+                                            <option key={dept} value={dept}>{dept} Dept</option>
+                                        ))}
+                                    </optgroup>
+                                </select>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <span className="text-[var(--color-text-muted)] text-sm">Tag:</span>
+                                <select
+                                    className="bg-[var(--color-dark-bg)] text-white text-sm border border-[var(--color-border)] rounded-lg px-2 py-2 focus:outline-none focus:border-[var(--color-primary)]"
+                                    value={selectedCategory}
+                                    onChange={(e) => setSelectedCategory(e.target.value)}
+                                >
+                                    {POST_CATEGORIES.map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Filters */}
+                    <div className="bg-[var(--color-dark-surface)] rounded-xl p-4 border border-[var(--color-border)] shadow-sm">
+                        <div className="flex items-center gap-4 flex-wrap">
+                            <span className="text-sm font-semibold text-white">Filters:</span>
+
+                            {/* Category Filter */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-[var(--color-text-muted)]">Category:</span>
+                                <select
+                                    className="bg-[var(--color-dark-bg)] text-white text-sm border border-[var(--color-border)] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[var(--color-primary)]"
+                                    value={filterCategory}
+                                    onChange={(e) => setFilterCategory(e.target.value)}
+                                >
+                                    <option value="All">All</option>
+                                    {POST_CATEGORIES.map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Date Filter */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-[var(--color-text-muted)]">Date:</span>
+                                <div className="flex gap-1">
+                                    {['All', 'Today', 'Week', 'Month'].map(period => (
+                                        <button
+                                            key={period}
+                                            onClick={() => setFilterDate(period)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterDate === period
+                                                ? 'bg-[var(--color-primary)] text-white'
+                                                : 'bg-[var(--color-dark-bg)] text-[var(--color-text-muted)] hover:text-white border border-[var(--color-border)]'
+                                                }`}
+                                        >
+                                            {period}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Active Filter Count */}
+                            {(filterCategory !== 'All' || filterDate !== 'All') && (
+                                <button
+                                    onClick={() => {
+                                        setFilterCategory('All');
+                                        setFilterDate('All');
+                                    }}
+                                    className="text-xs text-[var(--color-primary)] hover:underline ml-auto"
+                                >
+                                    Clear Filters
+                                </button>
+                            )}
                         </div>
                     </div>
 
                     {/* Posts */}
                     {isLoading ? (
-                        <div className="text-center text-[var(--color-text-muted)] py-10">Loading posts...</div>
-                    ) : posts.length === 0 ? (
-                        <div className="text-center text-[var(--color-text-muted)] py-10">No posts yet. Be the first to share!</div>
+                        <div className="flex justify-center items-center py-20">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-primary)]"></div>
+                        </div>
                     ) : (
-                        posts.map(post => (
-                            <PostCard
-                                key={post.id}
-                                post={post}
-                                currentUser={user}
-                                onPostUpdated={handlePostUpdated}
-                                onPostDeleted={handlePostDeleted}
-                            />
-                        ))
+                        <>
+                            {/* Show "View All Posts" button when in focused mode */}
+                            {focusedPostId && (
+                                <div className="mb-4 p-4 bg-[var(--color-dark-surface)] rounded-xl border border-[var(--color-border)] flex items-center justify-between">
+                                    <p className="text-[var(--color-text-muted)] text-sm">
+                                        Viewing single post from notification
+                                    </p>
+                                    <button
+                                        onClick={() => {
+                                            setFocusedPostId(null);
+                                            window.history.pushState({}, '', '/feed');
+                                        }}
+                                        className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors text-sm font-medium"
+                                    >
+                                        View All Posts
+                                    </button>
+                                </div>
+                            )}
+
+                            {(focusedPostId ? filteredPosts.filter(p => p.id === focusedPostId) : filteredPosts).map(post => (
+                                <div
+                                    key={post.id}
+                                    id={`post-${post.id}`}
+                                    style={{
+                                        border: highlightedPostId === post.id ? '3px solid #ff4d4f' : 'none',
+                                        borderRadius: '8px',
+                                        padding: highlightedPostId === post.id ? '8px' : '0',
+                                        backgroundColor: highlightedPostId === post.id ? 'rgba(255, 77, 79, 0.05)' : 'transparent'
+                                    }}
+                                >
+                                    {highlightedPostId === post.id && (
+                                        <div style={{
+                                            backgroundColor: '#ff4d4f',
+                                            color: 'white',
+                                            padding: '8px 12px',
+                                            borderRadius: '4px',
+                                            marginBottom: '8px',
+                                            fontWeight: 600,
+                                            textAlign: 'center'
+                                        }}>
+                                            📌 Bài viết được báo cáo
+                                        </div>
+                                    )}
+                                    <PostCard
+                                        key={post.id}
+                                        post={post}
+                                        currentUser={user}
+                                        onPostUpdated={handlePostUpdated}
+                                        onPostDeleted={handlePostDeleted}
+                                    />
+                                </div>
+                            ))}
+                        </>
                     )}
                 </main>
 
@@ -400,6 +658,41 @@ export default function FeedPage() {
                                 className="text-xs text-[var(--color-primary)] hover:underline"
                             >
                                 Open full chat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Sensitive Content Warning Modal */}
+            {showWarning && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]">
+                    <div className="bg-[var(--color-dark-surface)] border-2 border-yellow-500 rounded-xl p-6 max-w-md mx-4 shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="flex items-center gap-3 mb-4">
+                            <span className="material-symbols-outlined text-yellow-500 text-3xl">warning</span>
+                            <h3 className="text-xl font-bold text-white">Sensitive Content Detected</h3>
+                        </div>
+                        <p className="text-[var(--color-text-muted)] mb-4 leading-relaxed">{warningMessage}</p>
+                        <p className="text-sm text-[var(--color-text-muted)] mb-6">Do you want to continue posting anyway?</p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowWarning(false);
+                                    setWarningMessage('');
+                                }}
+                                className="flex-1 px-4 py-2 bg-[var(--color-dark-bg)] text-white rounded-lg hover:bg-[var(--color-dark-surface-lighter)] transition-colors border border-[var(--color-border)]"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowWarning(false);
+                                    setWarningMessage('');
+                                    performCreatePost();
+                                }}
+                                className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-semibold"
+                            >
+                                Post Anyway
                             </button>
                         </div>
                     </div>

@@ -42,6 +42,15 @@ namespace InsiderThreat.Server.Models
         [BsonElement("reactions")]
         public Dictionary<string, List<string>> Reactions { get; set; } = new Dictionary<string, List<string>>();
 
+        [BsonElement("category")]
+        public string Category { get; set; } = "General"; // Announcement, HR, Project, Training, Event, Security
+
+        [BsonElement("type")]
+        public string Type { get; set; } = "Text"; // Text, Image, Video, File, Link
+
+        [BsonElement("linkInfo")]
+        public LinkMetadata? LinkInfo { get; set; }
+
         [BsonElement("commentCount")]
         public int CommentCount { get; set; } = 0;
 
@@ -53,6 +62,24 @@ namespace InsiderThreat.Server.Models
 
         [BsonElement("updatedAt")]
         public DateTime? UpdatedAt { get; set; }
+
+        [BsonElement("isPinned")]
+        public bool IsPinned { get; set; } = false;
+
+        [BsonElement("allowedRoles")]
+        public List<string> AllowedRoles { get; set; } = new List<string>(); // Empty = All
+
+        [BsonElement("allowedDepartments")]
+        public List<string> AllowedDepartments { get; set; } = new List<string>(); // Empty = All
+
+        [BsonElement("isHidden")]
+        public bool IsHidden { get; set; } = false; // For moderation or soft delete
+
+        [BsonElement("isUrgent")]
+        public bool IsUrgent { get; set; } = false; // Emergency/Critical posts
+
+        [BsonElement("urgentReason")]
+        public string? UrgentReason { get; set; } // Optional reason for urgency
     }
 
     public class MediaFile
@@ -71,5 +98,20 @@ namespace InsiderThreat.Server.Models
 
         [BsonElement("fileSize")]
         public long? FileSize { get; set; }
+    }
+
+    public class LinkMetadata
+    {
+        [BsonElement("url")]
+        public string Url { get; set; } = string.Empty;
+
+        [BsonElement("title")]
+        public string? Title { get; set; }
+
+        [BsonElement("description")]
+        public string? Description { get; set; }
+
+        [BsonElement("imageUrl")]
+        public string? ImageUrl { get; set; }
     }
 }

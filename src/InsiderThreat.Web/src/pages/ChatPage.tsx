@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '../services/auth';
 import { userService } from '../services/userService';
 import { chatService } from '../services/chatService';
@@ -33,6 +33,9 @@ interface Message {
 
 export default function ChatPage() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const userIdParam = searchParams.get('userId');
+
     // Stabilize currentUser to prevent infinite useEffect loops
     const currentUser = useMemo(() => authService.getCurrentUser(), []);
     const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
@@ -48,6 +51,7 @@ export default function ChatPage() {
 
     // Info Popover State
     const [isInfoPopoverOpen, setIsInfoPopoverOpen] = useState(false);
+    const infoPopoverRef = useRef<HTMLDivElement>(null);
     const [activeFilter, setActiveFilter] = useState<'media' | 'files' | 'messages'>('media');
 
     // Search State
@@ -264,6 +268,16 @@ export default function ChatPage() {
 
         fetchContacts();
     }, [currentUser]);
+
+    // Auto-select user from URL parameter
+    useEffect(() => {
+        if (userIdParam && contacts.length > 0 && !selectedUser) {
+            const userToSelect = contacts.find(c => c.id === userIdParam);
+            if (userToSelect) {
+                setSelectedUser(userToSelect);
+            }
+        }
+    }, [userIdParam, contacts, selectedUser]);
 
     // 3. Fetch Messages when User Selected
     useEffect(() => {

@@ -31,7 +31,8 @@ function UsbNotification({ userRole }: UsbNotificationProps) {
         // Tạo kết nối SignalR
         const newConnection = new signalR.HubConnectionBuilder()
             .withUrl('http://localhost:5038/hubs/system')
-            .withAutomaticReconnect()
+            // .withAutomaticReconnect() // Tắt auto-reconnect để tránh infinite loop
+            .configureLogging(signalR.LogLevel.Warning) // Giảm log spam
             .build();
 
         setConnection(newConnection);
@@ -56,7 +57,15 @@ function UsbNotification({ userRole }: UsbNotificationProps) {
                         setAlert(data);
                     });
                 })
-                .catch((err) => console.error('❌ SignalR connection error:', err));
+                .catch((err) => {
+                    console.error('❌ SignalR connection error:', err);
+                    // Don't retry if connection fails - prevents infinite loop
+                    connection.stop();
+                });
+
+            return () => {
+                connection.off('UsbAlert');
+            };
         }
     }, [connection]);
 

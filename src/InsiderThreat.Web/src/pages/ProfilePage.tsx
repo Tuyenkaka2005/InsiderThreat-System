@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { authService } from '../services/auth';
 import { userService } from '../services/userService';
 import { api } from '../services/api';
@@ -22,7 +22,11 @@ import FaceRegistrationModal from '../components/FaceRegistrationModal';
 
 export default function ProfilePage() {
     const navigate = useNavigate();
-    const [user, setUser] = useState<User | null>(null);
+    const { userId } = useParams<{ userId?: string }>();
+    const currentUser = authService.getCurrentUser();
+
+    const [user, setUser] = useState<User | null>(null); // Profile being viewed
+    const [isOwnProfile, setIsOwnProfile] = useState(true); // Is viewing own profile?
     const [isEditing, setIsEditing] = useState(false);
     const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -52,54 +56,63 @@ export default function ProfilePage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        const currentUser = authService.getCurrentUser();
-        if (currentUser) {
-            setUser(currentUser);
-            setFormData({
-                fullName: currentUser.fullName || '',
-                bio: currentUser.bio || '',
-                department: currentUser.department || '',
-                position: currentUser.position || '',
-                phoneNumber: currentUser.phoneNumber || '',
-                email: currentUser.email || ''
-            });
+        const loadProfile = async () => {
+            if (!currentUser) {
+                navigate('/login');
+                return;
+            }
 
-            // Fetch activity logs
-            const fetchLogs = async () => {
+            // Determine which profile to show
+            const targetUserId = userId || currentUser.id;
+            const viewingOwnProfile = !userId || userId === currentUser.id;
+            setIsOwnProfile(viewingOwnProfile);
+
+            if (viewingOwnProfile) {
+                // Viewing own profile - use currentUser data
+                setUser(currentUser);
+                setFormData({
+                    fullName: currentUser.fullName || '',
+                    bio: currentUser.bio || '',
+                    department: currentUser.department || '',
+                    position: currentUser.position || '',
+                    phoneNumber: currentUser.phoneNumber || '',
+                    email: currentUser.email || ''
+                });
+
+                // Fetch activity logs (only for own profile)
                 try {
                     const logs = await userService.getActivityLogs(currentUser.id || '');
                     setActivityLogs(logs.map((log: any) => ({
                         timestamp: log.timestamp,
                         message: log.details || log.action,
                         actionTaken: log.action,
-                        severity: 'Info', // Default
+                        severity: 'Info',
                         ipAddress: log.ipAddress || '127.0.0.1'
                     })));
                 } catch (error) {
                     console.error("Error fetching logs", error);
                 }
-            };
-            fetchLogs();
-
-            // Fetch user posts
-            const fetchPosts = async () => {
+            } else {
+                // Viewing someone else's profile - fetch their data
                 try {
-                    // Assuming feedService.getUserPosts returns Post[]
-                    if (currentUser.id) {
-                        const posts = await feedService.getUserPosts(currentUser.id);
-                        setUserPosts(posts);
-                    }
+                    const userData = await userService.getUserById(targetUserId!);
+                    setUser(userData);
                 } catch (error) {
-                    console.error("Error fetching user posts", error);
-                    // Fallback to empty if fails
-                    setUserPosts([]);
+                    console.error("Error fetching user profile", error);
                 }
-            };
-            fetchPosts();
-        } else {
-            navigate('/login');
-        }
-    }, [navigate]);
+            }
+
+            // Fetch user posts (for both own and other profiles)
+            try {
+                const posts = await feedService.getUserPosts(targetUserId!);
+                setUserPosts(posts);
+            } catch (error) {
+                console.error("Error fetching posts", error);
+            }
+        };
+
+        loadProfile();
+    }, [userId, currentUser, navigate]);
 
     // Fetch Logs when Activity Tab is active
     useEffect(() => {
@@ -330,11 +343,13 @@ export default function ProfilePage() {
                         <div className="px-4 pb-4 md:px-8">
                             <div className="flex flex-col md:flex-row gap-4 items-start md:items-end -mt-16 relative z-10">
                                 {/* Avatar */}
-                                <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
+                                <div className={`relative group ${isOwnProfile ? 'cursor-pointer' : ''}`} onClick={isOwnProfile ? handleAvatarClick : undefined}>
                                     <div className="bg-center bg-no-repeat bg-cover rounded-full size-32 md:size-40 ring-4 ring-[var(--color-dark-surface)] bg-[var(--color-dark-bg)]" style={{ backgroundImage: `url(${avatarUrl})` }}></div>
-                                    <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <span className="material-symbols-outlined text-white text-3xl">photo_camera</span>
-                                    </div>
+                                    {isOwnProfile && (
+                                        <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <span className="material-symbols-outlined text-white text-3xl">photo_camera</span>
+                                        </div>
+                                    )}
                                     <input
                                         type="file"
                                         ref={fileInputRef}
@@ -361,18 +376,30 @@ export default function ProfilePage() {
 
                                 {/* Action Buttons */}
                                 <div className="flex gap-3 mt-4 md:mt-0 mb-2 w-full md:w-auto">
-                                    <button
-                                        onClick={handleEditClick}
-                                        className="flex-1 md:flex-auto min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-10 px-6 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] transition-colors text-white text-sm font-bold tracking-[0.015em] shadow-lg shadow-blue-500/20"
-                                    >
-                                        Edit Profile
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('security')}
-                                        className="flex-1 md:flex-auto min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-10 px-6 bg-[var(--color-dark-surface-lighter)] hover:bg-[#3b4754] transition-colors text-white text-sm font-bold tracking-[0.015em] border border-[var(--color-border)]"
-                                    >
-                                        Settings
-                                    </button>
+                                    {isOwnProfile ? (
+                                        <>
+                                            <button
+                                                onClick={handleEditClick}
+                                                className="flex-1 md:flex-auto min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-10 px-6 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] transition-colors text-white text-sm font-bold tracking-[0.015em] shadow-lg shadow-blue-500/20"
+                                            >
+                                                Edit Profile
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveTab('security')}
+                                                className="flex-1 md:flex-auto min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-10 px-6 bg-[var(--color-dark-surface-lighter)] hover:bg-[#3b4754] transition-colors text-white text-sm font-bold tracking-[0.015em] border border-[var(--color-border)]"
+                                            >
+                                                Settings
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            onClick={() => navigate(`/chat?userId=${user?.id}`)}
+                                            className="flex-1 md:flex-auto min-w-[150px] cursor-pointer items-center justify-center rounded-xl h-10 px-8 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] transition-colors text-white text-sm font-bold tracking-[0.015em] shadow-lg shadow-blue-500/20 flex gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-[20px]">chat</span>
+                                            <span>Chat với {user?.username}</span>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -385,20 +412,24 @@ export default function ProfilePage() {
                                     Overview
                                     {activeTab === 'overview' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-primary)] rounded-t-full"></div>}
                                 </button>
-                                <button
-                                    onClick={() => setActiveTab('security')}
-                                    className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'security' ? 'text-white' : 'text-[var(--color-text-muted)] hover:text-white'}`}
-                                >
-                                    Security
-                                    {activeTab === 'security' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-primary)] rounded-t-full"></div>}
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('activity')}
-                                    className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'activity' ? 'text-white' : 'text-[var(--color-text-muted)] hover:text-white'}`}
-                                >
-                                    Activity
-                                    {activeTab === 'activity' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-primary)] rounded-t-full"></div>}
-                                </button>
+                                {isOwnProfile && (
+                                    <>
+                                        <button
+                                            onClick={() => setActiveTab('security')}
+                                            className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'security' ? 'text-white' : 'text-[var(--color-text-muted)] hover:text-white'}`}
+                                        >
+                                            Security
+                                            {activeTab === 'security' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-primary)] rounded-t-full"></div>}
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab('activity')}
+                                            className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'activity' ? 'text-white' : 'text-[var(--color-text-muted)] hover:text-white'}`}
+                                        >
+                                            Activity
+                                            {activeTab === 'activity' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-primary)] rounded-t-full"></div>}
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
