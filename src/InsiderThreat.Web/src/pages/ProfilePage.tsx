@@ -1,25 +1,140 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth';
+import { userService } from '../services/userService';
+import { api } from '../services/api';
 import type { User } from '../types';
 
 export default function ProfilePage() {
     const navigate = useNavigate();
     const [user, setUser] = useState<User | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [formData, setFormData] = useState({
+        fullName: '',
+        department: '',
+        email: ''
+    });
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const currentUser = authService.getCurrentUser();
         if (currentUser) {
             setUser(currentUser);
+            setFormData({
+                fullName: currentUser.fullName || '',
+                department: currentUser.department || '',
+                email: currentUser.email || ''
+            });
         } else {
             // navigate('/login');
         }
     }, [navigate]);
 
+    const handleEditClick = () => {
+        if (user) {
+            setFormData({
+                fullName: user.fullName || '',
+                department: user.department || '',
+                email: user.email || ''
+            });
+            setIsEditing(true);
+        }
+    };
+
+    const handleSaveProfile = async () => {
+        if (!user || !user.id) return;
+
+        try {
+            await userService.updateUser(user.id, {
+                fullName: formData.fullName,
+                department: formData.department,
+                email: formData.email
+            });
+
+            // Update local state
+            const updatedUser = { ...user, ...formData };
+            setUser(updatedUser);
+            // Update auth service storage if necessary or just rely on state until refresh
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+
+            setIsEditing(false);
+        } catch (error) {
+            console.error('Failed to update profile:', error);
+            alert('Failed to update profile');
+        }
+    };
+
+    const handleAvatarClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !user || !user.id) return;
+
+        setIsUploading(true);
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', file);
+
+        try {
+            // Upload file
+            const response = await api.post<{ url: string }>('/api/upload', uploadFormData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            // ASP.NET Core default JSON serialization is camelCase
+            const avatarUrl = response.url; // url not Url
+
+            // Update user profile with new avatar URL
+            // Assuming backend returns relative path like /uploads/filename.jpg, we might need full URL if backend doesn't handle static files at root properly, but usually it does.
+            // Let's assume the returned Url is what we save.
+
+            // Construct full URL if needed, but let's save what server gives.
+            // The server returns /uploads/filename
+            // Currently server runs on port 5038.
+            // The Url returned is relative. E.g. /uploads/guid.jpg
+            // We should store this relative path or full path. Storing relative is better?
+            // User.cs expects AvatarUrl.
+
+            // NOTE: The current API base URL is http://127.0.0.1:5038
+            // If we save relative path, we need to prepend API_BASE_URL when displaying.
+            // Or we can save full URL.
+            // Let's save the relative path as returned by UploadController,
+            // and when displaying, check if it starts with http. If not, prepend API_BASE_URL.
+
+            // Actually, let's just save the full URL to make it easier for now,
+            // or modify the display logic.
+            // Let's modify display logic to handle relative URLs.
+
+            await userService.updateUser(user.id, {
+                avatarUrl: avatarUrl
+            });
+
+            const updatedUser = { ...user, avatarUrl: avatarUrl };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+
+        } catch (error) {
+            console.error('Failed to upload avatar:', error);
+            alert('Failed to upload avatar');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     // Fallback if user is loading or not found
     if (!user) return <div className="min-h-screen bg-[#111418] text-white flex items-center justify-center">Loading...</div>;
 
-    const avatarUrl = `https://i.pravatar.cc/150?u=${user.username}`;
+    // Helper to get display Avatar URL
+    const getDisplayAvatarUrl = (url?: string) => {
+        if (!url) return `https://i.pravatar.cc/150?u=${user.username}`;
+        if (url.startsWith('http')) return url;
+        return `http://127.0.0.1:5038${url}`; // Prepend API URL for relative paths
+    };
+
+    const avatarUrl = getDisplayAvatarUrl(user.avatarUrl);
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-[#f6f7f8] dark:bg-[#111418] text-slate-900 dark:text-white font-[Inter]">
@@ -73,7 +188,24 @@ export default function ProfilePage() {
                         <div className="px-4 pb-4 md:px-8">
                             <div className="flex flex-col md:flex-row gap-4 items-start md:items-end -mt-16 relative z-10">
                                 {/* Avatar */}
-                                <div className="bg-center bg-no-repeat bg-cover rounded-full size-32 md:size-40 ring-4 ring-[#111418] bg-[#111418]" style={{ backgroundImage: `url(${avatarUrl})` }}></div>
+                                <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
+                                    <div className="bg-center bg-no-repeat bg-cover rounded-full size-32 md:size-40 ring-4 ring-[#111418] bg-[#111418]" style={{ backgroundImage: `url(${avatarUrl})` }}></div>
+                                    <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <span className="material-symbols-outlined text-white text-3xl">photo_camera</span>
+                                    </div>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                    />
+                                    {isUploading && (
+                                        <div className="absolute inset-0 rounded-full bg-black/70 flex items-center justify-center">
+                                            <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        </div>
+                                    )}
+                                </div>
 
                                 {/* Name & Title */}
                                 <div className="flex flex-col flex-1 mb-2">
@@ -81,12 +213,15 @@ export default function ProfilePage() {
                                         <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight">{user.fullName || user.username}</h1>
                                         <span className="material-symbols-outlined text-[#137fec] text-[20px] md:text-[24px]" title="Verified Account">verified</span>
                                     </div>
-                                    <p className="text-[#9dabb9] text-base md:text-lg font-normal">Insider Threat System User</p>
+                                    <p className="text-[#9dabb9] text-base md:text-lg font-normal">{user.department || 'Insider Threat System User'}</p>
                                 </div>
 
                                 {/* Action Buttons */}
                                 <div className="flex gap-3 mt-4 md:mt-0 mb-2 w-full md:w-auto">
-                                    <button className="flex-1 md:flex-auto min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-10 px-6 bg-[#137fec] hover:bg-[#137fec]/90 transition-colors text-white text-sm font-bold tracking-[0.015em] shadow-lg shadow-[#137fec]/20">
+                                    <button
+                                        onClick={handleEditClick}
+                                        className="flex-1 md:flex-auto min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-10 px-6 bg-[#137fec] hover:bg-[#137fec]/90 transition-colors text-white text-sm font-bold tracking-[0.015em] shadow-lg shadow-[#137fec]/20"
+                                    >
                                         Edit Profile
                                     </button>
                                     <button className="flex-1 md:flex-auto min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-10 px-6 bg-[#283039] hover:bg-[#3b4754] transition-colors text-white text-sm font-bold tracking-[0.015em] border border-[#3b4754]">
@@ -223,6 +358,63 @@ export default function ProfilePage() {
                     </div>
                 </div>
             </main>
+
+            {/* Edit Profile Modal */}
+            {isEditing && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-[#283039] rounded-xl w-full max-w-lg shadow-2xl overflow-hidden border border-[#3b4754]">
+                        <div className="flex items-center justify-between p-4 border-b border-[#3b4754]">
+                            <h3 className="text-white text-xl font-bold">Edit Profile</h3>
+                            <button onClick={() => setIsEditing(false)} className="text-[#9dabb9] hover:text-white">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div className="p-6 flex flex-col gap-4">
+                            <div>
+                                <label className="block text-[#9dabb9] text-sm mb-1">Full Name</label>
+                                <input
+                                    className="w-full bg-[#111418] border border-[#3b4754] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#137fec]"
+                                    value={formData.fullName}
+                                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                    placeholder="Enter full name"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[#9dabb9] text-sm mb-1">Email</label>
+                                <input
+                                    className="w-full bg-[#111418] border border-[#3b4754] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#137fec]"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    placeholder="Enter email address"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[#9dabb9] text-sm mb-1">Department</label>
+                                <input
+                                    className="w-full bg-[#111418] border border-[#3b4754] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#137fec]"
+                                    value={formData.department}
+                                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                                    placeholder="Enter department"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-[#3b4754] flex justify-end gap-3 bg-[#111418]/50">
+                            <button
+                                onClick={() => setIsEditing(false)}
+                                className="px-4 py-2 rounded-lg text-[#9dabb9] hover:text-white font-medium hover:bg-[#3b4754] transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveProfile}
+                                className="px-6 py-2 rounded-lg bg-[#137fec] hover:bg-[#137fec]/90 text-white font-bold shadow-lg shadow-[#137fec]/20 transition-colors"
+                            >
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

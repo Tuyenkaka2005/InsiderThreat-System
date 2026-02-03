@@ -50,6 +50,7 @@ public class AuthController : ControllerBase
         public string Username { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; }
     }
 
     // =============================================
@@ -100,7 +101,8 @@ public class AuthController : ControllerBase
                     Id = user.Id ?? "",
                     Username = user.Username,
                     FullName = user.FullName,
-                    Role = user.Role
+                    Role = user.Role,
+                    AvatarUrl = user.AvatarUrl
                 }
             });
         }
@@ -184,7 +186,8 @@ public class AuthController : ControllerBase
                     Id = matchedUser.Id ?? "",
                     Username = matchedUser.Username,
                     FullName = matchedUser.FullName,
-                    Role = matchedUser.Role
+                    Role = matchedUser.Role,
+                    AvatarUrl = matchedUser.AvatarUrl
                 }
             });
         }

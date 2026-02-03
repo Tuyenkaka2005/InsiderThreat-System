@@ -9,6 +9,7 @@ export interface User {
     department?: string;
     passwordHash?: string;
     publicKey?: string;
+    avatarUrl?: string;
 }
 
 export interface LogEntry {

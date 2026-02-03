@@ -6,5 +6,10 @@ export const userService = {
     async getAllUsers(): Promise<User[]> {
         const response = await api.get<User[]>('/api/users');
         return response;
+    },
+
+    // Update user profile
+    async updateUser(id: string, userData: Partial<User>): Promise<void> {
+        await api.put(`/api/users/${id}`, userData);
     }
 };
