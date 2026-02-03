@@ -73,14 +73,21 @@ public class UsersController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateUser(string id, User updatedUser)
     {
+        _logger.LogInformation($"UpdateUser called for ID: {id}");
+        _logger.LogInformation($"Received Data - FullName: {updatedUser.FullName}, Role: {updatedUser.Role}, Email: {updatedUser.Email}, AvatarUrl: {updatedUser.AvatarUrl}");
+
         var user = await _usersCollection.Find(u => u.Id == id).FirstOrDefaultAsync();
         if (user == null) return NotFound();
 
-        // Update basic info
-        user.FullName = updatedUser.FullName;
-        user.Role = updatedUser.Role;
-        user.Department = updatedUser.Department;
-        user.Email = updatedUser.Email; // Update email
+        // Update basic info if provided
+        if (!string.IsNullOrEmpty(updatedUser.FullName)) user.FullName = updatedUser.FullName;
+        if (!string.IsNullOrEmpty(updatedUser.Role)) user.Role = updatedUser.Role;
+        if (!string.IsNullOrEmpty(updatedUser.Department)) user.Department = updatedUser.Department;
+        if (!string.IsNullOrEmpty(updatedUser.Email)) user.Email = updatedUser.Email;
+        
+        // Always update avatar if provided (allow null to clear? No, usually we send new url)
+        if (!string.IsNullOrEmpty(updatedUser.AvatarUrl)) user.AvatarUrl = updatedUser.AvatarUrl;
+
         // user.Username thường không cho đổi để tránh conflict ID hệ thống khác
 
         // Nếu có gửi password mới thì hash và update

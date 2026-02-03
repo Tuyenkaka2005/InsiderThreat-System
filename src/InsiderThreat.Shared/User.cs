@@ -19,6 +19,7 @@ namespace InsiderThreat.Shared
         public bool EmailVerified { get; set; } = false;
 
         public string Department { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; }
 
         // Mảng chứa vector khuôn mặt (512 chiều hoặc 128 chiều tùy thuật toán)
         public double[]? FaceEmbeddings { get; set; }
