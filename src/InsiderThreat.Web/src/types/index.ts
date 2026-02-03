@@ -7,6 +7,9 @@ export interface User {
     fullName: string;
     email?: string;
     department?: string;
+    position?: string;
+    bio?: string;
+    phoneNumber?: string;
     passwordHash?: string;
     publicKey?: string;
     avatarUrl?: string;
@@ -59,4 +62,40 @@ export interface AttendanceLog {
     userName: string;
     checkInTime: string;
     method: string;
+}
+
+export interface MediaFile {
+    type: string;
+    url: string;
+    thumbnailUrl?: string;
+    fileName?: string;
+    fileSize?: number;
+}
+
+export interface Post {
+    id: string;
+    authorId: string;
+    authorName: string;
+    authorRole: string;
+    authorAvatarUrl?: string;
+    content: string;
+    mediaFiles: MediaFile[];
+    privacy: string;
+    likedBy: string[];
+    savedBy: string[];
+    commentCount: number;
+    shareCount: number;
+    createdAt: string;
+    updatedAt?: string;
+}
+
+export interface Comment {
+    id: string;
+    postId: string;
+    authorId: string;
+    authorName: string;
+    authorAvatarUrl?: string;
+    content: string;
+    parentCommentId?: string;
+    createdAt: string;
 }

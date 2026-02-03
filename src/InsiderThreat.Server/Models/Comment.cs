@@ -21,6 +21,9 @@ namespace InsiderThreat.Server.Models
         [BsonElement("authorName")]
         public string AuthorName { get; set; } = string.Empty;
 
+        [BsonElement("authorAvatarUrl")]
+        public string? AuthorAvatarUrl { get; set; }
+
         [BsonElement("content")]
         public string Content { get; set; } = string.Empty;
 

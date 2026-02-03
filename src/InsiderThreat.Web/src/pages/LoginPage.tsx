@@ -20,7 +20,8 @@ function LoginPage() {
             message.success(`Chào mừng ${response.user.fullName}!`);
 
             // Redirect dựa trên role
-            if (response.user.role === 'Admin') {
+            const role = response.user.role?.trim().toLowerCase();
+            if (role === 'admin') {
                 navigate('/dashboard');
             } else {
                 navigate('/feed');

@@ -21,6 +21,9 @@ namespace InsiderThreat.Server.Models
         [BsonElement("authorRole")]
         public string AuthorRole { get; set; } = string.Empty;
 
+        [BsonElement("authorAvatarUrl")]
+        public string? AuthorAvatarUrl { get; set; }
+
         [BsonElement("content")]
         public string Content { get; set; } = string.Empty;
 
@@ -32,6 +35,9 @@ namespace InsiderThreat.Server.Models
 
         [BsonElement("likedBy")]
         public List<string> LikedBy { get; set; } = new List<string>();
+
+        [BsonElement("savedBy")]
+        public List<string> SavedBy { get; set; } = new List<string>();
 
         [BsonElement("reactions")]
         public Dictionary<string, List<string>> Reactions { get; set; } = new Dictionary<string, List<string>>();

@@ -1,112 +1,57 @@
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
-namespace InsiderThreat.Server.Controllers;
-
-[Authorize]
-[ApiController]
-[Route("api/[controller]")]
-public class UploadController : ControllerBase
+namespace InsiderThreat.Server.Controllers
 {
-    private readonly ILogger<UploadController> _logger;
-    private readonly IWebHostEnvironment _environment;
-
-    public UploadController(ILogger<UploadController> logger, IWebHostEnvironment environment)
+    [Authorize]
+    [ApiController]
+    [Route("api/[controller]")]
+    public class UploadController : ControllerBase
     {
-        _logger = logger;
-        _environment = environment;
-    }
+        private readonly IWebHostEnvironment _environment;
 
-    [HttpPost]
-    public async Task<IActionResult> Upload(IFormFile file)
-    {
-        if (file == null || file.Length == 0)
-            return BadRequest("No file uploaded.");
-
-        try
+        public UploadController(IWebHostEnvironment environment)
         {
-            // Ensure WebRootPath is set (fallback to ContentRootPath/wwwroot if null)
-            var webRootPath = _environment.WebRootPath;
-            if (string.IsNullOrEmpty(webRootPath))
-            {
-                webRootPath = Path.Combine(_environment.ContentRootPath, "wwwroot");
-            }
-
-            // Create uploads directory if not exists
-            var uploadsPath = Path.Combine(webRootPath, "uploads");
-            if (!Directory.Exists(uploadsPath))
-            {
-                Directory.CreateDirectory(uploadsPath);
-            }
-
-            // Generate unique filename
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-            var filePath = Path.Combine(uploadsPath, fileName);
-
-            // Save file
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
-
-            // Return URL
-            var url = $"/uploads/{fileName}";
-            return Ok(new { Url = url, OriginalName = file.FileName });
+            _environment = environment;
         }
-        catch (Exception ex)
+
+        [HttpPost]
+        public async Task<IActionResult> Upload(IFormFile file)
         {
-            _logger.LogError(ex, "Error uploading file: {Message}", ex.Message);
-            // Return specific error for debugging
-            return StatusCode(500, new { Message = "Internal Server Error", Detail = ex.Message, Path = _environment.WebRootPath });
-        }
-    }
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "No file uploaded" });
 
-    [AllowAnonymous]
-    [HttpGet("download/{fileName}")]
-    public IActionResult Download(string fileName, [FromQuery] string originalName)
-    {
-        try
-        {
-            var webRootPath = _environment.WebRootPath;
-            if (string.IsNullOrEmpty(webRootPath))
+            // Validate file type (e.g., images only)
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(extension))
+                return BadRequest(new { message = "Invalid file type. Only images are allowed." });
+
+            try
             {
-                webRootPath = Path.Combine(_environment.ContentRootPath, "wwwroot");
+                var uploadsFolder = Path.Combine(_environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads");
+                if (!Directory.Exists(uploadsFolder))
+                    Directory.CreateDirectory(uploadsFolder);
+
+                var fileName = $"{Guid.NewGuid()}{extension}";
+                var filePath = Path.Combine(uploadsFolder, fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                var url = $"/uploads/{fileName}";
+                return Ok(new { url, fileName, size = file.Length, type = "image" });
             }
-
-            var filePath = Path.Combine(webRootPath, "uploads", fileName);
-
-            if (!System.IO.File.Exists(filePath))
+            catch (Exception ex)
             {
-                _logger.LogWarning("File not found: {FilePath}", filePath);
-                return NotFound("File not found on server.");
+                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
             }
-
-            // Determine content type
-            var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
-            if (!provider.TryGetContentType(fileName, out var contentType))
-            {
-                contentType = "application/octet-stream";
-            }
-
-            // If originalName is provided, verify it has an extension, if not, grab from fileName
-            if (string.IsNullOrEmpty(originalName))
-            {
-                originalName = fileName;
-            }
-            else if (!Path.HasExtension(originalName))
-            {
-                originalName += Path.GetExtension(fileName);
-            }
-
-            _logger.LogInformation("Downloading file: {FilePath} as {OriginalName}", filePath, originalName);
-
-            // Serve the file directly from disk
-            return PhysicalFile(filePath, contentType, originalName);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error downloading file: {FileName}", fileName);
-            return StatusCode(500, $"Internal server error: {ex.Message}");
         }
     }
 }

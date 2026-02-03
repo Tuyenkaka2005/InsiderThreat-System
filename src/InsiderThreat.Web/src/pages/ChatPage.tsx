@@ -4,7 +4,9 @@ import { authService } from '../services/auth';
 import { userService } from '../services/userService';
 import { chatService } from '../services/chatService';
 import type { Message as ApiMessage } from '../services/chatService';
+import type { User } from '../types';
 import { cryptoService } from '../services/cryptoService';
+import { confirmLogout } from '../utils/logoutUtils';
 import './ChatPage.css';
 
 // Types
@@ -60,9 +62,14 @@ export default function ChatPage() {
 
     // Initial Check for Chat Code
     useEffect(() => {
-        // Auto-check if we need to show setup or unlock
-        // For now, assume locked.
-        setShowUnlockModal(true);
+        // Check if already unlocked in this session
+        const isUnlocked = localStorage.getItem('isChatUnlocked') === 'true';
+        if (isUnlocked) {
+            setIsChatUnlocked(true);
+            setShowUnlockModal(false);
+        } else {
+            setShowUnlockModal(true);
+        }
     }, []);
 
     const handleUnlock = async () => {
@@ -82,6 +89,7 @@ export default function ChatPage() {
 
                 if (res.success) {
                     console.log("Unlock success (Set Code)");
+                    localStorage.setItem('isChatUnlocked', 'true');
                     setIsChatUnlocked(true);
                     setShowUnlockModal(false);
                     setCodeNotSet(false);
@@ -149,6 +157,7 @@ export default function ChatPage() {
                         }
                     }
 
+                    localStorage.setItem('isChatUnlocked', 'true');
                     setIsChatUnlocked(true);
                     setShowUnlockModal(false);
                     setUnlockError("");
@@ -229,13 +238,19 @@ export default function ChatPage() {
             try {
                 const users = await userService.getAllUsers();
                 console.log("Fetched users for Chat:", users);
+                const getAvatarUrl = (u: User | null) => {
+                    if (!u?.avatarUrl) return `https://i.pravatar.cc/150?u=${u?.username || 'user'}`;
+                    if (u.avatarUrl.startsWith('http')) return u.avatarUrl;
+                    return `http://127.0.0.1:5038${u.avatarUrl}`;
+                };
+
                 const chatUsers: ChatUser[] = users
                     .filter(u => u.username !== currentUser.username)
                     .map(u => ({
                         id: u.id || u.username,
                         username: u.username,
                         fullName: u.fullName,
-                        avatar: `https://i.pravatar.cc/150?u=${u.username}`,
+                        avatar: getAvatarUrl(u), // Use resolved URL
                         isOnline: Math.random() > 0.5,
                         lastMessage: "Start E2EE Chat",
                         lastMessageTime: "",
@@ -370,8 +385,10 @@ export default function ChatPage() {
     };
 
     const handleLogout = () => {
-        authService.logout();
-        navigate('/login');
+        confirmLogout(() => {
+            authService.logout();
+            navigate('/login');
+        });
     };
 
     return (
@@ -392,14 +409,18 @@ export default function ChatPage() {
                     <div className="user-avatar"
                         style={{
                             width: 40, height: 40, borderRadius: '50%',
-                            backgroundImage: `url(https://i.pravatar.cc/150?u=${currentUser?.username || 'me'})`,
+                            backgroundImage: `url(${(() => {
+                                if (!currentUser?.avatarUrl) return `https://i.pravatar.cc/150?u=${currentUser?.username || 'me'}`;
+                                if (currentUser.avatarUrl.startsWith('http')) return currentUser.avatarUrl;
+                                return `http://127.0.0.1:5038${currentUser.avatarUrl}`;
+                            })()})`,
                             backgroundSize: 'cover',
                             cursor: 'pointer'
                         }}
                         onClick={() => navigate('/profile')}
                     ></div>
                 </div>
-            </header>
+            </header >
 
             <div className="chat-layout">
                 {/* Sidebar */}
@@ -683,111 +704,115 @@ export default function ChatPage() {
 
             {/* Only main chat window, removed Info Panel */}
             {/* Unlock Modal */}
-            {showUnlockModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
+            {
+                showUnlockModal && (
                     <div style={{
-                        background: '#1f2937', padding: 24, borderRadius: 12,
-                        width: '90%', maxWidth: 320, textAlign: 'center',
-                        color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
-                        <div style={{ marginBottom: 16 }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#10b981' }}>lock</span>
+                        <div style={{
+                            background: '#1f2937', padding: 24, borderRadius: 12,
+                            width: '90%', maxWidth: 320, textAlign: 'center',
+                            color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                        }}>
+                            <div style={{ marginBottom: 16 }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#10b981' }}>lock</span>
+                            </div>
+                            <h3 style={{ margin: '0 0 8px 0', fontSize: 18 }}>
+                                {codeNotSet ? "Set Chat Access Code" : "Enter Chat Access Code"}
+                            </h3>
+                            <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 20 }}>
+                                {codeNotSet ? "Create a 6-digit PIN to secure your chats." : "Please enter your 6-digit PIN to view encrypted content."}
+                            </p>
+
+                            <input
+                                type="password"
+                                maxLength={6}
+                                value={chatAccessCode}
+                                onChange={(e) => setChatAccessCode(e.target.value.replace(/\D/g, ''))}
+                                placeholder="000000"
+                                style={{
+                                    width: '100%', padding: '12px', borderRadius: 8,
+                                    border: '1px solid #374151', backgroundColor: '#374151',
+                                    color: 'white', fontSize: 24, textAlign: 'center', letterSpacing: 8,
+                                    marginBottom: 16, outline: 'none'
+                                }}
+                            />
+
+                            {unlockError && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{unlockError}</div>}
+
+                            <button
+                                onClick={handleUnlock}
+                                style={{
+                                    width: '100%', padding: '12px', borderRadius: 8,
+                                    border: 'none', backgroundColor: '#10b981',
+                                    color: 'white', fontWeight: 600, cursor: 'pointer'
+                                }}
+                            >
+                                {codeNotSet ? "Set Code" : "Unlock"}
+                            </button>
                         </div>
-                        <h3 style={{ margin: '0 0 8px 0', fontSize: 18 }}>
-                            {codeNotSet ? "Set Chat Access Code" : "Enter Chat Access Code"}
-                        </h3>
-                        <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 20 }}>
-                            {codeNotSet ? "Create a 6-digit PIN to secure your chats." : "Please enter your 6-digit PIN to view encrypted content."}
-                        </p>
-
-                        <input
-                            type="password"
-                            maxLength={6}
-                            value={chatAccessCode}
-                            onChange={(e) => setChatAccessCode(e.target.value.replace(/\D/g, ''))}
-                            placeholder="000000"
-                            style={{
-                                width: '100%', padding: '12px', borderRadius: 8,
-                                border: '1px solid #374151', backgroundColor: '#374151',
-                                color: 'white', fontSize: 24, textAlign: 'center', letterSpacing: 8,
-                                marginBottom: 16, outline: 'none'
-                            }}
-                        />
-
-                        {unlockError && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{unlockError}</div>}
-
-                        <button
-                            onClick={handleUnlock}
-                            style={{
-                                width: '100%', padding: '12px', borderRadius: 8,
-                                border: 'none', backgroundColor: '#10b981',
-                                color: 'white', fontWeight: 600, cursor: 'pointer'
-                            }}
-                        >
-                            {codeNotSet ? "Set Code" : "Unlock"}
-                        </button>
                     </div>
-                </div>
-            )}
+                )
+            }
             {/* Unlock Modal */}
-            {showUnlockModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
+            {
+                showUnlockModal && (
                     <div style={{
-                        background: '#1f2937', padding: 24, borderRadius: 12,
-                        width: '90%', maxWidth: 320, textAlign: 'center',
-                        color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
-                        <div style={{ marginBottom: 16 }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#10b981' }}>lock</span>
+                        <div style={{
+                            background: '#1f2937', padding: 24, borderRadius: 12,
+                            width: '90%', maxWidth: 320, textAlign: 'center',
+                            color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                        }}>
+                            <div style={{ marginBottom: 16 }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#10b981' }}>lock</span>
+                            </div>
+                            <h3 style={{ margin: '0 0 8px 0', fontSize: 18 }}>
+                                {codeNotSet ? "Set Chat Access Code" : "Enter Chat Access Code"}
+                            </h3>
+                            <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 20 }}>
+                                {codeNotSet ? "Create a 6-digit PIN to secure your chats." : "Please enter your 6-digit PIN to view encrypted content."}
+                            </p>
+
+                            <input
+                                type="password"
+                                maxLength={6}
+                                value={chatAccessCode}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    setChatAccessCode(val);
+                                    setUnlockError("");
+                                }}
+                                placeholder="000000"
+                                style={{
+                                    width: '100%', padding: '12px', borderRadius: 8,
+                                    border: '1px solid #374151', backgroundColor: '#374151',
+                                    color: 'white', fontSize: 24, textAlign: 'center', letterSpacing: 8,
+                                    marginBottom: 16, outline: 'none'
+                                }}
+                            />
+
+                            {unlockError && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{unlockError}</div>}
+
+                            <button
+                                onClick={handleUnlock}
+                                style={{
+                                    width: '100%', padding: '12px', borderRadius: 8,
+                                    border: 'none', backgroundColor: '#10b981',
+                                    color: 'white', fontWeight: 600, cursor: 'pointer'
+                                }}
+                            >
+                                {codeNotSet ? "Set Code" : "Unlock"}
+                            </button>
                         </div>
-                        <h3 style={{ margin: '0 0 8px 0', fontSize: 18 }}>
-                            {codeNotSet ? "Set Chat Access Code" : "Enter Chat Access Code"}
-                        </h3>
-                        <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 20 }}>
-                            {codeNotSet ? "Create a 6-digit PIN to secure your chats." : "Please enter your 6-digit PIN to view encrypted content."}
-                        </p>
-
-                        <input
-                            type="password"
-                            maxLength={6}
-                            value={chatAccessCode}
-                            onChange={(e) => {
-                                const val = e.target.value.replace(/\D/g, '');
-                                setChatAccessCode(val);
-                                setUnlockError("");
-                            }}
-                            placeholder="000000"
-                            style={{
-                                width: '100%', padding: '12px', borderRadius: 8,
-                                border: '1px solid #374151', backgroundColor: '#374151',
-                                color: 'white', fontSize: 24, textAlign: 'center', letterSpacing: 8,
-                                marginBottom: 16, outline: 'none'
-                            }}
-                        />
-
-                        {unlockError && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{unlockError}</div>}
-
-                        <button
-                            onClick={handleUnlock}
-                            style={{
-                                width: '100%', padding: '12px', borderRadius: 8,
-                                border: 'none', backgroundColor: '#10b981',
-                                color: 'white', fontWeight: 600, cursor: 'pointer'
-                            }}
-                        >
-                            {codeNotSet ? "Set Code" : "Unlock"}
-                        </button>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div >
     );
 }

@@ -26,6 +26,7 @@ export const authService = {
     logout(): void {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('isChatUnlocked');
     },
 
     // Lấy user hiện tại

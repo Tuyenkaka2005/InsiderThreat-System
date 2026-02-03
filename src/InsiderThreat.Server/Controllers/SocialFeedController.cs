@@ -13,6 +13,7 @@ namespace InsiderThreat.Server.Controllers
     {
         private readonly IMongoCollection<Post> _posts;
         private readonly IMongoCollection<Comment> _comments;
+        private readonly IMongoCollection<InsiderThreat.Shared.User> _users;
         private readonly IMongoDatabase _database;
 
         public SocialFeedController(IMongoDatabase database)
@@ -20,6 +21,7 @@ namespace InsiderThreat.Server.Controllers
             _database = database;
             _posts = database.GetCollection<Post>("Posts");
             _comments = database.GetCollection<Comment>("Comments");
+            _users = database.GetCollection<InsiderThreat.Shared.User>("Users");
         }
 
         // GET: api/SocialFeed/posts?page=1&limit=10
@@ -57,6 +59,25 @@ namespace InsiderThreat.Server.Controllers
             }
         }
 
+        // GET: api/SocialFeed/users/{userId}/posts
+        [HttpGet("users/{userId}/posts")]
+        public async Task<IActionResult> GetUserPosts(string userId)
+        {
+            try
+            {
+                var posts = await _posts
+                    .Find(p => p.AuthorId == userId)
+                    .SortByDescending(p => p.CreatedAt)
+                    .ToListAsync();
+
+                return Ok(posts);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error fetching user posts", error = ex.Message });
+            }
+        }
+
         // POST: api/SocialFeed/posts
         [HttpPost("posts")]
         public async Task<IActionResult> CreatePost([FromBody] CreatePostRequest request)
@@ -72,11 +93,16 @@ namespace InsiderThreat.Server.Controllers
                     return Unauthorized(new { message = "User not authenticated" });
                 }
 
+                // Fetch full user details to get AvatarUrl
+                var currentUser = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+                var userAvatar = currentUser?.AvatarUrl;
+
                 var post = new Post
                 {
                     AuthorId = userId,
                     AuthorName = userName,
                     AuthorRole = userRole,
+                    AuthorAvatarUrl = userAvatar,
                     Content = request.Content,
                     Privacy = request.Privacy ?? "Public",
                     MediaFiles = request.MediaFiles ?? new List<MediaFile>(),
@@ -215,6 +241,44 @@ namespace InsiderThreat.Server.Controllers
             }
         }
 
+        // POST: api/SocialFeed/posts/{id}/save
+        [HttpPost("posts/{id}/save")]
+        public async Task<IActionResult> SavePost(string id)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var post = await _posts.Find(p => p.Id == id).FirstOrDefaultAsync();
+
+                if (post == null)
+                {
+                    return NotFound(new { message = "Post not found" });
+                }
+
+                // Initialize if null (schema evolution)
+                if (post.SavedBy == null) post.SavedBy = new List<string>();
+
+                // Toggle save
+                if (post.SavedBy.Contains(userId!))
+                {
+                    post.SavedBy.Remove(userId!);
+                }
+                else
+                {
+                    post.SavedBy.Add(userId!);
+                }
+
+                var update = Builders<Post>.Update.Set(p => p.SavedBy, post.SavedBy);
+                await _posts.UpdateOneAsync(p => p.Id == id, update);
+
+                return Ok(new { saved = post.SavedBy.Contains(userId!) });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error saving post", error = ex.Message });
+            }
+        }
+
         // GET: api/SocialFeed/posts/{id}/comments
         [HttpGet("posts/{id}/comments")]
         public async Task<IActionResult> GetComments(string id)
@@ -248,11 +312,16 @@ namespace InsiderThreat.Server.Controllers
                     return Unauthorized(new { message = "User not authenticated" });
                 }
 
+                // Fetch full user details to get AvatarUrl
+                var currentUser = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+                var userAvatar = currentUser?.AvatarUrl;
+
                 var comment = new Comment
                 {
                     PostId = id,
                     AuthorId = userId,
                     AuthorName = userName,
+                    AuthorAvatarUrl = userAvatar,
                     Content = request.Content,
                     ParentCommentId = request.ParentCommentId,
                     CreatedAt = DateTime.UtcNow

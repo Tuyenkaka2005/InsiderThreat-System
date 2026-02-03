@@ -11,5 +11,11 @@ export const userService = {
     // Update user profile
     async updateUser(id: string, userData: Partial<User>): Promise<void> {
         await api.put(`/api/users/${id}`, userData);
+    },
+
+    // Get activity logs
+    async getActivityLogs(userId: string): Promise<any[]> {
+        const response = await api.get<any[]>(`/api/users/${userId}/logs`);
+        return response;
     }
 };

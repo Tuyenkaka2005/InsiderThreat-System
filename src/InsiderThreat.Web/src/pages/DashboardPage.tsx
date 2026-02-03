@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layout, Menu, Typography, Button, Avatar, Dropdown, Tabs, message } from 'antd';
 import {
-    DashboardOutlined,
     UsbOutlined,
     FileTextOutlined,
     UserOutlined,
@@ -9,14 +8,17 @@ import {
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     TeamOutlined,
+    MessageOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth';
+import { confirmLogout } from '../utils/logoutUtils';
 import UsbNotification from '../components/UsbNotification';
 import BlockedDevicesTable from '../components/BlockedDevicesTable';
 import WhitelistTable from '../components/WhitelistTable';
 import RecentLogsTable from '../components/RecentLogsTable';
 import UsersPage from './UsersPage';
+import PostManagementPage from './PostManagementPage';
 import DocumentsPage from './DocumentsPage';
 import AttendancePage from './AttendancePage';
 import './DashboardPage.css';
@@ -37,12 +39,19 @@ function DashboardPage() {
     }, [user, navigate]);
 
     const handleLogout = () => {
-        authService.logout();
-        message.success('Đã đăng xuất!');
-        navigate('/login');
+        confirmLogout(() => {
+            authService.logout();
+            message.success('Đã đăng xuất!');
+            navigate('/login');
+        });
     };
 
     const menuItems = [
+        {
+            key: 'feed',
+            icon: <TeamOutlined />,
+            label: 'Feed',
+        },
         {
             key: 'usb',
             icon: <UsbOutlined />,
@@ -60,12 +69,16 @@ function DashboardPage() {
         },
     ];
 
-    // Chỉ Admin mới thấy menu quản lý nhân viên
     if (user?.role === 'Admin') {
         menuItems.splice(1, 0, { // Changed from push to splice, and label changed
             key: 'users',
             icon: <UserOutlined />,
             label: 'User Management',
+        });
+        menuItems.splice(2, 0, {
+            key: 'posts',
+            icon: <MessageOutlined />,
+            label: 'Post Management',
         });
     }
 
@@ -123,16 +136,35 @@ function DashboardPage() {
                         <UsersPage />
                     </div>
                 );
+            case 'posts':
+                return (
+                    <div className="content-wrapper">
+                        <PostManagementPage />
+                    </div>
+                );
             case 'documents':
                 return (
                     <div className="content-wrapper">
                         <DocumentsPage />
                     </div>
                 );
+            case 'attendance':
+                return (
+                    <div className="content-wrapper">
+                        <AttendancePage />
+                    </div>
+                );
             default:
                 return null;
         }
     };
+
+    // Handle Feed Navigation separately to avoid rendering inside layout if we want full redirect
+    useEffect(() => {
+        if (selectedKey === 'feed') {
+            navigate('/feed');
+        }
+    }, [selectedKey, navigate]);
 
     return (
         <Layout style={{ minHeight: '100vh' }}>

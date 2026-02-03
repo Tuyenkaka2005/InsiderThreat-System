@@ -221,6 +221,41 @@ public class AuthController : ControllerBase
     }
 
     // =============================================
+    // POST /api/auth/change-password
+    // =============================================
+    public class ChangePasswordRequest
+    {
+        public string OldPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var usersCollection = _database.GetCollection<User>("Users");
+        var user = await usersCollection.Find(u => u.Id == userId).FirstOrDefaultAsync();
+        if (user == null) return NotFound();
+
+        // Check old password
+        if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
+        {
+            return BadRequest(new { Success = false, Message = "Mật khẩu cũ không đúng" });
+        }
+
+        // Hash new password
+        var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        
+        var update = Builders<User>.Update.Set(u => u.PasswordHash, newHash);
+        await usersCollection.UpdateOneAsync(u => u.Id == userId, update);
+
+        return Ok(new { Success = true, Message = "Đổi mật khẩu thành công" });
+    }
+
+    // =============================================
     // Chat Access Code Endpoints
     // =============================================
     public class SetChatCodeRequest

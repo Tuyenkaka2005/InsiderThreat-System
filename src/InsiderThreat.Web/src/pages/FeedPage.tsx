@@ -1,41 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth';
 import { userService } from '../services/userService';
-import type { User } from '../types';
+import { chatService } from '../services/chatService';
+import { feedService } from '../services/feedService';
+import api from '../services/api';
+import type { User, Post, Comment } from '../types';
+import PostCard from '../components/PostCard';
+import { confirmLogout } from '../utils/logoutUtils';
 import './FeedPage.css';
 
-// Mock Data
-const STORIES = [
-    { name: 'Your Story', avatar: 'https://i.pravatar.cc/150?u=my-story', isYours: true },
-    { name: 'Alex Chen', avatar: 'https://i.pravatar.cc/150?u=alex', isYours: false },
-    { name: 'Maria Garcia', avatar: 'https://i.pravatar.cc/150?u=maria', isYours: false },
-    { name: 'Thomas Read', avatar: 'https://i.pravatar.cc/150?u=thomas', isYours: false },
-    { name: 'Jessica Miles', avatar: 'https://i.pravatar.cc/150?u=jessica', isYours: false },
-];
-
-const POSTS = [
-    {
-        id: 1,
-        author: { name: 'Thomas Read', avatar: 'https://i.pravatar.cc/150?u=thomas', timeAgo: '2 hours ago' },
-        content: "Just finished a massive hike through the Dolomites! The views were absolutely breathtaking. Can't wait to go back next summer. 🏔️☀️ #Hiking #Travel #Nature",
-        image: 'https://images.unsplash.com/photo-1597434429739-2574d7e06807?w=1080&h=720&fit=crop',
-        likes: '1.2k',
-        comments: '45',
-        shares: '12'
-    },
-    {
-        id: 2,
-        author: { name: 'Jessica Miles', avatar: 'https://i.pravatar.cc/150?u=jessica', timeAgo: '5 hours ago' },
-        content: "Working on a new design system for our upcoming product launch. It's challenging but so rewarding to see all the pieces come together! 🎨✨",
-        likes: '342',
-        comments: '18'
-    }
-];
-
-
-
-
+interface Notification {
+    id: string;
+    title: string;
+    content: string;
+    type: string;
+    createdAt: string;
+}
 
 export default function FeedPage() {
     const navigate = useNavigate();
@@ -45,227 +27,333 @@ export default function FeedPage() {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [contacts, setContacts] = useState<User[]>([]);
 
-    useEffect(() => {
-        if (!user) {
-            // navigate('/login'); 
-        }
+    // Feed State
+    const [posts, setPosts] = useState<Post[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [newPostContent, setNewPostContent] = useState('');
+    const [isPosting, setIsPosting] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-        const fetchContacts = async () => {
+    // Notification State
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // Quick Chat State
+    // REMOVED: quickMessages, quickInput, interval
+    // const [quickMessages, setQuickMessages] = useState<any[]>([]);
+    // const [quickInput, setQuickInput] = useState("");
+    // const quickChatInterval = useRef<number | null>(null);
+    // const quickChatScrollRef = useRef<HTMLDivElement>(null);
+
+    const quickActions = [
+        "👋 Xin chào",
+        "💼 Trao đổi công việc",
+        "❓ Bạn có rảnh không?",
+        "📧 Check mail nhé",
+        "👍 OK / Đã rõ"
+    ];
+
+    // Initial Data Fetch
+    useEffect(() => {
+        if (!user) return;
+
+        const fetchData = async () => {
+            setIsLoading(true);
             try {
+                const postsData = await feedService.getPosts();
+                setPosts(postsData.posts);
+
                 const users = await userService.getAllUsers();
                 const otherUsers = users.filter(u => u.username !== user?.username);
                 setContacts(otherUsers);
+
+                const notifs = await api.get<Notification[]>('/api/notifications');
+                setNotifications(notifs);
+                setUnreadCount(notifs.length);
+
             } catch (error) {
-                console.error("Failed to fetch contacts", error);
+                console.error("Error loading feed data", error);
+            } finally {
+                setIsLoading(false);
             }
         };
-        fetchContacts();
+
+        fetchData();
+
+        const notifInterval = setInterval(async () => {
+            try {
+                const notifs = await api.get<Notification[]>('/api/notifications');
+                setNotifications(notifs);
+                setUnreadCount(notifs.length);
+            } catch (e) { }
+        }, 60000);
 
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, [user, navigate]);
 
-    const toggleMobileMenu = () => setShowMobileMenu(!showMobileMenu);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearInterval(notifInterval);
+        };
+    }, [user?.username, navigate]);
+
+    // Quick Chat Effects - REMOVED history loading
+    // useEffect(() => { ... })
+
+    // Scroll effect REMOVED
+
+    const handleQuickSend = async (content: string) => {
+        if (!content || !activeChatUser || !user?.id) return;
+        try {
+            await chatService.sendMessage({
+                senderId: user.id,
+                receiverId: activeChatUser.id || activeChatUser.username,
+                content: content,
+                senderContent: content
+            });
+            message.success(`Đã gửi: "${content}"`);
+        } catch (e) {
+            console.error(e);
+            message.error("Gửi tin nhắn thất bại");
+        }
+    };
 
     const handleLogout = () => {
-        authService.logout();
-        navigate('/login');
+        confirmLogout(() => {
+            authService.logout();
+            navigate('/login');
+        });
+    };
+
+    const getAvatarUrl = (userOrUrl?: any) => {
+        if (!userOrUrl) return `https://i.pravatar.cc/150?u=user`;
+        const url = typeof userOrUrl === 'string' ? userOrUrl : userOrUrl.avatarUrl;
+        if (!url) return `https://i.pravatar.cc/150?u=${userOrUrl.username || 'user'}`;
+        if (url.startsWith('http')) return url;
+        return `http://127.0.0.1:5038${url}`;
+    };
+
+    // Feed Actions
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setSelectedFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeSelectedFile = () => {
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleCreatePost = async () => {
+        if (!newPostContent.trim() && !selectedFile) return;
+        setIsPosting(true);
+        try {
+            let mediaFiles: any[] = [];
+            if (selectedFile) {
+                const uploadResult = await feedService.uploadFile(selectedFile);
+                mediaFiles.push({
+                    type: 'image',
+                    url: `http://127.0.0.1:5038${uploadResult.url}`,
+                    fileName: uploadResult.fileName,
+                    fileSize: uploadResult.size
+                });
+            }
+
+            const newPost = await feedService.createPost(newPostContent, 'Public', mediaFiles);
+            setPosts([newPost, ...posts]);
+            setNewPostContent('');
+            removeSelectedFile();
+        } catch (error) {
+            console.error("Failed to create post", error);
+            alert("Failed to post. Please try again.");
+        } finally {
+            setIsPosting(false);
+        }
+    };
+
+    const handlePostUpdated = (updatedPost: Post) => {
+        setPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
+    };
+
+    const handlePostDeleted = (postId: string) => {
+        setPosts(prev => prev.filter(p => p.id !== postId));
     };
 
     return (
-        <div className="feed-page-container">
-            {/* 1. Header */}
-            <header className="feed-header">
-                <div className="logo-section">
-                    <div className="logo-icon">
-                        <span className="material-symbols-outlined">hub</span>
-                    </div>
-                    <span className="logo-text">SocialNet</span>
-                </div>
-
-                <div className="header-search">
-                    <div className="search-input-wrapper">
-                        <span className="material-symbols-outlined" style={{ color: '#9ca3af' }}>search</span>
-                        <input className="search-input" placeholder="Search for friends, posts or videos..." />
-                    </div>
-                </div>
-
-                <div className="header-right">
-                    <button className="header-icon-btn">
-                        <span className="material-symbols-outlined">search</span>
+        <div className="flex min-h-screen w-full flex-col bg-[var(--color-dark-bg)] text-[var(--color-text-main)] font-[Inter] overflow-x-hidden">
+            {/* Header */}
+            <header className="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-[var(--color-border)] bg-[var(--color-dark-surface)] px-4 py-3 lg:px-6 h-[var(--header-height)]">
+                <div className="lg:hidden">
+                    <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="text-white">
+                        <span className="material-symbols-outlined">menu</span>
                     </button>
-                    <button className="header-icon-btn">
+                </div>
+                <div className="flex items-center gap-4 lg:gap-8">
+                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/feed')}>
+                        <div className="logo-icon" style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span className="material-symbols-outlined" style={{ color: '#3b82f6' }}>hub</span>
+                        </div>
+                        <span className="text-xl font-bold text-white tracking-tight hidden sm:block">SocialNet</span>
+                    </div>
+
+                    <label className="flex flex-col min-w-40 !h-10 max-w-64 lg:w-96 hidden md:flex">
+                        <div className="flex w-full flex-1 items-stretch rounded-xl h-full">
+                            {/* <div className="text-[var(--color-text-muted)] flex border-none bg-[var(--color-dark-bg)] items-center justify-center pl-4 rounded-l-xl border-r-0 border border-[var(--color-border)]">
+                                <span className="material-symbols-outlined">search</span>
+                            </div> */}
+                            {/* <input className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-white focus:outline-0 focus:ring-0 border-none bg-[var(--color-dark-bg)] focus:border-none h-full placeholder:text-[var(--color-text-muted)] px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal border border-[var(--color-border)]" placeholder="Search..." /> */}
+                        </div>
+                    </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-4">
+                    <button className="flex items-center justify-center text-[var(--color-text-muted)] hover:text-white transition-colors relative" onClick={() => setShowNotifications(!showNotifications)}>
                         <span className="material-symbols-outlined">notifications</span>
-                        <span className="notification-badge"></span>
+                        {unreadCount > 0 && <span className="absolute top-0 right-0 size-2 bg-red-500 rounded-full border border-[var(--color-dark-surface)]"></span>}
                     </button>
-                    <button className="header-icon-btn" onClick={() => navigate('/chat')}>
-                        <span className="material-symbols-outlined">chat_bubble</span>
-                    </button>
-                    <div className="user-avatar" onClick={() => navigate('/profile')} style={{ backgroundImage: `url(https://i.pravatar.cc/150?u=${user?.username || 'me'})` }}></div>
+                    {showNotifications && (
+                        <div className="absolute top-16 right-4 sm:right-10 w-80 bg-[var(--color-dark-surface)] border border-[var(--color-border)] rounded-lg shadow-xl z-50 animate-fade-in max-h-[400px] overflow-y-auto">
+                            <div className="p-4 border-b border-[var(--color-border)]">
+                                <h3 className="text-white font-bold">Notifications</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                {notifications.length > 0 ? notifications.map(n => (
+                                    <div key={n.id} className="p-4 hover:bg-[var(--color-dark-surface-lighter)] border-b border-[var(--color-border)] cursor-pointer transition-colors">
+                                        <div className="text-white text-sm font-medium">{n.title}</div>
+                                        <div className="text-[var(--color-text-muted)] text-xs">{n.content}</div>
+                                    </div>
+                                )) : <div className="p-4 text-[var(--color-text-muted)] text-sm">No new notifications</div>}
+                            </div>
+                        </div>
+                    )}
+                    <div
+                        className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 ring-2 ring-[var(--color-border)] cursor-pointer"
+                        style={{ backgroundImage: `url(${getAvatarUrl(user)})` }}
+                        onClick={() => navigate('/profile')}
+                    ></div>
                 </div>
             </header>
 
-            {/* 2. Main Grid */}
-            <div className="main-wrapper">
-
+            <div className="flex flex-1 justify-center py-6 px-4 lg:px-8 gap-6 max-w-[1600px] mx-auto w-full">
                 {/* Left Sidebar */}
-                <aside className="left-sidebar">
-                    <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <a href="#" className="nav-link active">
-                            <span className="material-symbols-outlined">home</span>
-                            <span>Feed</span>
-                        </a>
-                        <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/profile'); }}>
-                            <span className="material-symbols-outlined">person</span>
-                            <span>Profile</span>
-                        </a>
-                        <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/chat'); }}>
-                            <span className="material-symbols-outlined">chat</span>
-                            <span>Chat</span>
-                        </a>
-                        <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
-                            <span className="material-symbols-outlined">video_call</span>
-                            <span>Join Meeting</span>
-                        </button>
-                        {user?.role === 'Admin' && (
-                            <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
-                                <span className="material-symbols-outlined">add_box</span>
-                                <span>Create Meeting</span>
-                            </button>
-                        )}
-                        <a href="#" className="nav-link">
-                            <span className="material-symbols-outlined">shield</span>
-                            <span>Privacy</span>
-                        </a>
-                        <button className="nav-link" onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', marginTop: 'auto' }}>
-                            <span className="material-symbols-outlined" style={{ color: '#ef4444' }}>logout</span>
-                            <span style={{ color: '#ef4444' }}>Logout</span>
-                        </button>
-                    </nav>
-
-                    <div style={{ marginTop: 32 }}>
-                        <h3 className="shortcuts-title">Shortcuts</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <a href="#" className="nav-link">
-                                <span className="material-symbols-outlined" style={{ color: '#c084fc' }}>groups</span>
-                                <span>Design Community</span>
+                <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ease-in-out bg-[var(--color-dark-surface)] lg:relative lg:translate-x-0 ${showMobileMenu ? 'translate-x-0' : '-translate-x-full'} lg:bg-transparent lg:block pt-20 lg:pt-0`}>
+                    <div className="lg:hidden absolute top-4 right-4">
+                        <button onClick={() => setShowMobileMenu(false)} className="text-white"><span className="material-symbols-outlined">close</span></button>
+                    </div>
+                    <nav className="flex flex-col gap-2 p-4 lg:p-0">
+                        {/* Using inline styles or custom classes for sidebar items to match exactly */}
+                        <div className="bg-[var(--color-dark-surface)] rounded-xl p-2 border border-[var(--color-border)]">
+                            <a href="#" className="flex items-center gap-3 px-4 py-3 bg-[var(--color-primary)] text-white rounded-lg font-medium transition-colors">
+                                <span className="material-symbols-outlined">home</span><span>Feed</span>
                             </a>
-                            <a href="#" className="nav-link">
-                                <span className="material-symbols-outlined" style={{ color: '#4ade80' }}>event</span>
-                                <span>Events</span>
+                            <a href="#" className="flex items-center gap-3 px-4 py-3 text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-dark-surface-lighter)] rounded-lg font-medium transition-colors" onClick={() => navigate('/profile')}>
+                                <span className="material-symbols-outlined">person</span><span>Profile</span>
                             </a>
-                            <a href="#" className="nav-link">
-                                <span className="material-symbols-outlined" style={{ color: '#60a5fa' }}>bookmark</span>
-                                <span>Saved Posts</span>
+                            <a href="#" className="flex items-center gap-3 px-4 py-3 text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-dark-surface-lighter)] rounded-lg font-medium transition-colors" onClick={() => navigate('/chat')}>
+                                <span className="material-symbols-outlined">chat</span><span>Chat</span>
+                            </a>
+                            {user?.role === 'Admin' && (
+                                <a href="#" className="flex items-center gap-3 px-4 py-3 text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-dark-surface-lighter)] rounded-lg font-medium transition-colors" onClick={() => navigate('/dashboard')}>
+                                    <span className="material-symbols-outlined">admin_panel_settings</span><span>Admin Manager</span>
+                                </a>
+                            )}
+                            <a href="#" className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-[var(--color-dark-surface-lighter)] rounded-lg font-medium transition-colors mt-2" onClick={handleLogout}>
+                                <span className="material-symbols-outlined">logout</span><span>Logout</span>
                             </a>
                         </div>
-                    </div>
+                    </nav>
                 </aside>
 
-                {/* Main Feed Content */}
-                <main className="feed-content">
-                    {/* Stories */}
-                    {/* Included effectively as a horizontal scroll or simplified here */}
-
+                {/* Feed Content */}
+                <main className="flex-1 max-w-2xl flex flex-col gap-6">
                     {/* Create Post */}
-                    <div className="create-post">
-                        <div className="create-post-top">
-                            <div className="user-avatar" style={{ backgroundImage: `url(https://i.pravatar.cc/150?u=${user?.username || 'me'})`, width: 40, height: 40, minWidth: 40 }}></div>
-                            <input className="create-post-input" placeholder={`What's on your mind, ${user?.fullName?.split(' ')[0] || 'User'}?`} />
+                    <div className="bg-[var(--color-dark-surface)] rounded-xl p-4 border border-[var(--color-border)] shadow-sm relative z-0">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="user-avatar" style={{ backgroundImage: `url(${getAvatarUrl(user)})`, width: 40, height: 40, minWidth: 40, borderRadius: '50%', backgroundSize: 'cover' }}></div>
+                            <input
+                                className="flex-1 bg-[var(--color-dark-bg)] border-none rounded-2xl h-12 px-6 text-white placeholder:text-[var(--color-text-muted)] focus:ring-1 focus:ring-[var(--color-primary)] transition-all"
+                                placeholder={`What's on your mind?`}
+                                value={newPostContent}
+                                onChange={(e) => setNewPostContent(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleCreatePost()}
+                            />
+                            <button
+                                onClick={handleCreatePost}
+                                disabled={(!newPostContent.trim() && !selectedFile) || isPosting}
+                                className="bg-[var(--color-primary)] text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors"
+                            >
+                                {isPosting ? 'Posting...' : 'Post'}
+                            </button>
                         </div>
-                        <div className="create-post-actions">
-                            <button className="action-chip">
-                                <span className="material-symbols-outlined" style={{ color: '#f87171' }}>videocam</span>
-                                Live Video
-                            </button>
-                            <button className="action-chip">
-                                <span className="material-symbols-outlined" style={{ color: '#4ade80' }}>photo_library</span>
-                                Photo/Video
-                            </button>
-                            <button className="action-chip">
-                                <span className="material-symbols-outlined" style={{ color: '#facc15' }}>sentiment_satisfied</span>
-                                Feeling/Activity
+
+                        {/* Image Preview */}
+                        {previewUrl && (
+                            <div className="relative mb-4 rounded-lg overflow-hidden border border-[var(--color-border)]">
+                                <img src={previewUrl} alt="Preview" className="w-full max-h-[300px] object-cover" />
+                                <button
+                                    onClick={removeSelectedFile}
+                                    className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-sm">close</span>
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-4 border-t border-[var(--color-border)] pt-3">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileSelect}
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                            />
+                            <button className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-white px-3 py-2 rounded-lg hover:bg-[var(--color-dark-surface-lighter)] transition-colors" onClick={() => fileInputRef.current?.click()}>
+                                <span className="material-symbols-outlined text-green-500">photo_library</span> Photo/Video
                             </button>
                         </div>
                     </div>
 
                     {/* Posts */}
-                    {POSTS.map(post => (
-                        <article key={post.id} className="post-card">
-                            <div className="post-header">
-                                <div className="post-user">
-                                    <div className="user-avatar" style={{ backgroundImage: `url(${post.author.avatar})` }}></div>
-                                    <div className="post-user-info">
-                                        <h4>{post.author.name}</h4>
-                                        <div className="post-meta">
-                                            {post.author.timeAgo} • <span className="material-symbols-outlined" style={{ fontSize: 14 }}>public</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button className="post-action-btn" style={{ width: 'auto' }}>
-                                    <span className="material-symbols-outlined">more_horiz</span>
-                                </button>
-                            </div>
-
-                            <div className="post-content-text">
-                                {post.content}
-                            </div>
-
-                            {post.image && (
-                                <div className="post-image" style={{ backgroundImage: `url(${post.image})` }}></div>
-                            )}
-
-                            <div className="post-stats">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <div style={{ display: 'flex', marginLeft: 4 }}>
-                                        <div className="logo-icon" style={{ width: 16, height: 16, background: '#3b82f6', borderRadius: '50%' }}>
-                                            <span className="material-symbols-outlined" style={{ fontSize: 10, color: 'white' }}>thumb_up</span>
-                                        </div>
-                                    </div>
-                                    <span>{post.likes}</span>
-                                </div>
-                                <div style={{ display: 'flex', gap: 12 }}>
-                                    <span>{post.comments} Comments</span>
-                                    {post.shares && <span>{post.shares} Shares</span>}
-                                </div>
-                            </div>
-
-                            <div className="post-actions-bar">
-                                <button className="post-action-btn">
-                                    <span className="material-symbols-outlined">thumb_up</span> Like
-                                </button>
-                                <button className="post-action-btn">
-                                    <span className="material-symbols-outlined">chat_bubble</span> Comment
-                                </button>
-                                <button className="post-action-btn">
-                                    <span className="material-symbols-outlined">share</span> Share
-                                </button>
-                            </div>
-                        </article>
-                    ))}
+                    {isLoading ? (
+                        <div className="text-center text-[var(--color-text-muted)] py-10">Loading posts...</div>
+                    ) : posts.length === 0 ? (
+                        <div className="text-center text-[var(--color-text-muted)] py-10">No posts yet. Be the first to share!</div>
+                    ) : (
+                        posts.map(post => (
+                            <PostCard
+                                key={post.id}
+                                post={post}
+                                currentUser={user}
+                                onPostUpdated={handlePostUpdated}
+                                onPostDeleted={handlePostDeleted}
+                            />
+                        ))
+                    )}
                 </main>
 
-                {/* Right Sidebar */}
-                <aside className="right-sidebar">
-
-
-                    <div className="widget">
-                        <div className="widget-title">
-                            <h3>Contacts</h3>
-                            <button className="add-user-btn" style={{ padding: 0 }}>
-                                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>search</span>
-                            </button>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Right Sidebar - Contacts */}
+                <aside className="w-80 hidden lg:flex flex-col gap-6">
+                    <div className="bg-[var(--color-dark-surface)] rounded-xl p-5 border border-[var(--color-border)] shadow-sm">
+                        <h3 className="text-white text-lg font-bold mb-4">Contacts</h3>
+                        <div className="flex flex-col gap-2">
                             {contacts.map((c) => (
-                                <div key={c.id || c.username} className="user-row" style={{ marginBottom: 0, justifyContent: 'flex-start', gap: 12, cursor: 'pointer' }} onClick={() => setActiveChatUser(c)}>
-                                    <div style={{ position: 'relative' }}>
-                                        <div className="user-avatar" style={{ backgroundImage: `url(https://i.pravatar.cc/150?u=${c.username})`, width: 32, height: 32 }}></div>
-                                        {/* Mocking online status for now as boolean isn't on User type usually */}
-                                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, background: '#22c55e', borderRadius: '50%', border: '2px solid #1e2126' }}></div>
+                                <div key={c.id || c.username} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--color-dark-surface-lighter)] cursor-pointer transition-colors" onClick={() => setActiveChatUser(c)}>
+                                    <div className="relative">
+                                        <div className="user-avatar" style={{ backgroundImage: `url(${getAvatarUrl(c)})`, width: 36, height: 36, borderRadius: '50%', backgroundSize: 'cover' }}></div>
+                                        <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[var(--color-dark-surface)]"></div>
                                     </div>
-                                    <span style={{ fontSize: 14, fontWeight: 500, color: '#d1d5db' }}>{c.fullName || c.username}</span>
+                                    <span className="text-sm font-medium text-[var(--color-text-main)]">{c.fullName || c.username}</span>
                                 </div>
                             ))}
                         </div>
@@ -273,97 +361,50 @@ export default function FeedPage() {
                 </aside>
             </div>
 
-            {/* Floating Action Button (Mobile) */}
-            {isMobile && !showMobileMenu && (
-                <button
-                    onClick={toggleMobileMenu}
-                    style={{
-                        position: 'fixed', bottom: 24, right: 24, width: 56, height: 56, borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #2563eb, #9333ea)', border: 'none',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
-                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)', zIndex: 100, cursor: 'pointer'
-                    }}
-                >
-                    <span className="material-symbols-outlined">menu</span>
-                </button>
-            )}
-
-            {/* Mobile Overlay Menu */}
-            {showMobileMenu && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
-                    <div onClick={toggleMobileMenu} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}></div>
-                    <div style={{ width: 300, background: '#1e2126', position: 'relative', height: '100%', padding: 24, borderLeft: '1px solid #374151' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-                            <h2 style={{ fontSize: 20, fontWeight: 'bold', color: 'white' }}>Menu</h2>
-                            <button onClick={toggleMobileMenu} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
-                                <span className="material-symbols-outlined">close</span>
-                            </button>
-                        </div>
-                        <nav style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            <a href="#" className="nav-link active">
-                                <span className="material-symbols-outlined">home</span>
-                                <span>Feed</span>
-                            </a>
-                            <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/profile'); }}>
-                                <span className="material-symbols-outlined">person</span>
-                                <span>Profile</span>
-                            </a>
-                            <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
-                                <span className="material-symbols-outlined">video_call</span>
-                                <span>Join Meeting</span>
-                            </button>
-                            {user?.role === 'Admin' && (
-                                <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
-                                    <span className="material-symbols-outlined">add_box</span>
-                                    <span>Create Meeting</span>
-                                </button>
-                            )}
-                            <button className="nav-link" onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', marginTop: 12, borderTop: '1px solid #374151', paddingTop: 12 }}>
-                                <span className="material-symbols-outlined" style={{ color: '#ef4444' }}>logout</span>
-                                <span style={{ color: '#ef4444' }}>Logout</span>
-                            </button>
-                        </nav>
-                    </div>
-                </div>
-            )}
-
-            {/* Chat Widget */}
+            {/* Quick Chat Overlay - Restricted Mode */}
             {activeChatUser && (
-                <div className="floating-overlay-menu">
-                    <div className="overlay-header" onClick={() => setActiveChatUser(null)}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ position: 'relative' }}>
-                                <div className="user-avatar" style={{ backgroundImage: `url(${activeChatUser.avatar})`, width: 32, height: 32 }}></div>
-                                <div style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, background: '#22c55e', borderRadius: '50%', border: '1px solid #3b82f6' }}></div>
+                <div className={`fixed bottom-0 right-4 w-80 bg-[var(--color-dark-surface)] border border-[var(--color-border)] rounded-t-lg shadow-xl z-50 flex flex-col transition-all duration-300 ${activeChatUser ? 'translate-y-0' : 'translate-y-full'}`} style={{ height: 'auto', maxHeight: '400px' }}>
+                    <div className="p-3 bg-[var(--color-dark-surface-lighter)] border-b border-[var(--color-border)] flex items-center justify-between rounded-t-lg">
+                        <div className="flex items-center gap-2">
+                            <div className="user-avatar w-8 h-8 relative rounded-full bg-cover" style={{ backgroundImage: `url(${getAvatarUrl(activeChatUser)})` }}>
+                                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[var(--color-dark-surface)]"></div>
                             </div>
                             <div>
-                                <h4 style={{ fontSize: 13, fontWeight: 'bold', margin: 0 }}>{activeChatUser.name}</h4>
-                                <span style={{ fontSize: 10, opacity: 0.8 }}>Active Now</span>
+                                <div className="text-white font-medium text-sm">{activeChatUser.fullName || activeChatUser.username}</div>
+                                <div className="text-[10px] text-[var(--color-text-muted)]">Quick Message Only</div>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>videocam</span>
-                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-                        </div>
+                        <button onClick={() => setActiveChatUser(null)} className="text-[var(--color-text-muted)] hover:text-white">
+                            <span className="material-symbols-outlined text-lg">close</span>
+                        </button>
                     </div>
 
-                    <div className="overlay-body">
-                        <div className="chat-bubble received">
-                            Hey! Did you see the new update designs?
+                    <div className="p-4 flex flex-col gap-3 bg-[var(--color-dark-bg)]">
+                        <div className="text-center text-[var(--color-text-muted)] text-sm mb-2">
+                            Select a message to send instantly:
                         </div>
-                        <div className="chat-bubble sent">
-                            Yeah, looking great! I love the new dark mode palette.
+                        <div className="grid grid-cols-1 gap-2">
+                            {quickActions.map((action, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => handleQuickSend(action)}
+                                    className="text-left px-4 py-3 rounded-lg bg-[var(--color-dark-surface-lighter)] text-white hover:bg-[var(--color-primary)] hover:text-white transition-colors text-sm font-medium border border-[var(--color-border)] hover:border-transparent flex items-center gap-2"
+                                >
+                                    <span>{action}</span>
+                                </button>
+                            ))}
                         </div>
-                    </div>
-
-                    <div className="overlay-footer">
-                        <span className="material-symbols-outlined" style={{ color: '#9ca3af', cursor: 'pointer' }}>add_circle</span>
-                        <input className="chat-input" placeholder="Aa" />
-                        <span className="material-symbols-outlined" style={{ color: '#3b82f6', cursor: 'pointer' }}>send</span>
+                        <div className="mt-2 text-center">
+                            <button
+                                onClick={() => navigate('/chat')}
+                                className="text-xs text-[var(--color-primary)] hover:underline"
+                            >
+                                Open full chat
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
-
         </div>
     );
 }

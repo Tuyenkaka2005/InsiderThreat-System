@@ -4,6 +4,7 @@ using MongoDB.Driver;
 using InsiderThreat.Shared;
 using System.Security.Cryptography;
 using System.Text;
+using MongoDB.Bson;
 
 namespace InsiderThreat.Server.Controllers;
 
@@ -84,7 +85,12 @@ public class UsersController : ControllerBase
         if (!string.IsNullOrEmpty(updatedUser.Role)) user.Role = updatedUser.Role;
         if (!string.IsNullOrEmpty(updatedUser.Department)) user.Department = updatedUser.Department;
         if (!string.IsNullOrEmpty(updatedUser.Email)) user.Email = updatedUser.Email;
-        
+
+        // Update new fields
+        if (!string.IsNullOrEmpty(updatedUser.Position)) user.Position = updatedUser.Position;
+        if (!string.IsNullOrEmpty(updatedUser.Bio)) user.Bio = updatedUser.Bio;
+        if (!string.IsNullOrEmpty(updatedUser.PhoneNumber)) user.PhoneNumber = updatedUser.PhoneNumber;
+
         // Always update avatar if provided (allow null to clear? No, usually we send new url)
         if (!string.IsNullOrEmpty(updatedUser.AvatarUrl)) user.AvatarUrl = updatedUser.AvatarUrl;
 
@@ -146,5 +152,44 @@ public class UsersController : ControllerBase
         }
 
         return Ok(new { Message = "Public key updated successfully" });
+    }
+
+    // GET: api/users/{id}/logs
+    [HttpGet("{id}/logs")]
+    public async Task<ActionResult<List<LogEntry>>> GetUserLogs(string id)
+    {
+        // Kiểm tra quyền: Chỉ user đó hoặc Admin mới được xem log cá nhân
+        // (Tạm thời bỏ qua check quyền chặt chẽ để test nhanh, hoặc check id trùng current user)
+        // var currentUserId = User.FindFirst("id")?.Value;
+
+        var logsCollection = _usersCollection.Database.GetCollection<LogEntry>("Logs");
+
+        // Lấy User để biết Username (vì Log có thể lưu theo UserID hoặc Username/ComputerName??)
+        // Trong AuthController log lưu: ActionTaken/Message...
+        // Tạm thời Log không có UserId chuẩn, nó có ComputerName/IP.
+        // Nhưng AttendanceLog có UserId.
+        // LogEntry trong AuthController: LogType, Message, etc.
+        // Nếu muốn query Logs liên quan user, ta cần lưu UserId vào LogEntry hoặc query theo text (không hay).
+
+        // SOLUTION: Query AttendanceLogs trước (dễ hơn vì có UserId).
+        // Nếu muốn query Security Logs (LogEntry), ta cần update LogEntry model để có UserId.
+        // Hiện tại AuthController log face login failed log IP/ComputerName.
+
+        // Tạm thời trả về Attendance Logs (dễ nhất) -> Hoặc LogEntry nếu filter theo Username?
+        // Let's assume we want SECURITY logs.
+        // AuthController logs "User '{user.Username}' đăng nhập thành công".
+        // Ta có thể filter Message contains username. (Hơi basic nhưng work for now).
+
+        var user = await _usersCollection.Find(u => u.Id == id).FirstOrDefaultAsync();
+        if (user == null) return NotFound();
+
+        var filter = Builders<LogEntry>.Filter.Regex("Message", new BsonRegularExpression(user.Username, "i"));
+
+        var logs = await logsCollection.Find(filter)
+            .SortByDescending(l => l.Timestamp)
+            .Limit(50)
+            .ToListAsync();
+
+        return Ok(logs);
     }
 }

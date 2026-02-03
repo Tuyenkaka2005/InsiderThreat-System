@@ -2,6 +2,17 @@
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+
+  /* Global Color Palette (Derived from ChatPage) */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-dark-bg: #0f1115;
+  --color-dark-surface: #1e2126;
+  --color-dark-surface-lighter: #2a2e35;
+  --color-text-main: #f3f4f6;
+  --color-text-muted: #9ca3af;
+  --color-border: #2a2e35;
+  --header-height: 64px;
 }
 
 * {
@@ -27,4 +38,35 @@ body {
 * {
   writing-mode: horizontal-tb !important;
   text-orientation: mixed !important;
+}
+
+/* Dark Theme Modal Overrides */
+.dark-theme-modal .ant-modal-content {
+  background-color: var(--color-dark-surface) !important;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.dark-theme-modal .ant-modal-header {
+  background-color: transparent !important;
+  border-bottom: none !important;
+}
+
+.dark-theme-modal .ant-modal-title {
+  color: var(--color-text-main) !important;
+}
+
+.dark-theme-modal .ant-modal-body {
+  color: var(--color-text-muted) !important;
+}
+
+.dark-theme-modal .ant-btn-default {
+  background-color: transparent;
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.dark-theme-modal .ant-btn-default:hover {
+  color: var(--color-text-main);
+  border-color: var(--color-text-main);
 }
