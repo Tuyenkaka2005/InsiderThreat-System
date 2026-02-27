@@ -8,6 +8,17 @@ export const userService = {
         return response;
     },
 
+    // Get currently online users
+    async getOnlineUsers(): Promise<string[]> {
+        try {
+            const response = await api.get<string[]>('/api/users/online');
+            return response;
+        } catch (error) {
+            console.error('Failed to get online users', error);
+            return [];
+        }
+    },
+
     // Update user profile
     async updateUser(id: string, userData: Partial<User>): Promise<void> {
         await api.put(`/api/users/${id}`, userData);

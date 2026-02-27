@@ -197,7 +197,7 @@ export default function FeedPage() {
 
                 mediaFiles.push({
                     type: fileType,
-                    url: `${API_BASE_URL}${uploadResult.url}`,
+                    url: uploadResult.url,  // lưu đường dẫn tương đối /uploads/..., không dùng full URL
                     fileName: uploadResult.fileName,
                     fileSize: uploadResult.size
                 });

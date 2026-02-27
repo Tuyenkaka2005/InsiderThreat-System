@@ -69,6 +69,21 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(key)
     };
+
+    // SignalR WebSocket không gửi được header → token đến qua query string
+    options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
@@ -136,6 +151,7 @@ app.MapGet("/test-db", (IMongoDatabase db) =>
 // Map SignalR Hub
 app.MapHub<InsiderThreat.Server.Hubs.SystemHub>("/hubs/system");
 app.MapHub<InsiderThreat.Server.Hubs.ChatHub>("/hubs/chat");
+app.MapHub<InsiderThreat.Server.Hubs.NotificationHub>("/hubs/notifications");
 
 app.MapControllers();
 app.Run();

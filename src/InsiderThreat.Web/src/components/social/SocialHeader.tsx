@@ -17,6 +17,7 @@ import {
 import type { MenuProps } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import styles from './SocialHeader.module.css';
 
 const { Header } = Layout;
@@ -24,6 +25,7 @@ const { Header } = Layout;
 const SocialHeader = () => {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
+    const { unreadMessageCount, unreadSocialCount } = useNotifications();
     const [lang, setLang] = useState('vi');
 
     const userMenuItems: MenuProps['items'] = [
@@ -93,7 +95,7 @@ const SocialHeader = () => {
                         <TeamOutlined />
                     </div>
                     <div className={styles.navItem} onClick={() => navigate('/messages')}>
-                        <Badge count={3} size="small">
+                        <Badge count={unreadMessageCount} size="small">
                             <MessageOutlined />
                         </Badge>
                     </div>
@@ -108,7 +110,7 @@ const SocialHeader = () => {
                         <PlusOutlined />
                     </div>
                     <div className={styles.iconBtn}>
-                        <Badge count={5} size="small">
+                        <Badge count={unreadSocialCount} size="small">
                             <BellOutlined />
                         </Badge>
                     </div>

@@ -4,6 +4,7 @@ import { authService } from '../services/auth';
 import { API_BASE_URL } from '../services/api';
 import { userService } from '../services/userService';
 import { chatService } from '../services/chatService';
+import { signalRService } from '../services/signalRService';
 import type { Message as ApiMessage } from '../services/chatService';
 import type { User } from '../types';
 import { cryptoService } from '../services/cryptoService';
@@ -20,7 +21,9 @@ interface ChatUser {
     lastMessage?: string;
     lastMessageTime?: string;
     publicKey?: string;
+    unreadCount?: number;
 }
+
 
 interface Message {
     id: string;
@@ -30,6 +33,7 @@ interface Message {
     attachmentUrl?: string;
     attachmentType?: string;
     attachmentName?: string;
+    isRead?: boolean;
 }
 
 export default function ChatPage() {
@@ -234,34 +238,71 @@ export default function ChatPage() {
 
     // 2. Fetch Contacts
     useEffect(() => {
-        if (!currentUser) {
-            // navigate('/login');
-            return;
-        }
-
         const fetchContacts = async () => {
+            if (!currentUser?.id) return;
             try {
-                const users = await userService.getAllUsers();
-                console.log("Fetched users for Chat:", users);
-                const getAvatarUrl = (u: User | null) => {
-                    if (!u?.avatarUrl) return `https://i.pravatar.cc/150?u=${u?.username || 'user'}`;
-                    if (u.avatarUrl.startsWith('http')) return u.avatarUrl;
-                    return `${API_BASE_URL}${u.avatarUrl}`;
+                const [allUsers, conversations, onlineUserIds] = await Promise.all([
+                    userService.getAllUsers(),
+                    chatService.getConversations(currentUser.id),
+                    userService.getOnlineUsers()
+                ]);
+
+                const onlineSet = new Set(onlineUserIds);
+
+                const getAvatarUrl = (u: User | null | string) => {
+                    if (!u) return `https://i.pravatar.cc/150`;
+                    if (typeof u === 'string') return u.startsWith('http') ? u : `${API_BASE_URL}${u}`;
+                    if (!(u as User).avatarUrl) return `https://i.pravatar.cc/150?u=${(u as User).username || 'user'}`;
+                    if ((u as User).avatarUrl?.startsWith('http')) return (u as User).avatarUrl;
+                    return `${API_BASE_URL}${(u as User).avatarUrl}`;
                 };
 
-                const chatUsers: ChatUser[] = users
-                    .filter(u => u.username !== currentUser.username)
-                    .map(u => ({
-                        id: u.id || u.username,
-                        username: u.username,
-                        fullName: u.fullName,
-                        avatar: getAvatarUrl(u), // Use resolved URL
-                        isOnline: Math.random() > 0.5,
-                        lastMessage: "Start E2EE Chat",
-                        lastMessageTime: "",
-                        publicKey: u.publicKey
-                    }));
-                setContacts(chatUsers);
+                const chatUsersMap = new Map<string, ChatUser>();
+
+                conversations.forEach((conv: any) => {
+                    chatUsersMap.set(conv.id, {
+                        id: conv.id,
+                        username: conv.username,
+                        fullName: conv.fullName,
+                        avatar: getAvatarUrl(conv.avatar || conv.username),
+                        isOnline: onlineSet.has(conv.id),
+                        lastMessage: conv.lastMessage,
+                        lastMessageTime: conv.lastMessageTime,
+                        publicKey: conv.publicKey,
+                        unreadCount: conv.unreadCount || 0
+                    });
+                });
+
+                allUsers.forEach((u: User) => {
+                    if (u.id && u.username && u.username !== currentUser.username && !chatUsersMap.has(u.id)) {
+                        chatUsersMap.set(u.id, {
+                            id: u.id,
+                            username: u.username,
+                            fullName: u.fullName,
+                            avatar: getAvatarUrl(u),
+                            isOnline: onlineSet.has(u.id),
+                            lastMessage: "Bắt đầu trò chuyện",
+                            lastMessageTime: "",
+                            publicKey: u.publicKey,
+                            unreadCount: 0
+                        });
+                    }
+                });
+
+                const sortedUsers = Array.from(chatUsersMap.values()).sort((a, b) => {
+                    if ((a.unreadCount || 0) > 0 && (b.unreadCount || 0) === 0) return -1;
+                    if ((a.unreadCount || 0) === 0 && (b.unreadCount || 0) > 0) return 1;
+
+                    if (a.lastMessageTime && b.lastMessageTime) {
+                        return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+                    }
+                    if (a.lastMessageTime) return -1;
+                    if (b.lastMessageTime) return 1;
+
+                    return a.username.localeCompare(b.username);
+                });
+
+                setContacts(sortedUsers);
             } catch (error) {
                 console.error("Failed to fetch contacts", error);
             }
@@ -272,13 +313,53 @@ export default function ChatPage() {
 
     // Auto-select user from URL parameter
     useEffect(() => {
-        if (userIdParam && contacts.length > 0 && !selectedUser) {
-            const userToSelect = contacts.find(c => c.id === userIdParam);
-            if (userToSelect) {
-                setSelectedUser(userToSelect);
-            }
+        if (userIdParam && contacts.length > 0) {
+            setSelectedUser(prevSelected => {
+                if (prevSelected?.id === userIdParam) return prevSelected; // Prevent unnecessary update
+                const userToSelect = contacts.find(c => c.id === userIdParam);
+                return userToSelect || prevSelected;
+            });
         }
-    }, [userIdParam, contacts, selectedUser]);
+    }, [userIdParam, contacts]);
+
+    // Realtime Presence Listeners
+    useEffect(() => {
+        const handleUserOnline = (userId: string) => {
+            setContacts(prev => prev.map(c => c.id === userId ? { ...c, isOnline: true } : c));
+            if (selectedUser?.id === userId) {
+                setSelectedUser(prev => prev ? { ...prev, isOnline: true } : prev);
+            }
+        };
+
+        const handleUserOffline = (userId: string) => {
+            setContacts(prev => prev.map(c => c.id === userId ? { ...c, isOnline: false } : c));
+            if (selectedUser?.id === userId) {
+                setSelectedUser(prev => prev ? { ...prev, isOnline: false } : prev);
+            }
+        };
+
+        const handleMessagesRead = (readerId: string) => {
+            // If the person we are chatting with read our messages
+            if (selectedUser?.id === readerId) {
+                setMessages(prev => prev.map(m => ({ ...m, isRead: true })));
+            }
+        };
+
+        const hubConnection = signalRService.getConnection();
+        if (hubConnection) {
+            hubConnection.on('UserOnline', handleUserOnline);
+            hubConnection.on('UserOffline', handleUserOffline);
+            hubConnection.on('MessagesRead', handleMessagesRead);
+        }
+
+        return () => {
+            if (hubConnection) {
+                hubConnection.off('UserOnline', handleUserOnline);
+                hubConnection.off('UserOffline', handleUserOffline);
+                hubConnection.off('MessagesRead', handleMessagesRead);
+            }
+        };
+    }, [selectedUser?.id]);
 
     // 3. Fetch Messages when User Selected
     useEffect(() => {
@@ -298,15 +379,26 @@ export default function ChatPage() {
                         timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                         attachmentUrl: msg.attachmentUrl,
                         attachmentType: msg.attachmentType,
-                        attachmentName: msg.attachmentName
+                        attachmentName: msg.attachmentName,
+                        isRead: msg.isRead
                     };
                 });
 
                 setMessages(prev => {
                     const isDifferent = prev.length !== mappedMessages.length ||
-                        prev[prev.length - 1]?.id !== mappedMessages[mappedMessages.length - 1]?.id;
+                        prev[prev.length - 1]?.id !== mappedMessages[mappedMessages.length - 1]?.id ||
+                        prev.some((m, i) => m.isRead !== mappedMessages[i]?.isRead);
                     return isDifferent ? mappedMessages : prev;
                 });
+
+                // Mark messages as read if we have unread ones
+                const unreadMsgs = apiMessages.filter((m: any) => m.senderId === selectedUser.id && !m.isRead);
+                if (unreadMsgs.length > 0) {
+                    await chatService.markMessagesAsRead(selectedUser.id);
+                    // Update contacts list to clear red dot
+                    setContacts(prev => prev.map(c => c.id === selectedUser.id ? { ...c, unreadCount: 0 } : c));
+                }
+
             } catch (error) {
                 console.error("Failed to load messages", error);
             }
@@ -425,9 +517,14 @@ export default function ChatPage() {
                         style={{
                             width: 40, height: 40, borderRadius: '50%',
                             backgroundImage: `url(${(() => {
-                                if (!currentUser?.avatarUrl) return `https://i.pravatar.cc/150?u=${currentUser?.username || 'me'}`;
-                                if (currentUser.avatarUrl.startsWith('http')) return currentUser.avatarUrl;
-                                return `${API_BASE_URL}${currentUser.avatarUrl}`;
+                                const getAvatarUrl = (u: User | string | undefined | null) => {
+                                    if (!u) return `https://i.pravatar.cc/150`;
+                                    if (typeof u === 'string') return u.startsWith('http') ? u : `${API_BASE_URL}${u}`;
+                                    if (!(u as User).avatarUrl) return `https://i.pravatar.cc/150?u=${(u as User).username || 'user'}`;
+                                    if ((u as User).avatarUrl?.startsWith('http')) return (u as User).avatarUrl;
+                                    return `${API_BASE_URL}${(u as User).avatarUrl}`;
+                                };
+                                return getAvatarUrl(currentUser);
                             })()})`,
                             backgroundSize: 'cover',
                             cursor: 'pointer'
@@ -472,9 +569,23 @@ export default function ChatPage() {
                                     </div>
                                     <div className="conversation-info">
                                         <div className="conversation-name">{contact.fullName || contact.username}</div>
-                                        <div className="conversation-last-msg">
-                                            {contact.lastMessage}
+                                        <div className="chat-preview-text">
+                                            <span style={{ fontWeight: contact.unreadCount ? 'bold' : 'normal', color: contact.unreadCount ? 'var(--color-primary)' : 'inherit' }}>
+                                                {contact.lastMessage}
+                                            </span>
                                         </div>
+                                    </div>
+                                    <div className="chat-item-meta">
+                                        <div className="chat-time" style={{ fontWeight: contact.unreadCount ? 'bold' : 'normal', color: contact.unreadCount ? 'var(--color-primary)' : 'inherit' }}>
+                                            {contact.lastMessageTime
+                                                ? new Date(contact.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                : ''}
+                                        </div>
+                                        {contact.unreadCount ? (
+                                            <div className="unread-badge">
+                                                {contact.unreadCount}
+                                            </div>
+                                        ) : null}
                                     </div>
                                 </div>
                             ))}
@@ -600,8 +711,10 @@ export default function ChatPage() {
                             </div>
 
                             <div className="chat-messages-area">
-                                {messages.map(msg => {
+                                {messages.map((msg, index) => {
                                     const isMe = msg.senderId === currentUser?.id;
+                                    const isLastReadMessage = isMe && msg.isRead && !messages.slice(index + 1).some(m => m.senderId === currentUser?.id && m.isRead);
+
                                     // console.log(`Msg ${msg.id}: Sender=${msg.senderId}, Me=${currentUser?.id}, isMe=${isMe}`, msg);
                                     return (
                                         <div key={msg.id} className={`message-group ${isMe ? 'sent' : 'received'}`}>
@@ -676,6 +789,14 @@ export default function ChatPage() {
                                                 )}
 
                                                 <span className="message-time">{msg.timestamp}</span>
+
+                                                {/* Read Receipt */}
+                                                {isLastReadMessage && (
+                                                    <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 12 }}>done_all</span>
+                                                        Đã xem
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     );

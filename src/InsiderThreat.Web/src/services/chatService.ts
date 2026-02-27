@@ -36,6 +36,16 @@ export const chatService = {
         return await api.get<Message[]>(`/api/messages/${otherUserId}?currentUserId=${currentUserId}`);
     },
 
+    // Get Conversations (recent chat list with unread counts)
+    getConversations: async (userId: string) => {
+        return await api.get<any[]>(`/api/messages/conversations?userId=${userId}`);
+    },
+
+    // Mark Messages as Read
+    markMessagesAsRead: async (senderId: string) => {
+        return await api.put(`/api/messages/read/${senderId}`);
+    },
+
     // Update Public Key
     uploadPublicKey: async (userId: string, publicKey: string) => {
         // api.put handles JSON content type
