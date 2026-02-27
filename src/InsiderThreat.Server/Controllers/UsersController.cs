@@ -42,6 +42,13 @@ public class UsersController : ControllerBase
         return Ok(user);
     }
 
+    // GET: api/users/online
+    [HttpGet("online")]
+    public ActionResult<IEnumerable<string>> GetOnlineUsers()
+    {
+        return Ok(Hubs.NotificationHub.GetOnlineUsers());
+    }
+
     // POST: api/users
     [Authorize(Roles = "Admin")]
     [HttpPost]

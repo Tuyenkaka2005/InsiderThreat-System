@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using MongoDB.Driver;
 using InsiderThreat.Shared;
+using InsiderThreat.Server.Hubs;
 using System.Security.Claims;
 
 namespace InsiderThreat.Server.Controllers;
@@ -13,11 +15,13 @@ public class NotificationsController : ControllerBase
 {
     private readonly IMongoCollection<Notification> _notifications;
     private readonly IMongoCollection<User> _users;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
-    public NotificationsController(IMongoDatabase database)
+    public NotificationsController(IMongoDatabase database, IHubContext<NotificationHub> hubContext)
     {
         _notifications = database.GetCollection<Notification>("Notifications");
         _users = database.GetCollection<User>("Users");
+        _hubContext = hubContext;
     }
 
     // GET: api/notifications
@@ -51,6 +55,13 @@ public class NotificationsController : ControllerBase
         notification.IsRead = false;
 
         await _notifications.InsertOneAsync(notification);
+
+        // Push realtime — Global → all, personal → target user
+        if (notification.Type == "Global")
+            await _hubContext.Clients.All.SendAsync("NewNotification", notification);
+        else if (!string.IsNullOrEmpty(notification.TargetUserId))
+            await _hubContext.Clients.Group($"user_{notification.TargetUserId}").SendAsync("NewNotification", notification);
+
         return CreatedAtAction(nameof(GetNotifications), new { id = notification.Id }, notification);
     }
 
@@ -119,5 +130,9 @@ public class NotificationsController : ControllerBase
         };
 
         await _notifications.InsertOneAsync(notification);
+
+        // Push realtime to target user
+        if (!string.IsNullOrEmpty(notification.TargetUserId))
+            await _hubContext.Clients.Group($"user_{notification.TargetUserId}").SendAsync("NewNotification", notification);
     }
 }

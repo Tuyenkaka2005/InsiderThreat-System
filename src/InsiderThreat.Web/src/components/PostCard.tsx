@@ -550,7 +550,14 @@ export default function PostCard({ post, currentUser, onPostUpdated, onPostDelet
                             );
                         } else if (media.type === 'image' || (localPost.type === 'Image' && idx === 0) || !media.type) {
                             return (
-                                <div key={idx} className="post-image" style={{ backgroundImage: `url(${fileUrl})` }}></div>
+                                <div key={idx} className="w-full bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center" style={{ maxHeight: '500px' }}>
+                                    <img
+                                        src={fileUrl}
+                                        alt="post media"
+                                        className="w-full h-auto object-contain max-h-[500px]"
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                </div>
                             );
                         } else {
                             // File

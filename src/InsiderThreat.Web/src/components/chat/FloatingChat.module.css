@@ -30,7 +30,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    background: var(--color-dark-surface-lighter);
+    background: var(--color-surface);
     border-bottom: 1px solid var(--color-border);
     cursor: move;
     user-select: none;
@@ -44,7 +44,7 @@
 
 .chatTitle {
     font-weight: 600;
-    color: white;
+    color: var(--color-text-main);
     font-size: 15px;
 }
 
@@ -140,7 +140,7 @@
 
 .contactName {
     font-weight: 500;
-    color: white;
+    color: var(--color-text-main);
     font-size: 14px;
     margin-bottom: 2px;
 }
@@ -197,7 +197,7 @@
 
 .conversationName {
     font-weight: 600;
-    color: white;
+    color: var(--color-text-main);
     font-size: 14px;
 }
 
@@ -253,8 +253,9 @@
 }
 
 .message.received .messageBubble {
-    background: var(--color-dark-surface-lighter);
-    color: white;
+    background: var(--color-surface);
+    color: var(--color-text-main);
+    border: 1px solid var(--color-border);
     border-bottom-left-radius: 4px;
 }
 
@@ -265,23 +266,22 @@
     text-align: right;
 }
 
-/* Input Area */
 .inputArea {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 12px 16px;
     border-top: 1px solid var(--color-border);
-    background: var(--color-dark-bg);
+    background: var(--color-surface);
 }
 
 .messageInput {
     flex: 1;
-    background: var(--color-dark-surface-lighter);
+    background: var(--color-surface-lighter);
     border: none;
     border-radius: 20px;
     padding: 8px 16px;
-    color: white;
+    color: var(--color-text-main);
     font-size: 13px;
     outline: none;
 }

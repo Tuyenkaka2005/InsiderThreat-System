@@ -20,12 +20,6 @@ export default function LeftSidebar() {
 
     return (
         <aside className={styles.sidebar}>
-            {/* Logo */}
-            <div className={styles.logo} onClick={() => navigate('/feed')}>
-                <div className={styles.logoIcon}>W</div>
-                <span className={styles.logoText}>WORK</span>
-            </div>
-
             {/* Nav */}
             <nav className={styles.nav}>
                 {navItems.map(item => {

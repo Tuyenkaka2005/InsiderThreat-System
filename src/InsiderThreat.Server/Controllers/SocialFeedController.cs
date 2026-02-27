@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using MongoDB.Driver;
 using InsiderThreat.Server.Models;
+using InsiderThreat.Server.Hubs;
 using System.Security.Claims;
 
 namespace InsiderThreat.Server.Controllers
@@ -17,15 +19,17 @@ namespace InsiderThreat.Server.Controllers
         private readonly IMongoCollection<Report> _reports;
         private readonly IMongoDatabase _database;
         private readonly NotificationsController _notificationsController;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
-        public SocialFeedController(IMongoDatabase database)
+        public SocialFeedController(IMongoDatabase database, IHubContext<NotificationHub> hubContext)
         {
             _database = database;
             _posts = database.GetCollection<Post>("Posts");
             _comments = database.GetCollection<Comment>("Comments");
             _users = database.GetCollection<InsiderThreat.Shared.User>("Users");
             _reports = database.GetCollection<Report>("Reports");
-            _notificationsController = new NotificationsController(database);
+            _hubContext = hubContext;
+            _notificationsController = new NotificationsController(database, hubContext);
         }
 
         private string? GetUserRole()
@@ -158,6 +162,20 @@ namespace InsiderThreat.Server.Controllers
                 };
 
                 await _posts.InsertOneAsync(post);
+
+                // Broadcast NewPost realtime tới tất cả user
+                await _hubContext.Clients.All.SendAsync("NewNotification", new
+                {
+                    id = post.Id,
+                    type = "NewPost",
+                    message = request.IsUrgent
+                        ? $"🚨 [{userName}] đăng thông báo khẩn: {post.Content.Substring(0, Math.Min(60, post.Content.Length))}..."
+                        : $"📝 [{userName}] vừa đăng bài mới",
+                    actorName = userName,
+                    link = $"/feed#{post.Id}",
+                    isRead = false,
+                    createdAt = post.CreatedAt
+                });
 
                 return CreatedAtAction(nameof(GetPostById), new { id = post.Id }, post);
             }
