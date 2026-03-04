@@ -22,11 +22,10 @@ export const authService = {
         localStorage.setItem('user', JSON.stringify(user));
     },
 
-    // Đăng xuất
+    // Đăng xuất — giữ lại RSA key pair trên thiết bị để giải mã tin nhắn cũ khi đăng nhập lại
     logout(): void {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        localStorage.removeItem('isChatUnlocked');
     },
 
     // Lấy user hiện tại
@@ -46,15 +45,6 @@ export const authService = {
     // Lấy token
     getToken(): string | null {
         return localStorage.getItem('token');
-    },
-
-    // Updated to accept optional privateKey
-    async setChatCode(code: string, privateKey?: string): Promise<{ success: boolean; message: string }> {
-        return await api.post('/api/auth/set-chat-code', { code, privateKey });
-    },
-
-    async verifyChatCode(code: string): Promise<{ success: boolean; message: string; codeNotSet?: boolean; privateKey?: string; publicKey?: string }> {
-        return await api.post('/api/auth/verify-chat-code', { code });
     },
 };
 

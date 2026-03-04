@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 using MongoDB.Driver;
 using InsiderThreat.Server.Models;
 using InsiderThreat.Server.Hubs;
+using InsiderThreat.Server.Services;
 using InsiderThreat.Shared;
 
 namespace InsiderThreat.Server.Controllers;
@@ -18,14 +19,20 @@ public class MessagesController : ControllerBase
     private readonly ILogger<MessagesController> _logger;
     private readonly NotificationsController _notificationsController;
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly IMessageEncryptionService _encryption;
 
-    public MessagesController(IMongoDatabase database, ILogger<MessagesController> logger, IHubContext<NotificationHub> hubContext)
+    public MessagesController(
+        IMongoDatabase database,
+        ILogger<MessagesController> logger,
+        IHubContext<NotificationHub> hubContext,
+        IMessageEncryptionService encryption)
     {
         _messagesCollection = database.GetCollection<Message>("Messages");
         _users = database.GetCollection<InsiderThreat.Shared.User>("Users");
         _logger = logger;
         _hubContext = hubContext;
         _notificationsController = new NotificationsController(database, hubContext);
+        _encryption = encryption;
     }
 
     // POST: api/messages
@@ -34,11 +41,15 @@ public class MessagesController : ControllerBase
     {
         try
         {
-            // Enforce SenderId matches authenticated user (if needed, but trust client for prototype)
-            // message.SenderId = User.FindFirst("id")?.Value; 
-
             message.Timestamp = DateTime.UtcNow;
             message.IsRead = false;
+
+            // Encrypt content before storing in MongoDB
+            if (!string.IsNullOrEmpty(message.Content))
+                message.Content = _encryption.Encrypt(message.Content);
+
+            // SenderContent is no longer needed (only used by old client-side E2EE)
+            message.SenderContent = null;
 
             await _messagesCollection.InsertOneAsync(message);
 
@@ -46,7 +57,7 @@ public class MessagesController : ControllerBase
             var sender = await _users.Find(u => u.Id == message.SenderId).FirstOrDefaultAsync();
             var senderName = sender?.FullName ?? sender?.Username ?? "Someone";
 
-            // Push Notification (Content is encrypted, so we just show a generic message)
+            // Push notification (show generic preview — actual content stored encrypted)
             var previewText = !string.IsNullOrEmpty(message.AttachmentType)
                 ? (message.AttachmentType == "image" ? "[Hình ảnh]" : "[Tệp đính kèm]")
                 : "Đã gửi một tin nhắn mới";
@@ -57,12 +68,13 @@ public class MessagesController : ControllerBase
                 message: $"{senderName}: {previewText}",
                 actorUserId: message.SenderId,
                 actorName: senderName,
-                link: $"/chat?userId={message.SenderId}", // Navigate straight to the chat with this user
+                link: $"/chat?userId={message.SenderId}",
                 relatedId: message.Id
             );
 
-            // Return Ok to avoid "No route matches" errors with CreatedAtAction
-            return Ok(message);
+            // Return the message with decrypted content (so sender sees it immediately)
+            var returned = CloneDecrypted(message);
+            return Ok(returned);
         }
         catch (Exception ex)
         {
@@ -72,11 +84,9 @@ public class MessagesController : ControllerBase
     }
 
     // GET: api/messages/{otherUserId}
-    // Get conversation with a specific user
     [HttpGet("{otherUserId}")]
     public async Task<ActionResult<List<Message>>> GetMessages(string otherUserId, [FromQuery] string currentUserId)
     {
-        // Fetch messages where (Sender=Me AND Receiver=Other) OR (Sender=Other AND Receiver=Me)
         var filter = Builders<Message>.Filter.Or(
             Builders<Message>.Filter.And(
                 Builders<Message>.Filter.Eq(m => m.SenderId, currentUserId),
@@ -89,23 +99,19 @@ public class MessagesController : ControllerBase
         );
 
         var sort = Builders<Message>.Sort.Ascending(m => m.Timestamp);
+        var messages = await _messagesCollection.Find(filter).Sort(sort).ToListAsync();
 
-        var messages = await _messagesCollection
-            .Find(filter)
-            .Sort(sort)
-            .ToListAsync();
-
-        return Ok(messages);
+        // Decrypt content before returning to client
+        var decrypted = messages.Select(CloneDecrypted).ToList();
+        return Ok(decrypted);
     }
 
     // GET: api/messages/conversations
-    // Get list of conversations with unread counts and last message details
     [HttpGet("conversations")]
     public async Task<ActionResult<IEnumerable<object>>> GetConversations([FromQuery] string userId)
     {
         if (string.IsNullOrEmpty(userId)) return BadRequest("User ID is required");
 
-        // 1. Fetch all messages involving this user
         var filter = Builders<Message>.Filter.Or(
             Builders<Message>.Filter.Eq(m => m.SenderId, userId),
             Builders<Message>.Filter.Eq(m => m.ReceiverId, userId)
@@ -116,7 +122,6 @@ public class MessagesController : ControllerBase
             .SortByDescending(m => m.Timestamp)
             .ToListAsync();
 
-        // 2. Group by the "Other User"
         var conversations = new Dictionary<string, object>();
         var userIdsToFetch = new HashSet<string>();
 
@@ -130,15 +135,15 @@ public class MessagesController : ControllerBase
                 conversations[otherUserId] = new
                 {
                     ContactId = otherUserId,
-                    LastMessage = string.IsNullOrEmpty(m.AttachmentType) ? "Đã gửi tin nhắn" : (m.AttachmentType == "image" ? "[Hình ảnh]" : "[Tệp đính kèm]"),
+                    LastMessage = string.IsNullOrEmpty(m.AttachmentType)
+                        ? "Đã gửi tin nhắn"
+                        : (m.AttachmentType == "image" ? "[Hình ảnh]" : "[Tệp đính kèm]"),
                     LastMessageTime = m.Timestamp,
-                    // Unread count: Messages where I am the receiver and it's not read
                     UnreadCount = messages.Count(msg => msg.SenderId == otherUserId && msg.ReceiverId == userId && !msg.IsRead)
                 };
             }
         }
 
-        // 3. Fetch user details to get avatars/names
         var users = await _users.Find(u => userIdsToFetch.Contains(u.Id)).ToListAsync();
 
         var result = conversations.Values.Select(c =>
@@ -151,7 +156,7 @@ public class MessagesController : ControllerBase
                 username = user?.Username ?? "Unknown",
                 fullName = user?.FullName,
                 avatar = user?.AvatarUrl,
-                publicKey = user?.PublicKey,
+                publicKey = (string?)null, // Not needed anymore
                 lastMessage = conv.LastMessage,
                 lastMessageTime = conv.LastMessageTime,
                 unreadCount = conv.UnreadCount
@@ -167,7 +172,6 @@ public class MessagesController : ControllerBase
     {
         var receiverId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(receiverId)) return Unauthorized();
-
         if (string.IsNullOrEmpty(senderId)) return BadRequest("Sender ID is required");
 
         var filter = Builders<Message>.Filter.And(
@@ -175,18 +179,33 @@ public class MessagesController : ControllerBase
             Builders<Message>.Filter.Eq(m => m.ReceiverId, receiverId),
             Builders<Message>.Filter.Eq(m => m.IsRead, false)
         );
-
         var update = Builders<Message>.Update.Set(m => m.IsRead, true);
-
         var result = await _messagesCollection.UpdateManyAsync(filter, update);
 
         if (result.ModifiedCount > 0)
         {
-            // Notify the sender that their messages have been read
             await _hubContext.Clients.Group($"user_{senderId}")
                    .SendAsync("MessagesRead", receiverId);
         }
 
         return NoContent();
+    }
+
+    // ---- Helper ----
+    private Message CloneDecrypted(Message msg)
+    {
+        return new Message
+        {
+            Id = msg.Id,
+            SenderId = msg.SenderId,
+            ReceiverId = msg.ReceiverId,
+            Content = _encryption.Decrypt(msg.Content ?? ""),
+            SenderContent = null,
+            AttachmentUrl = msg.AttachmentUrl,
+            AttachmentType = msg.AttachmentType,
+            AttachmentName = msg.AttachmentName,
+            Timestamp = msg.Timestamp,
+            IsRead = msg.IsRead
+        };
     }
 }

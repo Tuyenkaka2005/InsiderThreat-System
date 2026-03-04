@@ -93,6 +93,7 @@ builder.Services.AddAuthorization();
 // 6. CẤU HÌNH EMAIL SERVICE
 // ==========================================
 builder.Services.AddScoped<InsiderThreat.Server.Services.IEmailService, InsiderThreat.Server.Services.EmailService>();
+builder.Services.AddSingleton<InsiderThreat.Server.Services.IMessageEncryptionService, InsiderThreat.Server.Services.MessageEncryptionService>();
 // ==========================================
 
 // ==========================================

@@ -60,40 +60,56 @@ export const cryptoService = {
         );
     },
 
-    // Encrypt message with Public Key
+    // Encrypt message with Public Key (CryptoKey object)
     encrypt: async (message: string, publicKey: CryptoKey): Promise<string> => {
         const encoder = new TextEncoder();
         const data = encoder.encode(message);
         const encrypted = await window.crypto.subtle.encrypt(
-            {
-                name: "RSA-OAEP"
-            },
+            { name: "RSA-OAEP" },
             publicKey,
             data
         );
         return arrayBufferToBase64(encrypted);
     },
 
-    // Decrypt message with Private Key
+    // Encrypt message using a Base64 public key string directly
+    encryptForUser: async (message: string, publicKeyBase64: string): Promise<string> => {
+        const publicKey = await cryptoService.importKey(publicKeyBase64, 'public');
+        return cryptoService.encrypt(message, publicKey);
+    },
+
+    // Detect if a string is likely RSA-encrypted base64 (vs plain text legacy messages)
+    // RSA-2048 ciphertext is always 256 bytes → 344 base64 chars, containing only base64 chars
+    isLikelyEncrypted: (content: string): boolean => {
+        if (!content || content.length < 300) return false;
+        return /^[A-Za-z0-9+/]+=*$/.test(content);
+    },
+
+    // Decrypt message with Private Key.
+    // Falls back to returning the original content if decryption fails
+    // (handles legacy plain-text messages stored before E2EE was enabled).
     decrypt: async (encryptedMessageBase64: string, privateKey: CryptoKey): Promise<string> => {
+        // If it doesn't look like ciphertext, return as-is (legacy plain text)
+        if (!cryptoService.isLikelyEncrypted(encryptedMessageBase64)) {
+            return encryptedMessageBase64;
+        }
         try {
             const data = base64ToArrayBuffer(encryptedMessageBase64);
             const decrypted = await window.crypto.subtle.decrypt(
-                {
-                    name: "RSA-OAEP"
-                },
+                { name: "RSA-OAEP" },
                 privateKey,
                 data
             );
             const decoder = new TextDecoder();
             return decoder.decode(decrypted);
         } catch (e) {
-            console.error("Decryption failed", e);
-            return "[Encrypted Message]";
+            // Decryption failed — likely encrypted with a different key pair (e.g., key was rotated).
+            console.warn("RSA decryption failed:", e);
+            return "🔒 Tin nhắn đã được mã hóa (không thể giải mã bằng khóa hiện tại)";
         }
     },
 
-    // Store keys in localStorage (MVP only - usage: 'privateKey', 'publicKey')
+    // Store keys in localStorage
     saveKeys: (publicKey: string, privateKey: string) => {
         localStorage.setItem('chat_public_key', publicKey);
         localStorage.setItem('chat_private_key', privateKey);

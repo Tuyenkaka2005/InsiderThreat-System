@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { authService } from '../services/auth';
 import { userService } from '../services/userService';
@@ -23,9 +23,10 @@ import FaceRegistrationModal from '../components/FaceRegistrationModal';
 export default function ProfilePage() {
     const navigate = useNavigate();
     const { userId } = useParams<{ userId?: string }>();
-    const currentUser = authService.getCurrentUser();
-
-    const [user, setUser] = useState<User | null>(null); // Profile being viewed
+    const [user, setUser] = useState<User | null>(null);
+    // useMemo with [] so currentUser keeps the same reference across renders
+    // (prevents infinite loop since it's in the useEffect dependency array)
+    const currentUser = useMemo(() => authService.getCurrentUser(), []);
     const [isOwnProfile, setIsOwnProfile] = useState(true); // Is viewing own profile?
     const [isEditing, setIsEditing] = useState(false);
     const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
@@ -33,6 +34,8 @@ export default function ProfilePage() {
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [activityLogs, setActivityLogs] = useState<LogEntry[]>([]);
     const [userPosts, setUserPosts] = useState<Post[]>([]);
+    const [isPinModalOpen] = useState(false); // PIN feature removed
+    const [pinSuccess] = useState('');
 
     // Form Data for Edit Profile
     const [formData, setFormData] = useState({
@@ -717,6 +720,7 @@ export default function ProfilePage() {
                 userId={user.id || null}
                 userName={user.fullName || user.username}
             />
+
         </div>
     );
 }

@@ -7,6 +7,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
+using InsiderThreat.Server.Services;
 
 namespace InsiderThreat.Server.Controllers;
 
@@ -16,15 +17,19 @@ public class AuthController : ControllerBase
 {
     private readonly IMongoDatabase _database;
     private readonly IMongoCollection<LogEntry> _logsCollection;
+    private readonly IMongoCollection<OtpToken> _otpTokens;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthController> _logger;
+    private readonly IEmailService _emailService;
 
-    public AuthController(IMongoDatabase database, IConfiguration configuration, ILogger<AuthController> logger)
+    public AuthController(IMongoDatabase database, IConfiguration configuration, ILogger<AuthController> logger, IEmailService emailService)
     {
         _database = database;
         _logsCollection = database.GetCollection<LogEntry>("Logs");
+        _otpTokens = database.GetCollection<OtpToken>("OtpTokens");
         _configuration = configuration;
         _logger = logger;
+        _emailService = emailService;
     }
 
     // =============================================
@@ -256,82 +261,139 @@ public class AuthController : ControllerBase
     }
 
     // =============================================
-    // Chat Access Code Endpoints
+    // Security PIN OTP Endpoints
     // =============================================
-    public class SetChatCodeRequest
+
+    public class RequestPinOtpRequest
     {
-        public string Code { get; set; } = string.Empty;
+        public string Pin { get; set; } = string.Empty; // The desired 6-digit PIN
+    }
+
+    /// <summary>
+    /// POST /api/auth/request-pin-otp
+    /// Gửi OTP tới email của user hiện tại để xác nhận việc đặt mã PIN.
+    /// </summary>
+    [HttpPost("request-pin-otp")]
+    [Authorize]
+    public async Task<IActionResult> RequestPinOtp([FromBody] RequestPinOtpRequest request)
+    {
+        if (string.IsNullOrEmpty(request.Pin) || request.Pin.Length != 6 || !request.Pin.All(char.IsDigit))
+            return BadRequest(new { success = false, message = "Mã PIN phải là 6 chữ số" });
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var usersCollection = _database.GetCollection<User>("Users");
+        var user = await usersCollection.Find(u => u.Id == userId).FirstOrDefaultAsync();
+        if (user == null) return NotFound();
+
+        if (string.IsNullOrEmpty(user.Email))
+            return BadRequest(new { success = false, message = "Tài khoản chưa có email. Vui lòng cập nhật email trong hồ sơ trước." });
+
+        // Generate 6-digit OTP and store it tied to a special "Purpose" to distinguish from password reset
+        var otpCode = new Random().Next(100000, 999999).ToString();
+
+        // Store OTP with email = userId:pin so we can retrieve both when confirming
+        var payload = $"{userId}|{request.Pin}";
+        var otpToken = new OtpToken
+        {
+            Email = payload,
+            Code = otpCode,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(5)
+        };
+        await _otpTokens.InsertOneAsync(otpToken);
+
+        try
+        {
+            await _emailService.SendPinOtpEmailAsync(user.Email, otpCode);
+            _logger.LogInformation($"PIN OTP sent to {user.Email} for user {userId}");
+            return Ok(new { success = true, message = $"OTP đã được gửi tới {user.Email}" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to send PIN OTP to {user.Email}");
+            return StatusCode(500, new { success = false, message = "Không thể gửi email. Vui lòng thử lại sau." });
+        }
+    }
+
+    public class ConfirmPinRequest
+    {
+        public string Otp { get; set; } = string.Empty;
+        /// <summary>Base64-encoded JWK private key to backup on server.</summary>
         public string? PrivateKey { get; set; }
     }
 
-    [HttpPost("set-chat-code")]
+    /// <summary>
+    /// POST /api/auth/confirm-pin
+    /// Xác minh OTP, sau đó hash và lưu mã PIN vào CSDL.
+    /// </summary>
+    [HttpPost("confirm-pin")]
     [Authorize]
-    public async Task<IActionResult> SetChatCode([FromBody] SetChatCodeRequest request)
+    public async Task<IActionResult> ConfirmPin([FromBody] ConfirmPinRequest request)
     {
-        try
+        if (string.IsNullOrEmpty(request.Otp))
+            return BadRequest(new { success = false, message = "Mã OTP là bắt buộc" });
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        // Find a valid OTP whose email starts with userId
+        var now = DateTime.UtcNow;
+        var otpToken = await _otpTokens.Find(o =>
+            o.Email.StartsWith(userId + "|") &&
+            o.Code == request.Otp &&
+            !o.Used &&
+            o.ExpiresAt > now
+        ).FirstOrDefaultAsync();
+
+        if (otpToken == null)
+            return BadRequest(new { success = false, message = "OTP không hợp lệ hoặc đã hết hạn" });
+
+        // Extract the PIN from the stored payload
+        var parts = otpToken.Email.Split('|');
+        if (parts.Length != 2)
+            return BadRequest(new { success = false, message = "OTP không hợp lệ" });
+
+        var pin = parts[1];
+
+        // Mark OTP as used
+        var otpUpdate = Builders<OtpToken>.Update.Set(o => o.Used, true);
+        await _otpTokens.UpdateOneAsync(o => o.Id == otpToken.Id, otpUpdate);
+
+        // Hash PIN and save to user record, also backup private key if provided
+        var pinHash = BCrypt.Net.BCrypt.HashPassword(pin);
+        var usersCollection = _database.GetCollection<User>("Users");
+        var userUpdate = Builders<User>.Update.Set(u => u.ChatAccessCodeHash, pinHash);
+        if (!string.IsNullOrEmpty(request.PrivateKey))
         {
-            if (string.IsNullOrEmpty(request.Code) || request.Code.Length != 6 || !request.Code.All(char.IsDigit))
-            {
-                return BadRequest(new { Success = false, Message = "Code must be 6 digits" });
-            }
-
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId)) return Unauthorized();
-
-            var usersCollection = _database.GetCollection<User>("Users");
-            var user = await usersCollection.Find(u => u.Id == userId).FirstOrDefaultAsync();
-            if (user == null) return NotFound();
-
-            var hash = BCrypt.Net.BCrypt.HashPassword(request.Code);
-
-            var updateDef = Builders<User>.Update.Set(u => u.ChatAccessCodeHash, hash);
-            if (!string.IsNullOrEmpty(request.PrivateKey))
-            {
-                updateDef = updateDef.Set(u => u.PrivateKey, request.PrivateKey);
-            }
-
-            await usersCollection.UpdateOneAsync(u => u.Id == userId, updateDef);
-
-            return Ok(new { Success = true, Message = "Chat access code set successfully" });
+            userUpdate = userUpdate.Set(u => u.PrivateKey, request.PrivateKey);
+            _logger.LogInformation($"Private key backed up for user {userId}");
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { Success = false, Message = ex.Message });
-        }
+        await usersCollection.UpdateOneAsync(u => u.Id == userId, userUpdate);
+
+        _logger.LogInformation($"Security PIN set successfully for user {userId}");
+        return Ok(new { success = true, message = "Mã PIN bảo mật đã được lưu thành công!" });
     }
 
-    public class VerifyCodeRequest { public string Code { get; set; } = string.Empty; }
-
-    [HttpPost("verify-chat-code")]
+    /// <summary>
+    /// GET /api/auth/my-private-key
+    /// Trả về private key đã backup cho user hiện tại (dùng để khôi phục khi mất key local).
+    /// </summary>
+    [HttpGet("my-private-key")]
     [Authorize]
-    public async Task<IActionResult> VerifyChatCode([FromBody] VerifyCodeRequest request)
+    public async Task<IActionResult> GetMyPrivateKey()
     {
-        try
-        {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
-            var usersCollection = _database.GetCollection<User>("Users");
-            var user = await usersCollection.Find(u => u.Id == userId).FirstOrDefaultAsync();
-            if (user == null) return NotFound();
+        var usersCollection = _database.GetCollection<User>("Users");
+        var user = await usersCollection.Find(u => u.Id == userId).FirstOrDefaultAsync();
+        if (user == null) return NotFound();
 
-            if (string.IsNullOrEmpty(user.ChatAccessCodeHash))
-            {
-                return Ok(new { Success = false, Message = "Code not set", CodeNotSet = true });
-            }
+        if (string.IsNullOrEmpty(user.PrivateKey))
+            return Ok(new { success = false, privateKey = (string?)null, message = "Chưa có key backup" });
 
-            if (BCrypt.Net.BCrypt.Verify(request.Code, user.ChatAccessCodeHash))
-            {
-                // Return the private key if available so the client can decrypt messages
-                return Ok(new { Success = true, Message = "Verified", PrivateKey = user.PrivateKey });
-            }
-
-            return Ok(new { Success = false, Message = "Invalid code" });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { Success = false, Message = ex.Message });
-        }
+        return Ok(new { success = true, privateKey = user.PrivateKey });
     }
 
     [HttpPost("register")]
