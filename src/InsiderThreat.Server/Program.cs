@@ -43,9 +43,11 @@ builder.Services.AddCors(options =>
             "http://localhost:5175", "http://127.0.0.1:5175",
             "http://localhost:5176", "http://127.0.0.1:5176",
             "http://localhost:5177", "http://127.0.0.1:5177",
-            // === Production Server (150.95.104.244) ===
+            // === Production Server ===
             "http://150.95.104.244",
-            "https://150.95.104.244")
+            "https://150.95.104.244",
+            "https://tuyen-thda.io.vn",
+            "https://www.tuyen-thda.io.vn")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials(); // Cho phép gửi Cookie/JWT
@@ -57,7 +59,8 @@ builder.Services.AddCors(options =>
 // 4. CẤU HÌNH JWT AUTHENTICATION
 // ==========================================
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
+var rawKey = jwtSettings["Key"] ?? "InsiderThreatSystem_SuperSecretKey_2024_DoNotShare_ThisMustBe32CharsLong!";
+var key = Encoding.UTF8.GetBytes(rawKey);
 
 builder.Services.AddAuthentication(options =>
 {
