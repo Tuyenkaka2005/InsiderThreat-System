@@ -1,0 +1,77 @@
+.bottomNav {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    .bottomNav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: var(--bottom-nav-height);
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        border-top: 1px solid var(--color-border);
+        z-index: 1000;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .dashboardBottomNav {
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding: 0 10px;
+        gap: 8px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .dashboardBottomNav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .dashboardBottomNav .navItem {
+        flex: 0 0 70px;
+        /* Fixed width for scrollable items */
+    }
+
+    .navItem {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        color: var(--color-text-muted);
+        gap: 4px;
+        flex: 1;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 8px 0;
+    }
+
+    .navItem span:first-child {
+        font-size: 24px;
+        transition: transform 0.2s ease;
+    }
+
+    .navItem span:last-child {
+        font-size: 10px;
+        font-weight: 600;
+    }
+
+    .active {
+        color: var(--color-primary);
+    }
+
+    .active span:first-child {
+        font-variation-settings: 'FILL' 1;
+        transform: translateY(-2px);
+    }
+
+    .logout {
+        color: #ef4444;
+    }
+}

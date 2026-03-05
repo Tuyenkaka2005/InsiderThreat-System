@@ -29,6 +29,11 @@
 
   /* Layout */
   --header-height: 64px;
+  --bottom-nav-height: 72px;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  --gradient-premium: linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%);
 
   /* ===== ALIASES — keep old names so ChatPage/other pages don't break ===== */
   --color-dark-bg: #f1f5f9;

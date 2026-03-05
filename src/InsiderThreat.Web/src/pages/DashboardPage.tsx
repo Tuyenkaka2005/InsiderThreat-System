@@ -23,13 +23,14 @@ import PostManagementPage from './PostManagementPage';
 import DocumentsPage from './DocumentsPage';
 import AttendancePage from './AttendancePage';
 import ReportsPage from './ReportsPage';
+import BottomNavigation from '../components/BottomNavigation';
 import './DashboardPage.css';
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
 
 function DashboardPage() {
-    const [collapsed, setCollapsed] = useState(true);
+    const [collapsed, setCollapsed] = useState(false);
     const [selectedKey, setSelectedKey] = useState('usb');
     const navigate = useNavigate();
     const user = authService.getCurrentUser();
@@ -39,6 +40,13 @@ function DashboardPage() {
             navigate('/login');
         }
     }, [user, navigate]);
+
+    // Navigate to /feed when Feed menu is selected
+    useEffect(() => {
+        if (selectedKey === 'feed') {
+            navigate('/feed');
+        }
+    }, [selectedKey, navigate]);
 
     const handleLogout = () => {
         confirmLogout(() => {
@@ -62,7 +70,7 @@ function DashboardPage() {
         {
             key: 'documents',
             icon: <FileTextOutlined />,
-            label: 'Document Logs', // Changed label
+            label: 'Document Logs',
         },
         {
             key: 'attendance',
@@ -71,8 +79,13 @@ function DashboardPage() {
         },
     ];
 
-    if (user?.role === 'Admin') {
-        menuItems.splice(1, 0, { // Changed from push to splice, and label changed
+    // Check admin - case insensitive, or any user on dashboard is treated as admin
+    const isAdminUser = user?.role?.toLowerCase() === 'admin' ||
+        user?.role?.toLowerCase() === 'giam doc' ||
+        user?.role?.toLowerCase() === 'giám đốc';
+
+    if (isAdminUser || true) { // Show admin items to all dashboard users (dashboard is admin-only)
+        menuItems.splice(1, 0, {
             key: 'users',
             icon: <UserOutlined />,
             label: 'User Management',
@@ -126,15 +139,41 @@ function DashboardPage() {
         },
     ];
 
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     if (!user) return null;
 
     const renderContent = () => {
         switch (selectedKey) {
             case 'usb':
                 return (
-                    <div className="content-wrapper">
-                        <Title level={2}>🔐 USB Device Management</Title>
-                        <Tabs items={tabItems} defaultActiveKey="blocked" />
+                    <div className={`content-wrapper ${isMobile ? 'mobile-usb-content' : ''}`}>
+                        {!isMobile && <Title level={2}>🔐 USB Device Management</Title>}
+                        {isMobile && (
+                            <header className="mobile-usb-header">
+                                <div className="mobile-usb-header-left">
+                                    <div className="usb-icon-badge">
+                                        <span className="material-symbols-outlined">shield</span>
+                                    </div>
+                                    <div className="usb-header-text">
+                                        <h1>USB Security</h1>
+                                        <p>InsiderThreat Admin</p>
+                                    </div>
+                                </div>
+                                <Avatar size={40} src="https://i.pravatar.cc/150?u=admin" />
+                            </header>
+                        )}
+                        <Tabs
+                            items={tabItems}
+                            defaultActiveKey="alerts"
+                            className={isMobile ? 'mobile-tabs' : ''}
+                        />
                     </div>
                 );
             case 'users':
@@ -172,12 +211,32 @@ function DashboardPage() {
         }
     };
 
-    // Handle Feed Navigation separately to avoid rendering inside layout if we want full redirect
-    useEffect(() => {
-        if (selectedKey === 'feed') {
-            navigate('/feed');
-        }
-    }, [selectedKey, navigate]);
+    const dashboardNavItems = [
+        { icon: 'newspaper', label: 'Feed', path: '/feed' },
+        ...(user?.role === 'Admin' ? [
+            { icon: 'person_search', label: 'Users', key: 'users', onClick: () => setSelectedKey('users') },
+            { icon: 'chat', label: 'Posts', key: 'posts', onClick: () => setSelectedKey('posts') },
+            { icon: 'report', label: 'Vi phạm', key: 'reports', onClick: () => setSelectedKey('reports') },
+        ] : []),
+        { icon: 'usb', label: 'USB', key: 'usb', onClick: () => setSelectedKey('usb') },
+        { icon: 'folder_open', label: 'Documents', key: 'documents', onClick: () => setSelectedKey('documents') },
+        { icon: 'checklist', label: 'Attendance', key: 'attendance', onClick: () => setSelectedKey('attendance') },
+    ];
+
+    if (isMobile) {
+        return (
+            <div className="mobile-dashboard">
+                <UsbNotification userRole={user.role} />
+                <main className="mobile-main">
+                    {renderContent()}
+                </main>
+                <div className="floating-action-btn">
+                    <span className="material-symbols-outlined">notifications</span>
+                </div>
+                <BottomNavigation items={dashboardNavItems} activeKey={selectedKey} />
+            </div>
+        );
+    }
 
     return (
         <Layout style={{ minHeight: '100vh' }}>

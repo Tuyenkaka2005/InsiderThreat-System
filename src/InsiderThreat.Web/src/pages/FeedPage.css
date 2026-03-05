@@ -3,44 +3,30 @@
 /* ===== SOCIAL NETWORK LAYOUT - 3 Column Grid ===== */
 .social-layout {
   display: grid;
-  /* Left sidebar=160px, center grows, right contacts=220px */
-  grid-template-columns: 160px 1fr 220px;
+  grid-template-columns: 1fr;
   min-height: calc(100vh - var(--header-height));
   width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .social-layout {
+    grid-template-columns: 160px 1fr 220px;
+  }
 }
 
 .feed-wrapper {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 24px 24px;
+  padding: 16px 12px;
+  padding-bottom: calc(var(--bottom-nav-height) + 24px);
   background: var(--color-bg);
   min-height: 100%;
-  overflow-y: auto;
 }
 
-/* Feed inner content — expands from 600px up to ~900px, capped on large screens */
-.feed-wrapper>div {
-  width: 100%;
-  max-width: 780px;
-}
-
-/* Responsive Breakpoints */
-@media (max-width: 1199px) {
-  .social-layout {
-    grid-template-columns: 160px 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .social-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 767px) {
+@media (min-width: 768px) {
   .feed-wrapper {
-    padding: 12px 8px;
+    padding: 24px;
   }
 }
 

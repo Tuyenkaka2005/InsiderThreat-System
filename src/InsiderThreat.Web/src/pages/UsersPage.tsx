@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, message, Popconfirm, Tag, Space } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, CameraOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, message, Popconfirm, Tag, Space, Avatar } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, CameraOutlined, TeamOutlined, WarningOutlined, FileTextOutlined } from '@ant-design/icons';
 import FaceRegistrationModal from '../components/FaceRegistrationModal';
+import LeftSidebar from '../components/LeftSidebar';
+import BottomNavigation from '../components/BottomNavigation';
 import { api } from '../services/api';
 import type { User } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 import { DEPARTMENTS } from '../constants';
 import { feedService } from '../services/feedService';
+import { authService } from '../services/auth';
+import './UsersPage.css';
 
 const { Option } = Select;
 
@@ -18,6 +22,14 @@ function UsersPage() {
     const [form] = Form.useForm();
     const [isFaceModalVisible, setIsFaceModalVisible] = useState(false);
     const [selectedUserForFace, setSelectedUserForFace] = useState<{ id: string; name: string } | null>(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const currentUser = authService.getCurrentUser();
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Reports State
     const [reports, setReports] = useState<any[]>([]);
@@ -134,11 +146,18 @@ function UsersPage() {
             title: 'Vai trò',
             dataIndex: 'role',
             key: 'role',
-            render: (role) => (
-                <Tag color={role === 'Admin' ? 'red' : 'blue'}>
-                    {role}
-                </Tag>
-            )
+            render: (role) => {
+                let color = 'blue';
+                if (role === 'Admin') color = 'red';
+                else if (role === 'Giám đốc') color = 'gold';
+                else if (role === 'Quản lý') color = 'green';
+
+                return (
+                    <Tag color={color}>
+                        {role}
+                    </Tag>
+                );
+            }
         },
         {
             title: 'Phòng ban',
@@ -179,22 +198,192 @@ function UsersPage() {
 
 
     return (
-        <div style={{ padding: 24 }}>
-            {/* ... (existing table and add modal) ... */}
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>👤 Quản lý Nhân viên</h2>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                    Thêm nhân viên
-                </Button>
+        <div className="usersPage-wrapper-inner">
+            <div className="usersPage">
+                {/* Mockup TOP Header (Only on Mobile) */}
+                {isMobile && (
+                    <header className="mockup-top-header">
+                        <span className="material-symbols-outlined menu-icon">menu</span>
+                        <div className="header-right-mock">
+                            <Avatar size={40} src="https://i.pravatar.cc/150?u=admin" className="mock-avatar" />
+                            <div className="admin-badge">ADMIN</div>
+                        </div>
+                    </header>
+                )}
+
+                {/* Sub Header */}
+                <div className="usersHeader">
+                    <div className="title-section">
+                        <span className="material-symbols-outlined header-icon-main">group</span>
+                        <h1>Quản lý Nhân viên</h1>
+                    </div>
+                    {isMobile ? (
+                        <div className="add-btn-container">
+                            <Button
+                                type="primary"
+                                shape="circle"
+                                icon={<PlusOutlined />}
+                                size="large"
+                                className="mobile-add-btn"
+                                onClick={handleAdd}
+                            />
+                        </div>
+                    ) : (
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                            Thêm nhân viên
+                        </Button>
+                    )}
+                </div>
+
+                {isMobile ? (
+                    <div className="mobile-user-list">
+                        {users.map(u => (
+                            <div key={u.id} className="mobile-user-card">
+                                <div className="card-header-row">
+                                    <div className="user-info-brief">
+                                        <div className="avatar-circle">
+                                            <span className="material-symbols-outlined">person</span>
+                                        </div>
+                                        <div className="name-email">
+                                            <div className="user-fullname">{u.fullName}</div>
+                                            <div className="user-email">{u.email}</div>
+                                        </div>
+                                    </div>
+                                    <div className={`mock-role-badge ${u.role === 'Admin' ? 'admin' : u.role === 'Quản lý' ? 'manager' : u.role === 'Giám đốc' ? 'director' : 'staff'}`}>
+                                        {u.role?.toUpperCase()}
+                                    </div>
+                                </div>
+                                <div className="card-body-row">
+                                    <span className="material-symbols-outlined dept-icon">corporate_fare</span>
+                                    <span>Phòng ban: {u.department || 'Chưa cập nhật'}</span>
+                                </div>
+                                <div className="card-footer-row">
+                                    <div className="action-buttons-wrap">
+                                        <button className="mock-action-btn" onClick={() => handleRegisterFace(u)}>
+                                            <span className="material-symbols-outlined">photo_camera</span>
+                                        </button>
+                                        <button className="mock-action-btn" onClick={() => handleEdit(u)}>
+                                            <span className="material-symbols-outlined">edit</span>
+                                        </button>
+                                    </div>
+                                    <Popconfirm
+                                        title="Bạn có chắc muốn xóa tài khoản này?"
+                                        onConfirm={() => u.id && handleDelete(u.id)}
+                                        okText="Xóa"
+                                        cancelText="Hủy"
+                                        disabled={u.username === 'admin'}
+                                    >
+                                        <button className={`mock-action-btn delete ${u.username === 'admin' ? 'disabled' : ''}`} disabled={u.username === 'admin'}>
+                                            <span className="material-symbols-outlined">delete</span>
+                                        </button>
+                                    </Popconfirm>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <Table
+                        columns={columns}
+                        dataSource={users}
+                        rowKey="id"
+                        loading={loading}
+                    />
+                )}
+
+                {/* Reports Section */}
+                <div className="reports-section-mock">
+                    <div className="section-title-mock">
+                        <span className="material-symbols-outlined report-icon-mock">description</span>
+                        <h2>Báo cáo vi phạm</h2>
+                    </div>
+
+                    {isMobile ? (
+                        <div className="mobile-empty-reports">
+                            <div className="empty-box-wrap">
+                                <span className="material-symbols-outlined">inventory_2</span>
+                            </div>
+                            <p>Trống</p>
+                        </div>
+                    ) : (
+                        <Table
+                            dataSource={reports}
+                            loading={loadingReports}
+                            rowKey="id"
+                            pagination={{ pageSize: 10 }}
+                            scroll={{ x: 'max-content' }}
+                        >
+                            <Table.Column
+                                title="Bài viết"
+                                dataIndex="postId"
+                                key="postId"
+                                width={200}
+                                render={(postId: string) => (
+                                    <a
+                                        href={`/feed?postId=${postId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{ color: '#1890ff', textDecoration: 'underline' }}
+                                    >
+                                        Xem bài viết #{postId.slice(-8)}
+                                    </a>
+                                )}
+                            />
+                            <Table.Column
+                                title="Người báo cáo"
+                                dataIndex="reporterName"
+                                key="reporterName"
+                                width={150}
+                            />
+                            <Table.Column
+                                title="Lý do"
+                                dataIndex="reason"
+                                key="reason"
+                                ellipsis
+                                width={250}
+                            />
+                            <Table.Column
+                                title="Thời gian"
+                                dataIndex="createdAt"
+                                key="createdAt"
+                                width={160}
+                                render={(date: string) => new Date(date).toLocaleString('vi-VN')}
+                            />
+                            <Table.Column
+                                title="Trạng thái"
+                                dataIndex="status"
+                                key="status"
+                                width={120}
+                                render={(status: string) => {
+                                    const colorMap: Record<string, string> = {
+                                        'Pending': 'orange',
+                                        'Reviewed': 'blue',
+                                        'Resolved': 'green',
+                                        'Dismissed': 'gray'
+                                    };
+                                    return <Tag color={colorMap[status] || 'default'}>{status || 'Pending'}</Tag>;
+                                }}
+                            />
+                            <Table.Column
+                                title="Hành động"
+                                key="action"
+                                width={150}
+                                render={(_, record: any) => (
+                                    <Space>
+                                        <Button size="small" type="primary">
+                                            Xử lý
+                                        </Button>
+                                        <Button size="small" danger>
+                                            Bỏ qua
+                                        </Button>
+                                    </Space>
+                                )}
+                            />
+                        </Table>
+                    )}
+                </div>
             </div>
 
-            <Table
-                columns={columns}
-                dataSource={users}
-                rowKey="id"
-                loading={loading}
-            />
-
+            {/* Add/Edit User Modal */}
             <Modal
                 title={editingUser ? "Chỉnh sửa nhân viên" : "Thêm nhân viên mới"}
                 open={isModalVisible}
@@ -206,29 +395,19 @@ function UsersPage() {
                     layout="vertical"
                 >
                     <Form.Item
+                        name="fullName"
+                        label="Họ tên"
+                        rules={[{ required: true, message: 'Vui lòng nhập họ tên!' }]}
+                    >
+                        <Input />
+                    </Form.Item>
+                    <Form.Item
                         name="username"
                         label="Tên đăng nhập"
                         rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập!' }]}
                     >
                         <Input disabled={!!editingUser} />
                     </Form.Item>
-
-                    <Form.Item
-                        name="passwordHash"
-                        label={editingUser ? "Mật khẩu mới (Để trống nếu không đổi)" : "Mật khẩu"}
-                        rules={[{ required: !editingUser, message: 'Vui lòng nhập mật khẩu!' }]}
-                    >
-                        <Input.Password />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="fullName"
-                        label="Họ và tên"
-                        rules={[{ required: true, message: 'Vui lòng nhập họ tên!' }]}
-                    >
-                        <Input />
-                    </Form.Item>
-
                     <Form.Item
                         name="email"
                         label="Email"
@@ -237,112 +416,40 @@ function UsersPage() {
                             { type: 'email', message: 'Email không hợp lệ!' }
                         ]}
                     >
-                        <Input placeholder="example@gmail.com" />
+                        <Input />
                     </Form.Item>
-
+                    <Form.Item
+                        name="passwordHash"
+                        label={editingUser ? "Mật khẩu mới (để trống nếu không đổi)" : "Mật khẩu"}
+                        rules={[{ required: !editingUser, message: 'Vui lòng nhập mật khẩu!' }]}
+                    >
+                        <Input.Password />
+                    </Form.Item>
+                    <Form.Item
+                        name="role"
+                        label="Vai trò"
+                        rules={[{ required: true, message: 'Vui lòng chọn vai trò!' }]}
+                    >
+                        <Select>
+                            <Option value="Admin">Admin</Option>
+                            <Option value="Giám đốc">Giám đốc</Option>
+                            <Option value="Quản lý">Quản lý</Option>
+                            <Option value="Nhân viên">Nhân viên</Option>
+                        </Select>
+                    </Form.Item>
                     <Form.Item
                         name="department"
                         label="Phòng ban"
+                        rules={[{ required: true, message: 'Vui lòng chọn phòng ban!' }]}
                     >
-                        <Select placeholder="Chọn phòng ban">
+                        <Select>
                             {DEPARTMENTS.map(dept => (
                                 <Option key={dept} value={dept}>{dept}</Option>
                             ))}
                         </Select>
                     </Form.Item>
-
-                    <Form.Item
-                        name="role"
-                        label="Vai trò"
-                        initialValue="User"
-                        rules={[{ required: true, message: 'Vui lòng chọn vai trò!' }]}
-                    >
-                        <Select>
-                            <Option value="User">Nhân viên (User)</Option>
-                            <Option value="Admin">Quản trị viên (Admin)</Option>
-                        </Select>
-                    </Form.Item>
                 </Form>
             </Modal>
-
-            {/* Reports Section */}
-            <div style={{ marginTop: 32 }}>
-                <h2 style={{ marginBottom: 16, fontSize: 20, fontWeight: 600 }}>📋 Báo cáo vi phạm</h2>
-                <Table
-                    dataSource={reports}
-                    loading={loadingReports}
-                    rowKey="id"
-                    pagination={{ pageSize: 10 }}
-                    scroll={{ x: 'max-content' }}
-                >
-                    <Table.Column
-                        title="Bài viết"
-                        dataIndex="postId"
-                        key="postId"
-                        width={200}
-                        render={(postId: string) => (
-                            <a
-                                href={`/feed?postId=${postId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: '#1890ff', textDecoration: 'underline' }}
-                            >
-                                Xem bài viết #{postId.slice(-8)}
-                            </a>
-                        )}
-                    />
-                    <Table.Column
-                        title="Người báo cáo"
-                        dataIndex="reporterName"
-                        key="reporterName"
-                        width={150}
-                    />
-                    <Table.Column
-                        title="Lý do"
-                        dataIndex="reason"
-                        key="reason"
-                        ellipsis
-                        width={250}
-                    />
-                    <Table.Column
-                        title="Thời gian"
-                        dataIndex="createdAt"
-                        key="createdAt"
-                        width={160}
-                        render={(date: string) => new Date(date).toLocaleString('vi-VN')}
-                    />
-                    <Table.Column
-                        title="Trạng thái"
-                        dataIndex="status"
-                        key="status"
-                        width={120}
-                        render={(status: string) => {
-                            const colorMap: Record<string, string> = {
-                                'Pending': 'orange',
-                                'Reviewed': 'blue',
-                                'Resolved': 'green',
-                                'Dismissed': 'gray'
-                            };
-                            return <Tag color={colorMap[status] || 'default'}>{status || 'Pending'}</Tag>;
-                        }}
-                    />
-                    <Table.Column
-                        title="Hành động"
-                        key="action"
-                        width={150}
-                        render={(_, record: any) => (
-                            <Space>
-                                <Button size="small" type="primary">
-                                    Xử lý
-                                </Button>
-                                <Button size="small" danger>
-                                    Bỏ qua
-                                </Button>
-                            </Space>
-                        )}
-                    />
-                </Table>
-            </div>
 
             {/* Face Registration Modal */}
             <FaceRegistrationModal

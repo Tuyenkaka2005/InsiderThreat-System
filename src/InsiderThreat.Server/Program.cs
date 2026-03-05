@@ -4,8 +4,15 @@ using InsiderThreat.Shared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Cấu hình giới hạn upload file (200MB)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 209715200; // 200MB
+});
 
 // ==========================================
 // 1. CẤU HÌNH MONGODB (Đã sửa chuẩn)
@@ -108,6 +115,15 @@ builder.Services.AddSingleton<InsiderThreat.Server.Services.IMessageEncryptionSe
 // ==========================================
 builder.Services.AddSignalR();
 // ==========================================
+
+// ==========================================
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 209715200; // 200MB
+    options.ValueLengthLimit = 209715200;
+    options.MemoryBufferThreshold = 209715200;
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

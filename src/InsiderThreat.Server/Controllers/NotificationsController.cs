@@ -107,6 +107,7 @@ public class NotificationsController : ControllerBase
     }
 
     // Helper method to create a notification (can be called from other controllers)
+    [NonAction]
     public async Task CreateSocialNotification(
         string type,
         string targetUserId,

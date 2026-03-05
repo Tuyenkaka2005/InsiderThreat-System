@@ -83,3 +83,269 @@
     max-width: 1400px;
     margin: 0 auto;
 }
+
+/* Mobile Dashboard Styles */
+.mobile-dashboard {
+    min-height: 100vh;
+    background-color: #f8fafc;
+    padding-bottom: var(--bottom-nav-height);
+}
+
+.mobile-usb-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background: white;
+}
+
+.mobile-usb-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.usb-icon-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #3b82f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.usb-header-text h1 {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+}
+
+.usb-header-text p {
+    font-size: 12px;
+    color: #64748b;
+    margin: 0;
+}
+
+/* Mobile Tabs */
+.mobile-tabs :global(.ant-tabs-nav) {
+    margin: 0 !important;
+    background: white;
+    padding: 0 10px;
+}
+
+.mobile-tabs :global(.ant-tabs-tab) {
+    padding: 12px 10px !important;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.mobile-tabs :global(.ant-tabs-nav::before) {
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.mobile-incident-list {
+    padding: 20px 16px;
+}
+
+.mobile-filter-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.recent-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #64748b;
+    letter-spacing: 0.05em;
+}
+
+.urgent-badge {
+    border: none !important;
+    font-weight: 800 !important;
+    border-radius: 6px !important;
+    padding: 2px 8px !important;
+}
+
+.incident-cards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.incident-card {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    display: flex;
+    border: 1px solid #f1f5f9;
+}
+
+.severity-bar {
+    width: 6px;
+    flex-shrink: 0;
+}
+
+.incident-card-content {
+    flex: 1;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.incident-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.severity-tag {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.02em;
+}
+
+.time-ago {
+    font-size: 12px;
+    color: #94a3b8;
+    flex: 1;
+}
+
+.more-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+}
+
+.device-info {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.device-icon {
+    font-size: 28px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+.device-details h3 {
+    font-size: 16px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0 0 4px;
+}
+
+.incident-desc {
+    font-size: 13px;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.attempt-info {
+    background: #f8fafc;
+    border-radius: 16px;
+    padding: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.attempt-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+}
+
+.attempt-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.attempt-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: #94a3b8;
+    letter-spacing: 0.05em;
+}
+
+.attempt-user {
+    font-size: 14px;
+    font-weight: 700;
+    color: #334155;
+}
+
+.user-dept {
+    color: #64748b;
+    font-weight: 500;
+    margin-left: 4px;
+}
+
+.incident-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.action-btn {
+    height: 44px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.block-btn {
+    background: #ef4444;
+    color: white;
+}
+
+.block-btn:hover {
+    background: #dc2626;
+}
+
+.dismiss-btn {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.dismiss-btn:hover {
+    background: #e2e8f0;
+}
+
+.floating-action-btn {
+    position: fixed;
+    bottom: calc(var(--bottom-nav-height) + 20px);
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: #3b82f6;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+    z-index: 100;
+}

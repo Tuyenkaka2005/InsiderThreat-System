@@ -409,7 +409,7 @@ export default function PostCard({ post, currentUser, onPostUpdated, onPostDelet
     // For simplicity, let's use Emoji for all ACTIVE states, and Material Icon for INACTIVE.
 
     return (
-        <div className="bg-white border border-[var(--color-border)] rounded-xl p-4 mb-4 shadow-sm hover:border-blue-200 hover:shadow-md transition-all">
+        <div className="bg-white border border-[var(--color-border)] rounded-2xl p-4 mb-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:border-blue-100 transition-all duration-300">
             <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden">
@@ -616,7 +616,7 @@ export default function PostCard({ post, currentUser, onPostUpdated, onPostDelet
                 <span onClick={toggleComments} className="hover:underline cursor-pointer text-sm text-slate-500">{localPost.commentCount || 0} bình luận</span>
             </div>
 
-            <div className="post-actions-bar relative">
+            <div className="post-actions-bar mt-4 pt-2 border-t border-slate-50 relative">
                 <div className="group relative">
                     <button
                         onClick={handleLike}

@@ -11,6 +11,7 @@ import NavigationBar from '../components/NavigationBar';
 import LeftSidebar from '../components/LeftSidebar';
 import FloatingChat from '../components/chat/FloatingChat';
 import ChatSidebar from '../components/chat/ChatSidebar';
+import BottomNavigation from '../components/BottomNavigation';
 import { DEPARTMENTS, POST_CATEGORIES } from '../constants';
 import { detectSensitiveContent } from '../utils/contentAnalyzer';
 import './FeedPage.css';
@@ -222,9 +223,10 @@ export default function FeedPage() {
             setNewPostContent('');
             setSelectedCategory('General');
             removeSelectedFile();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to create post", error);
-            alert("Failed to post. Please try again.");
+            const errMsg = error.response?.data?.message || error.message || "Please try again.";
+            alert(`Failed to post: ${errMsg}`);
         } finally {
             setIsPosting(false);
         }
@@ -284,52 +286,73 @@ export default function FeedPage() {
                     <div className="w-full flex flex-col gap-6">
                         {/* ── Welcome Banner ── */}
                         <div style={{
-                            background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%)',
-                            borderRadius: 20,
-                            padding: '24px 28px',
+                            background: 'var(--gradient-premium)',
+                            borderRadius: 24,
+                            padding: '32px 32px',
                             color: 'white',
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            boxShadow: '0 6px 20px rgba(37,99,235,0.35)',
+                            flexDirection: 'column',
+                            gap: 20,
+                            boxShadow: '0 12px 40px rgba(37,99,235,0.25)',
                             position: 'relative',
                             overflow: 'hidden',
                         }}>
+                            {/* Moon Icon / Dark Mode Placeholder */}
+                            <div style={{
+                                position: 'absolute',
+                                right: 24,
+                                top: 24,
+                                width: 44,
+                                height: 44,
+                                borderRadius: '50%',
+                                background: 'rgba(255,255,255,0.25)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backdropFilter: 'blur(8px)',
+                                cursor: 'pointer'
+                            }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: 24 }}>dark_mode</span>
+                            </div>
+
                             {/* Background decoration */}
                             <div style={{
-                                position: 'absolute', right: -30, top: -30,
-                                width: 160, height: 160,
+                                position: 'absolute', left: -20, bottom: -20,
+                                width: 140, height: 140,
                                 borderRadius: '50%',
-                                background: 'rgba(255,255,255,0.08)',
+                                background: 'rgba(255,255,255,0.06)',
                                 pointerEvents: 'none',
                             }} />
-                            <div style={{
-                                position: 'absolute', right: 60, bottom: -50,
-                                width: 120, height: 120,
-                                borderRadius: '50%',
-                                background: 'rgba(255,255,255,0.05)',
-                                pointerEvents: 'none',
-                            }} />
-                            <div>
-                                <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>
+
+                            <div style={{ maxWidth: '80%' }}>
+                                <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.02em' }}>
                                     Chào mừng trở lại, {user?.fullName || user?.username} 👋
                                 </div>
-                                <div style={{ fontSize: 13, opacity: 0.85 }}>
+                                <div style={{ fontSize: 14, opacity: 0.9, lineHeight: 1.6 }}>
                                     Hôm nay có gì mới không? Chia sẻ với đồng nghiệp nhé!
                                 </div>
                             </div>
-                            <div style={{
-                                background: 'rgba(255,255,255,0.2)',
-                                borderRadius: 50,
-                                padding: '6px 16px',
-                                fontSize: 12,
-                                fontWeight: 700,
-                                letterSpacing: '0.05em',
-                                whiteSpace: 'nowrap',
-                                backdropFilter: 'blur(4px)',
-                                flexShrink: 0,
-                            }}>
-                                {user?.department || user?.role || 'Nhân viên'}
+
+                            <div className="flex items-center gap-3">
+                                {user?.role === 'Admin' && (
+                                    <button
+                                        onClick={() => navigate('/dashboard')}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.2)',
+                                            borderRadius: 12,
+                                            padding: '8px 20px',
+                                            fontSize: 13,
+                                            fontWeight: 700,
+                                            color: 'white',
+                                            border: 'none',
+                                            backdropFilter: 'blur(4px)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        Admin Panel
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -542,56 +565,36 @@ export default function FeedPage() {
                         )}
 
                         {/* Filters */}
-                        <div className="bg-white rounded-xl p-4 border border-[var(--color-border)] shadow-sm">
-                            <div className="flex items-center gap-4 flex-wrap">
-                                <span className="text-sm font-semibold text-slate-800">Filters:</span>
-
-                                {/* Category Filter */}
+                        <div className="bg-white rounded-2xl p-5 border border-[var(--color-border)] shadow-sm flex flex-col gap-4">
+                            <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs text-[var(--color-text-muted)]">Category:</span>
+                                    <span className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">Bộ lọc:</span>
                                     <select
-                                        className="bg-slate-50 text-slate-800 text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-[var(--color-primary)]"
+                                        className="bg-slate-50 text-slate-800 text-[15px] font-medium border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:border-[var(--color-primary)] cursor-pointer"
                                         value={filterCategory}
                                         onChange={(e) => setFilterCategory(e.target.value)}
                                     >
-                                        <option value="All">All</option>
+                                        <option value="All">Tất cả danh mục</option>
                                         {POST_CATEGORIES.map(cat => (
                                             <option key={cat} value={cat}>{cat}</option>
                                         ))}
                                     </select>
                                 </div>
+                            </div>
 
-                                {/* Date Filter */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-[var(--color-text-muted)]">Date:</span>
-                                    <div className="flex gap-1">
-                                        {['All', 'Today', 'Week', 'Month'].map(period => (
-                                            <button
-                                                key={period}
-                                                onClick={() => setFilterDate(period)}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterDate === period
-                                                    ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                                                    : 'bg-slate-50 text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200'
-                                                    }`}
-                                            >
-                                                {period}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Active Filter Count */}
-                                {(filterCategory !== 'All' || filterDate !== 'All') && (
+                            <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
+                                {['All', 'Today', 'Week', 'Month'].map(period => (
                                     <button
-                                        onClick={() => {
-                                            setFilterCategory('All');
-                                            setFilterDate('All');
-                                        }}
-                                        className="text-xs text-[var(--color-primary)] hover:underline ml-auto"
+                                        key={period}
+                                        onClick={() => setFilterDate(period)}
+                                        className={`px-5 py-2.5 rounded-xl text-[14px] font-semibold transition-all whitespace-nowrap ${filterDate === period
+                                            ? 'bg-[var(--color-primary)] text-white shadow-md'
+                                            : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-100'
+                                            }`}
                                     >
-                                        Clear Filters
+                                        {period === 'All' ? 'Tất cả' : period === 'Today' ? 'Hôm nay' : period === 'Week' ? 'Tuần này' : 'Tháng này'}
                                     </button>
-                                )}
+                                ))}
                             </div>
                         </div>
 
@@ -707,6 +710,8 @@ export default function FeedPage() {
                     onClose={() => handleCloseChat(chatUser.id || chatUser.username)}
                 />
             ))}
+
+            <BottomNavigation />
         </div>
     );
 }

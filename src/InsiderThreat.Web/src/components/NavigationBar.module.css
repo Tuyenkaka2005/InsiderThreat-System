@@ -3,18 +3,34 @@
 .navbar {
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: 100;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 1rem;
     height: var(--header-height);
-    /* Glass effect */
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    padding: 0 1rem;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--color-border);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 767px) {
+    .navbar {
+        height: 60px;
+    }
+
+    .searchContainer {
+        display: none !important;
+    }
+
+    .rightSection>button:not(:last-child) {
+        display: none;
+    }
+
+    .logoText {
+        font-size: 1rem;
+    }
 }
 
 @media (min-width: 1024px) {

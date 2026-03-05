@@ -30,11 +30,11 @@ namespace InsiderThreat.Server.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest(new { message = "No file uploaded" });
 
-            // Kiểm tra loại file (chỉ chấp nhận ảnh và một số file thông dụng)
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".doc", ".docx", ".txt", ".zip" };
+            // Kiểm tra loại file (chấp nhận ảnh, video và một số file thông dụng)
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".mov", ".avi", ".mkv", ".webm", ".pdf", ".doc", ".docx", ".txt", ".zip" };
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(extension))
-                return BadRequest(new { message = "Invalid file type." });
+                return BadRequest(new { message = "Invalid file type. Currently supported image and video formats." });
 
             try
             {

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import viVN from 'antd/locale/vi_VN';
@@ -12,8 +13,10 @@ import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import StaffPage from './pages/StaffPage';
 import GroupsPage from './pages/GroupsPage';
+import LibraryPage from './pages/LibraryPage';
 import { NotificationProvider } from './contexts/NotificationContext';
 import NotificationToast from './components/NotificationToast';
+import { ChatWidget } from './components/ChatWidget';
 import './App.css';
 
 // Component bảo vệ route - kiểm tra đăng nhập
@@ -36,6 +39,21 @@ function RoleBasedRedirect() {
 }
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setIsLoggedIn(!!localStorage.getItem('token'));
+    };
+    window.addEventListener('storage', handleStorageChange);
+    // Tự động kiểm tra token mỗi giây để UI phản ứng nhanh khi login/logout
+    const interval = setInterval(handleStorageChange, 1000);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
   return (
     <ConfigProvider locale={viVN}>
       <BrowserRouter>
@@ -53,11 +71,13 @@ function App() {
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
             <Route path="/staff" element={<PrivateRoute><StaffPage /></PrivateRoute>} />
             <Route path="/groups" element={<PrivateRoute><GroupsPage /></PrivateRoute>} />
+            <Route path="/library" element={<PrivateRoute><LibraryPage /></PrivateRoute>} />
             <Route path="/" element={<RoleBasedRedirect />} />
             <Route path="*" element={<RoleBasedRedirect />} />
           </Routes>
-          {/* Global realtime notification toast */}
+          {/* Global components */}
           <NotificationToast />
+          {isLoggedIn && <ChatWidget />}
         </NotificationProvider>
       </BrowserRouter>
     </ConfigProvider>
