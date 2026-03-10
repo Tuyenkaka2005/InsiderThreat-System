@@ -125,6 +125,15 @@ export default function ProfilePage() {
         return `${API_BASE_URL}${url}`;
     };
 
+    const getRoleClass = (role?: string) => {
+        if (!role) return 'role-staff';
+        const r = role.toLowerCase();
+        if (r.includes('admin')) return 'role-admin';
+        if (r.includes('quản lý') || r.includes('manager')) return 'role-manager';
+        if (r.includes('giám đốc') || r.includes('director')) return 'role-director';
+        return 'role-staff';
+    };
+
     const avatarUrl = getDisplayAvatarUrl(user.avatarUrl);
 
     return (
@@ -167,7 +176,11 @@ export default function ProfilePage() {
                                     {user.fullName || user.username}
                                     <span className="material-symbols-outlined verified-badge">verified</span>
                                 </h1>
-                                {user.position && <span className="profile-position-badge">{user.position}</span>}
+                                {user.role && (
+                                    <span className={`role-badge ${getRoleClass(user.role)}`}>
+                                        {user.role}
+                                    </span>
+                                )}
                             </div>
                             <p>{user.department || 'Administrator'}</p>
                         </div>

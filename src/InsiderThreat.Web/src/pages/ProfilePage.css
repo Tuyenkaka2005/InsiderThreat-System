@@ -111,15 +111,33 @@
     margin-bottom: 4px;
 }
 
-.profile-position-badge {
+.role-badge {
     font-size: 11px;
     font-weight: 800;
     padding: 4px 12px;
-    background-color: #eff6ff;
-    color: #2563eb;
     border-radius: 8px;
     text-transform: uppercase;
     letter-spacing: 0.02em;
+}
+
+.role-admin {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.role-manager {
+    background-color: #f0fdf4;
+    color: #16a34a;
+}
+
+.role-director {
+    background-color: #fff7ed;
+    color: #ea580c;
+}
+
+.role-staff {
+    background-color: #eff6ff;
+    color: #2563eb;
 }
 
 /* Premium Tabs */

@@ -36,11 +36,19 @@ export default function ChatSidebar({ onContactClick }: ChatSidebarProps) {
         return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
     }
 
-    const COLORS = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2', '#d97706'];
-    function getColor(name: string) {
+    const getColor = (name: string) => {
         let h = 0; for (const c of name) h = (h + c.charCodeAt(0)) % COLORS.length;
         return COLORS[h];
-    }
+    };
+
+    const getRoleClass = (role?: string) => {
+        if (!role) return styles.roleStaff;
+        const r = role.toLowerCase();
+        if (r.includes('admin')) return styles.roleAdmin;
+        if (r.includes('quản lý') || r.includes('manager')) return styles.roleManager;
+        if (r.includes('giám đốc') || r.includes('director')) return styles.roleDirector;
+        return styles.roleStaff;
+    };
 
     if (collapsed) {
         return (
@@ -89,7 +97,11 @@ export default function ChatSidebar({ onContactClick }: ChatSidebarProps) {
                             <div className={styles.contactInfo}>
                                 <div className={styles.nameRow}>
                                     <div className={styles.contactName}>{name}</div>
-                                    {contact.position && <span className={styles.positionBadge}>{contact.position}</span>}
+                                    {contact.role && (
+                                        <span className={`${styles.roleBadge} ${getRoleClass(contact.role)}`}>
+                                            {contact.role}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className={`${styles.statusLabel} ${isOnline ? styles.onlineLabel : styles.offlineLabel}`}>
                                     {isOnline ? 'Đang online' : 'Ngoại tuyến'}

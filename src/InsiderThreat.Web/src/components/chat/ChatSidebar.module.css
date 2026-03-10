@@ -147,16 +147,34 @@
     min-width: 0;
 }
 
-.positionBadge {
+.roleBadge {
     font-size: 9px;
     font-weight: 800;
     padding: 1px 6px;
-    background-color: #f1f5f9;
-    color: #64748b;
     border-radius: 4px;
     text-transform: uppercase;
     white-space: nowrap;
     flex-shrink: 0;
+}
+
+.roleAdmin {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.roleManager {
+    background-color: #f0fdf4;
+    color: #16a34a;
+}
+
+.roleDirector {
+    background-color: #fff7ed;
+    color: #ea580c;
+}
+
+.roleStaff {
+    background-color: #eff6ff;
+    color: #2563eb;
 }
 
 .statusLabel {
