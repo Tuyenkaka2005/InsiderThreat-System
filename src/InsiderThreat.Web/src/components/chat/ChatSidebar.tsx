@@ -36,6 +36,7 @@ export default function ChatSidebar({ onContactClick }: ChatSidebarProps) {
         return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
     }
 
+    const COLORS = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2', '#d97706'];
     const getColor = (name: string) => {
         let h = 0; for (const c of name) h = (h + c.charCodeAt(0)) % COLORS.length;
         return COLORS[h];
