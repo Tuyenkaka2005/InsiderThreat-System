@@ -137,7 +137,26 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.nameRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-bottom: 1px;
+    min-width: 0;
+}
+
+.positionBadge {
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 6px;
+    background-color: #f1f5f9;
+    color: #64748b;
+    border-radius: 4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .statusLabel {

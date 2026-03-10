@@ -105,7 +105,10 @@ export default function StaffPage() {
                                                 <div className="onlineIndicator" />
                                             </div>
                                             <div className="suggestionInfo">
-                                                <h3>{name}</h3>
+                                                <div className="nameBadgeRow">
+                                                    <h3>{name}</h3>
+                                                    {user.position && <span className="positionBadge">{user.position}</span>}
+                                                </div>
                                                 <span className="statusText">ĐANG ONLINE</span>
                                             </div>
                                         </div>

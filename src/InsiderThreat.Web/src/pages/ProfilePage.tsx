@@ -162,11 +162,14 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="profile-identity">
-                            <h1>
-                                {user.fullName || user.username}
-                                <span className="material-symbols-outlined verified-badge">verified</span>
-                            </h1>
-                            <p>{user.department || 'Administrator'} • {user.position || 'Security Ops'}</p>
+                            <div className="name-badge-row">
+                                <h1>
+                                    {user.fullName || user.username}
+                                    <span className="material-symbols-outlined verified-badge">verified</span>
+                                </h1>
+                                {user.position && <span className="profile-position-badge">{user.position}</span>}
+                            </div>
+                            <p>{user.department || 'Administrator'}</p>
                         </div>
 
                         <div className="profile-tabs-wrapper">

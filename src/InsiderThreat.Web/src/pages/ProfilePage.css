@@ -104,6 +104,24 @@
     margin: 0;
 }
 
+.name-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.profile-position-badge {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 4px 12px;
+    background-color: #eff6ff;
+    color: #2563eb;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
 /* Premium Tabs */
 .profile-tabs-wrapper {
     margin-top: 24px;

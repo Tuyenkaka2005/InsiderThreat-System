@@ -87,7 +87,10 @@ export default function ChatSidebar({ onContactClick }: ChatSidebarProps) {
                                 <div className={`${styles.statusDot} ${isOnline ? styles.online : styles.offline}`} />
                             </div>
                             <div className={styles.contactInfo}>
-                                <div className={styles.contactName}>{name}</div>
+                                <div className={styles.nameRow}>
+                                    <div className={styles.contactName}>{name}</div>
+                                    {contact.position && <span className={styles.positionBadge}>{contact.position}</span>}
+                                </div>
                                 <div className={`${styles.statusLabel} ${isOnline ? styles.onlineLabel : styles.offlineLabel}`}>
                                     {isOnline ? 'Đang online' : 'Ngoại tuyến'}
                                 </div>
