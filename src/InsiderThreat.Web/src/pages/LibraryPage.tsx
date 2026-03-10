@@ -87,6 +87,10 @@ const LibraryPage = () => {
         window.open(`${API_BASE_URL}/api/Upload/download/${doc.fileId}?originalName=${encodeURIComponent(doc.fileName)}`, '_blank');
     };
 
+    const handlePreview = (doc: SharedDocument) => {
+        window.open(`${API_BASE_URL}/api/Upload/${doc.fileId}`, '_blank');
+    };
+
     const handleDelete = async (id: string) => {
         try {
             await api.delete(`/api/DocumentLibrary/${id}`);
@@ -278,8 +282,8 @@ const LibraryPage = () => {
                                                     <span className="material-symbols-outlined">edit</span>
                                                 </button>
                                             )}
-                                            <button className="doc-action-btn">
-                                                <span className="material-symbols-outlined">folder</span>
+                                            <button className="doc-action-btn" onClick={() => handlePreview(doc)} title="Xem trực tiếp">
+                                                <span className="material-symbols-outlined">visibility</span>
                                             </button>
                                             {user.role === 'Admin' && (
                                                 <Popconfirm
