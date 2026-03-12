@@ -167,6 +167,42 @@
     letter-spacing: 0.02em;
 }
 
+.nameBadgeRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.roleBadge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.role-admin {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.role-manager {
+    background-color: #f0fdf4;
+    color: #16a34a;
+}
+
+.role-director {
+    background-color: #fff7ed;
+    color: #ea580c;
+}
+
+.role-staff {
+    background-color: #eff6ff;
+    color: #2563eb;
+}
+
 .chatQuickBtn {
     width: 40px;
     height: 40px;

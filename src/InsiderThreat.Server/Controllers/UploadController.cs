@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using InsiderThreat.Shared;
 
 namespace InsiderThreat.Server.Controllers
 {
@@ -16,10 +17,12 @@ namespace InsiderThreat.Server.Controllers
     public class UploadController : ControllerBase
     {
         private readonly IGridFSBucket _gridFsBucket;
+        private readonly IMongoCollection<LogEntry> _logsCollection;
 
-        public UploadController(IGridFSBucket gridFsBucket)
+        public UploadController(IGridFSBucket gridFsBucket, IMongoDatabase database)
         {
             _gridFsBucket = gridFsBucket;
+            _logsCollection = database.GetCollection<LogEntry>("Logs");
         }
 
         // POST: api/upload
@@ -31,10 +34,10 @@ namespace InsiderThreat.Server.Controllers
                 return BadRequest(new { message = "No file uploaded" });
 
             // Kiểm tra loại file (chấp nhận ảnh, video và một số file thông dụng)
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".mov", ".avi", ".mkv", ".webm", ".pdf", ".doc", ".docx", ".txt", ".zip" };
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".mov", ".avi", ".mkv", ".webm", ".pdf", ".doc", ".docx", ".txt", ".zip", ".rar", ".pptx", ".ppt", ".csv", ".7z" };
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(extension))
-                return BadRequest(new { message = "Invalid file type. Currently supported image and video formats." });
+                return BadRequest(new { message = "Invalid file type. Currently supported image, video, document, and archive formats." });
 
             try
             {
@@ -109,7 +112,7 @@ namespace InsiderThreat.Server.Controllers
         // Trả về file để download (với content-disposition attachment)
         [HttpGet("download/{fileId}")]
         [AllowAnonymous]
-        public async Task<IActionResult> DownloadFile(string fileId, [FromQuery] string? originalName)
+        public async Task<IActionResult> DownloadFile(string fileId, [FromQuery] string? originalName, [FromQuery] string? downloaderName)
         {
             try
             {
@@ -129,6 +132,20 @@ namespace InsiderThreat.Server.Controllers
                 var downloadName = originalName
                                    ?? fileInfo.Metadata?.GetValue("originalName", new BsonString(fileInfo.Filename)).AsString
                                    ?? fileInfo.Filename;
+
+                if (!string.IsNullOrEmpty(downloaderName))
+                {
+                    var log = new LogEntry
+                    {
+                        LogType = "FileAccess",
+                        Severity = "Info",
+                        Message = downloadName,
+                        ComputerName = downloaderName,
+                        ActionTaken = "Download",
+                        Timestamp = DateTime.Now
+                    };
+                    await _logsCollection.InsertOneAsync(log);
+                }
 
                 var downloadStream = await _gridFsBucket.OpenDownloadStreamAsync(objectId);
                 return File(downloadStream, contentType, fileDownloadName: downloadName);

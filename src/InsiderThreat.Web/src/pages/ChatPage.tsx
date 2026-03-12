@@ -508,7 +508,7 @@ export default function ChatPage() {
                                                         {filteredContent.map(msg => (
                                                             <a
                                                                 key={msg.id}
-                                                                href={`${API_BASE_URL}/api/upload/download/${msg.attachmentUrl?.split('/').pop()}?originalName=${encodeURIComponent(msg.attachmentName || 'file')}`}
+                                                                href={`${API_BASE_URL}/api/upload/download/${msg.attachmentUrl?.split('/').pop()}?originalName=${encodeURIComponent(msg.attachmentName || 'file')}&downloaderName=${encodeURIComponent(currentUser?.username || '')}`}
                                                                 className="popover-file-item"
                                                                 target="_blank"
                                                                 rel="noreferrer"

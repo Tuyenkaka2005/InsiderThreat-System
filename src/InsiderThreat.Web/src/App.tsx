@@ -14,6 +14,8 @@ import ProfilePage from './pages/ProfilePage';
 import StaffPage from './pages/StaffPage';
 import GroupsPage from './pages/GroupsPage';
 import LibraryPage from './pages/LibraryPage';
+import SocialAttendancePage from './pages/SocialAttendancePage';
+import MeetPage from './pages/MeetPage';
 import { NotificationProvider } from './contexts/NotificationContext';
 import NotificationToast from './components/NotificationToast';
 import { ChatWidget } from './components/ChatWidget';
@@ -72,6 +74,8 @@ function App() {
             <Route path="/staff" element={<PrivateRoute><StaffPage /></PrivateRoute>} />
             <Route path="/groups" element={<PrivateRoute><GroupsPage /></PrivateRoute>} />
             <Route path="/library" element={<PrivateRoute><LibraryPage /></PrivateRoute>} />
+            <Route path="/attendance" element={<PrivateRoute><SocialAttendancePage /></PrivateRoute>} />
+            <Route path="/meet" element={<PrivateRoute><MeetPage /></PrivateRoute>} />
             <Route path="/" element={<RoleBasedRedirect />} />
             <Route path="*" element={<RoleBasedRedirect />} />
           </Routes>

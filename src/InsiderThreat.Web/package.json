@@ -10,9 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@cyntler/react-doc-viewer": "^1.17.1",
+    "@jitsi/react-sdk": "^1.4.4",
     "@microsoft/signalr": "^10.0.0",
     "antd": "^6.2.2",
     "axios": "^1.13.4",
+    "docx-preview": "^0.3.7",
     "face-api.js": "^0.22.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

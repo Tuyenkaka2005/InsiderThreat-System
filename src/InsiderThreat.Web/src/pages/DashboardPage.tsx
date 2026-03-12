@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth';
+import { attendanceService } from '../services/attendanceService';
 import { confirmLogout } from '../utils/logoutUtils';
 import UsbNotification from '../components/UsbNotification';
 import BlockedDevicesTable from '../components/BlockedDevicesTable';
@@ -269,7 +270,21 @@ function DashboardPage() {
                         className="trigger"
                     />
 
-                    <div className="header-right">
+                    <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <Button type="primary" onClick={async () => {
+                            try {
+                                const res = await attendanceService.checkCanCheckIn();
+                                if (!res.canCheckIn) {
+                                    message.warning("Bạn phải kết nối vào mạng WiFi (IP) được chỉ định để chấm công");
+                                    return;
+                                }
+                                setSelectedKey('attendance');
+                            } catch (e) {
+                                message.error("Lỗi khi kiểm tra kết nối mạng");
+                            }
+                        }}>
+                            Điểm danh chấm công
+                        </Button>
                         <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
                             <div className="user-info">
                                 <Avatar icon={<UserOutlined />} />

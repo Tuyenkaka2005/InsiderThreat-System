@@ -1,0 +1,60 @@
+.layout {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: row;
+    background-color: #f0f2f5;
+}
+
+/* Sidebar styling for desktop */
+.sidebarContainer {
+    width: 250px;
+    flex-shrink: 0;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1000;
+}
+
+/* Content area styling */
+.mainContent {
+    flex: 1;
+    margin-left: 250px;
+    /* Leave space for sidebar */
+    padding-bottom: 0;
+    height: 100vh;
+}
+
+/* Bottom Navigation constraint - Hidden on desktop, visible on mobile */
+.bottomNavContainer {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .layout {
+        flex-direction: column;
+    }
+
+    .sidebarContainer {
+        display: none;
+    }
+
+    .mainContent {
+        margin-left: 0;
+        margin-bottom: 60px;
+        /* Leave space for bottom nav */
+        height: calc(100vh - 60px);
+    }
+
+    .bottomNavContainer {
+        display: block;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        z-index: 1000;
+        background-color: white;
+        border-top: 1px solid #e8e8e8;
+    }
+}

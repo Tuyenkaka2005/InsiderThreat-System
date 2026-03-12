@@ -125,6 +125,15 @@ export default function ProfilePage() {
         return `${API_BASE_URL}${url}`;
     };
 
+    const getRoleClass = (role?: string) => {
+        if (!role) return 'role-staff';
+        const r = role.toLowerCase();
+        if (r.includes('admin')) return 'role-admin';
+        if (r.includes('quản lý') || r.includes('manager')) return 'role-manager';
+        if (r.includes('giám đốc') || r.includes('director')) return 'role-director';
+        return 'role-staff';
+    };
+
     const avatarUrl = getDisplayAvatarUrl(user.avatarUrl);
 
     return (
@@ -162,11 +171,18 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="profile-identity">
-                            <h1>
-                                {user.fullName || user.username}
-                                <span className="material-symbols-outlined verified-badge">verified</span>
-                            </h1>
-                            <p>{user.department || 'Administrator'} • {user.position || 'Security Ops'}</p>
+                            <div className="name-badge-row">
+                                <h1>
+                                    {user.fullName || user.username}
+                                    <span className="material-symbols-outlined verified-badge">verified</span>
+                                </h1>
+                                {user.role && (
+                                    <span className={`role-badge ${getRoleClass(user.role)}`}>
+                                        {user.role}
+                                    </span>
+                                )}
+                            </div>
+                            <p>{user.department || 'Administrator'}</p>
                         </div>
 
                         <div className="profile-tabs-wrapper">
@@ -274,12 +290,6 @@ export default function ProfilePage() {
                         </div>
                     </section>
                 </div>
-
-                {isMobile && (
-                    <button className="floating-post-btn" onClick={() => navigate('/feed')}>
-                        <span className="material-symbols-outlined">add</span>
-                    </button>
-                )}
 
                 {isMobile && <BottomNavigation />}
 

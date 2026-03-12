@@ -41,7 +41,7 @@ function DocumentsPage() {
             )
         },
         {
-            title: 'Máy tính',
+            title: 'Tài khoản / Máy tính',
             dataIndex: 'computerName',
             key: 'computerName',
         },
@@ -54,7 +54,8 @@ function DocumentsPage() {
                 if (action === 'Read') color = 'blue';
                 if (action === 'Write') color = 'orange';
                 if (action === 'Delete') color = 'red';
-                if (action === 'Created') color = 'green';
+                if (action === 'Create' || action === 'Created') color = 'green';
+                if (action === 'Download') color = 'cyan';
                 return <Tag color={color}>{action}</Tag>;
             }
         },

@@ -70,10 +70,10 @@ namespace InsiderThreat.Server.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
 
-            var allowedExtensions = new[] { ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt", ".zip", ".rar" };
+            var allowedExtensions = new[] { ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt", ".zip", ".rar", ".pptx", ".ppt", ".csv", ".7z" };
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(extension))
-                return BadRequest("Invalid file type. Supported: PDF, Word, Excel, TXT, ZIP/RAR.");
+                return BadRequest("Invalid file type. Supported: PDF, Word, Excel, PowerPoint, TXT, CSV, ZIP/RAR/7Z.");
 
             try
             {
@@ -90,8 +90,18 @@ namespace InsiderThreat.Server.Controllers
                 _logger.LogInformation($"Uploading document: {file.FileName} ({file.Length} bytes) with MinRole: {minimumRole}, AllowedUsers: {allowedUserIds.Count}");
                 
                 // 1. Upload to GridFS
+                var options = new GridFSUploadOptions
+                {
+                    Metadata = new BsonDocument
+                    {
+                        { "originalName", file.FileName },
+                        { "contentType", file.ContentType },
+                        { "uploadedAt", DateTime.UtcNow }
+                    }
+                };
+
                 using var stream = file.OpenReadStream();
-                var fileId = await _gridFS.UploadFromStreamAsync(file.FileName, stream);
+                var fileId = await _gridFS.UploadFromStreamAsync(file.FileName, stream, options);
 
                 _logger.LogInformation($"Uploaded to GridFS with ID: {fileId}");
 

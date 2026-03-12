@@ -52,6 +52,15 @@ export default function StaffPage() {
         return `${API_BASE_URL}${user.avatarUrl}`;
     };
 
+    const getRoleClass = (role?: string) => {
+        if (!role) return 'role-staff';
+        const r = role.toLowerCase();
+        if (r.includes('admin')) return 'role-admin';
+        if (r.includes('quản lý') || r.includes('manager')) return 'role-manager';
+        if (r.includes('giám đốc') || r.includes('director')) return 'role-director';
+        return 'role-staff';
+    };
+
     const suggestions = users.slice(0, 3);
 
     return (
@@ -105,7 +114,10 @@ export default function StaffPage() {
                                                 <div className="onlineIndicator" />
                                             </div>
                                             <div className="suggestionInfo">
-                                                <h3>{name}</h3>
+                                                <div className="nameBadgeRow">
+                                                    <h3>{name}</h3>
+                                                    {user.role && <span className={`roleBadge ${getRoleClass(user.role)}`}>{user.role}</span>}
+                                                </div>
                                                 <span className="statusText">ĐANG ONLINE</span>
                                             </div>
                                         </div>

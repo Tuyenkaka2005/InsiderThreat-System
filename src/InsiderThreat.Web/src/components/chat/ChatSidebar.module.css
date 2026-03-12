@@ -137,7 +137,44 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.nameRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-bottom: 1px;
+    min-width: 0;
+}
+
+.roleBadge {
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.roleAdmin {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.roleManager {
+    background-color: #f0fdf4;
+    color: #16a34a;
+}
+
+.roleDirector {
+    background-color: #fff7ed;
+    color: #ea580c;
+}
+
+.roleStaff {
+    background-color: #eff6ff;
+    color: #2563eb;
 }
 
 .statusLabel {
