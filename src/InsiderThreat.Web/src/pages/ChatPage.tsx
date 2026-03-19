@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '../services/auth';
 import { API_BASE_URL } from '../services/api';
 import { userService } from '../services/userService';
 import { chatService } from '../services/chatService';
+import { cryptoService } from '../services/cryptoService';
 import { signalRService } from '../services/signalRService';
 import type { Message as ApiMessage } from '../services/chatService';
 import type { User } from '../types';
@@ -66,6 +67,11 @@ export default function ChatPage() {
     const [editingText, setEditingText] = useState('');
     const longPressTimer = useRef<number | null>(null);
 
+    // E2EE Key State
+    const privateKeyRef = useRef<CryptoKey | null>(null);
+    const myPublicKeyRef = useRef<string | null>(null);
+    const [e2eeReady, setE2eeReady] = useState(false);
+
     // Filtered Content for Popover
     const filteredContent = useMemo(() => {
         switch (activeFilter) {
@@ -80,7 +86,70 @@ export default function ChatPage() {
         }
     }, [messages, activeFilter]);
 
-    // No client-side key init needed — server handles encryption/decryption
+    // E2EE: Initialize RSA key pair on mount
+    useEffect(() => {
+        const initE2EE = async () => {
+            if (!currentUser?.id) return;
+            try {
+                const { publicKey, privateKey } = await cryptoService.initializeKeys(
+                    currentUser.id,
+                    chatService.uploadPublicKey
+                );
+                privateKeyRef.current = privateKey;
+                myPublicKeyRef.current = publicKey;
+                setE2eeReady(true);
+                console.log('[E2EE] Keys initialized successfully');
+            } catch (error) {
+                console.error('[E2EE] Key initialization failed:', error);
+            }
+        };
+        initE2EE();
+    }, [currentUser]);
+
+    // E2EE: Helper to decrypt a batch of messages
+    const decryptMessages = useCallback(async (apiMessages: ApiMessage[]): Promise<Message[]> => {
+        const pk = privateKeyRef.current;
+        if (!pk || !currentUser?.id) {
+            // No private key yet — return raw (will show encrypted blobs)
+            return apiMessages.map(msg => ({
+                id: msg.id || Date.now().toString(),
+                text: msg.content || '',
+                senderId: msg.senderId,
+                timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                attachmentUrl: msg.attachmentUrl,
+                attachmentType: msg.attachmentType,
+                attachmentName: msg.attachmentName,
+                isRead: msg.isRead,
+                isEdited: msg.isEdited
+            }));
+        }
+
+        const results: Message[] = [];
+        for (const msg of apiMessages) {
+            let plainText = msg.content || '';
+            const isMe = msg.senderId === currentUser.id;
+
+            if (plainText) {
+                // If I sent it, decrypt senderContent (encrypted with my public key)
+                // If I received it, decrypt content (encrypted with my public key)
+                const cipherToDecrypt = isMe ? (msg.senderContent || msg.content) : msg.content;
+                plainText = await cryptoService.decrypt(cipherToDecrypt, pk);
+            }
+
+            results.push({
+                id: msg.id || Date.now().toString(),
+                text: plainText,
+                senderId: msg.senderId,
+                timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                attachmentUrl: msg.attachmentUrl,
+                attachmentType: msg.attachmentType,
+                attachmentName: msg.attachmentName,
+                isRead: msg.isRead,
+                isEdited: msg.isEdited
+            });
+        }
+        return results;
+    }, [currentUser]);
 
     // 2. Fetch Contacts
     useEffect(() => {
@@ -206,25 +275,17 @@ export default function ChatPage() {
         };
     }, [selectedUser?.id]);
 
-    // 3. Fetch Messages when User Selected (server decrypts before returning)
+    // 3. Fetch Messages when User Selected (E2EE: client decrypts after receiving)
     useEffect(() => {
-        if (!selectedUser || !currentUser) return;
+        if (!selectedUser || !currentUser || !e2eeReady) return;
 
         const loadMessages = async () => {
             if (!currentUser?.id) return;
             try {
                 const apiMessages = await chatService.getMessages(selectedUser.id, currentUser.id);
 
-                const mappedMessages = apiMessages.map((msg: ApiMessage) => ({
-                    id: msg.id || Date.now().toString(),
-                    text: msg.content || '',
-                    senderId: msg.senderId,
-                    timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    attachmentUrl: msg.attachmentUrl,
-                    attachmentType: msg.attachmentType,
-                    attachmentName: msg.attachmentName,
-                    isRead: msg.isRead
-                }));
+                // E2EE: Decrypt all messages on client side
+                const mappedMessages = await decryptMessages(apiMessages);
 
                 setMessages(prev => {
                     const isDifferent = prev.length !== mappedMessages.length ||
@@ -254,7 +315,7 @@ export default function ChatPage() {
             if (pollInterval.current) clearInterval(pollInterval.current);
         };
 
-    }, [selectedUser, currentUser]);
+    }, [selectedUser, currentUser, e2eeReady, decryptMessages]);
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -267,14 +328,34 @@ export default function ChatPage() {
         const plainText = messageInput;
 
         try {
-            // Send plain text — server encrypts before storing in DB
+            // E2EE: Get receiver's public key
+            let receiverPublicKey = selectedUser.publicKey;
+            if (!receiverPublicKey) {
+                receiverPublicKey = await chatService.getUserPublicKey(selectedUser.id);
+            }
+            if (!receiverPublicKey) {
+                alert('Người nhận chưa thiết lập khóa mã hóa. Không thể gửi tin nhắn E2EE.');
+                return;
+            }
+
+            // E2EE: Encrypt for receiver (using their public key)
+            const encryptedForReceiver = await cryptoService.encryptForUser(plainText, receiverPublicKey);
+
+            // E2EE: Encrypt for sender (using my own public key) — so I can read my sent messages
+            let encryptedForSender: string | undefined;
+            if (myPublicKeyRef.current) {
+                encryptedForSender = await cryptoService.encryptForUser(plainText, myPublicKeyRef.current);
+            }
+
+            // Send encrypted message to server
             await chatService.sendMessage({
                 senderId: currentUser.id || '',
                 receiverId: selectedUser.id,
-                content: plainText,
+                content: encryptedForReceiver,
+                senderContent: encryptedForSender,
             });
 
-            // Optimistic UI — show immediately
+            // Optimistic UI — show plain text immediately
             const newMsg: Message = {
                 id: Date.now().toString(),
                 text: plainText,
@@ -389,11 +470,29 @@ export default function ChatPage() {
     };
 
     const handleSaveEdit = async () => {
-        if (!editingMessageId || !editingText.trim()) return;
+        if (!editingMessageId || !editingText.trim() || !selectedUser) return;
         try {
-            await chatService.editMessage(editingMessageId, editingText.trim());
+            const plainText = editingText.trim();
+
+            // E2EE: Re-encrypt the edited text
+            let encryptedForReceiver = plainText;
+            let encryptedForSender: string | undefined;
+
+            let receiverPublicKey = selectedUser.publicKey;
+            if (!receiverPublicKey) {
+                receiverPublicKey = await chatService.getUserPublicKey(selectedUser.id);
+            }
+
+            if (receiverPublicKey) {
+                encryptedForReceiver = await cryptoService.encryptForUser(plainText, receiverPublicKey);
+            }
+            if (myPublicKeyRef.current) {
+                encryptedForSender = await cryptoService.encryptForUser(plainText, myPublicKeyRef.current);
+            }
+
+            await chatService.editMessage(editingMessageId, encryptedForReceiver, encryptedForSender);
             setMessages(prev => prev.map(m =>
-                m.id === editingMessageId ? { ...m, text: editingText.trim(), isEdited: true } : m
+                m.id === editingMessageId ? { ...m, text: plainText, isEdited: true } : m
             ));
         } catch (err) {
             console.error('Edit message failed', err);

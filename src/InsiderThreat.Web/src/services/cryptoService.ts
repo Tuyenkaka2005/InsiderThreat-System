@@ -1,4 +1,4 @@
-// cryptoService.ts
+// cryptoService.ts — E2EE utilities using RSA-OAEP (Web Crypto API)
 
 // Helper to convert ArrayBuffer to Base64
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -120,5 +120,32 @@ export const cryptoService = {
             publicKey: localStorage.getItem('chat_public_key'),
             privateKey: localStorage.getItem('chat_private_key')
         };
+    },
+
+    // Initialize E2EE keys: generate if not exists, upload public key to server
+    initializeKeys: async (userId: string, uploadPublicKey: (userId: string, publicKey: string) => Promise<any>): Promise<{ publicKey: string; privateKey: CryptoKey }> => {
+        const stored = cryptoService.loadKeys();
+
+        if (stored.publicKey && stored.privateKey) {
+            // Keys exist — import the private key and return
+            const privateKey = await cryptoService.importKey(stored.privateKey, 'private');
+            return { publicKey: stored.publicKey, privateKey };
+        }
+
+        // First time: Generate new key pair
+        console.log('[E2EE] Generating new RSA key pair for user', userId);
+        const keyPair = await cryptoService.generateKeyPair();
+
+        const publicKeyBase64 = await cryptoService.exportKey(keyPair.publicKey);
+        const privateKeyBase64 = await cryptoService.exportKey(keyPair.privateKey);
+
+        // Save to localStorage
+        cryptoService.saveKeys(publicKeyBase64, privateKeyBase64);
+
+        // Upload public key to server
+        await uploadPublicKey(userId, publicKeyBase64);
+        console.log('[E2EE] Key pair generated and public key uploaded');
+
+        return { publicKey: publicKeyBase64, privateKey: keyPair.privateKey };
     }
 };

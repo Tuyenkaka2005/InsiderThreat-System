@@ -5,17 +5,18 @@ export interface Message {
     id?: string;
     senderId: string;
     receiverId: string;
-    content: string; // Encrypted for Receiver
-    senderContent?: string; // Encrypted for Sender
+    content: string; // E2EE: Encrypted for Receiver (Base64)
+    senderContent?: string; // E2EE: Encrypted for Sender (Base64) — so sender can read own history
     timestamp: string;
     isRead: boolean;
     attachmentUrl?: string;
     attachmentType?: string;
     attachmentName?: string;
+    isEdited?: boolean;
 }
 
 export const chatService = {
-    // Send Message
+    // Send Message (client sends already-encrypted content + senderContent)
     sendMessage: async (message: Omit<Message, 'id' | 'timestamp' | 'isRead'>) => {
         return await api.post<Message>('/api/messages', message);
     },
@@ -31,7 +32,7 @@ export const chatService = {
         });
     },
 
-    // Get Messages
+    // Get Messages (returns E2EE encrypted messages — client decrypts locally)
     getMessages: async (otherUserId: string, currentUserId: string) => {
         return await api.get<Message[]>(`/api/messages/${otherUserId}?currentUserId=${currentUserId}`);
     },
@@ -46,9 +47,8 @@ export const chatService = {
         return await api.put(`/api/messages/read/${senderId}`);
     },
 
-    // Update Public Key
+    // Upload Public Key to server
     uploadPublicKey: async (userId: string, publicKey: string) => {
-        // api.put handles JSON content type
         return await api.put(`/api/users/${userId}/public-key`, publicKey);
     },
 
@@ -62,21 +62,14 @@ export const chatService = {
         return await api.delete(`/api/messages/${messageId}/for-me`);
     },
 
-    // Edit message
-    editMessage: async (messageId: string, content: string) => {
-        return await api.put(`/api/messages/${messageId}/edit`, { content });
+    // Edit message (client sends already-encrypted content + senderContent)
+    editMessage: async (messageId: string, content: string, senderContent?: string) => {
+        return await api.put(`/api/messages/${messageId}/edit`, { content, senderContent });
     },
 
     // Get User Public Key
     getUserPublicKey: async (userId: string) => {
-        const user = await api.get<any>(`/api/users/${userId}`); // Assuming getting user returns user obj
-        // Need to check if endpoint returns list or single user. 
-        // UsersController.GetUsers returns list. 
-        // We need a GetUser(id) endpoint? 
-        // Current UsersController doesn't seem to have GetUserById public endpoint based on my memory?
-        // Let's assume we might need to filter from getAllUsers if no specific endpoint exists,
-        // OR add GetUserById to controller.
-        // For now, let's look at UsersController again.
-        return user.publicKey;
+        const user = await api.get<any>(`/api/users/${userId}`);
+        return user.publicKey as string | undefined;
     }
 };

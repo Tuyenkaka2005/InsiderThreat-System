@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.SignalR;
 using MongoDB.Driver;
 using InsiderThreat.Server.Models;
 using InsiderThreat.Server.Hubs;
-using InsiderThreat.Server.Services;
 using InsiderThreat.Shared;
 
 namespace InsiderThreat.Server.Controllers;
@@ -19,20 +18,17 @@ public class MessagesController : ControllerBase
     private readonly ILogger<MessagesController> _logger;
     private readonly NotificationsController _notificationsController;
     private readonly IHubContext<NotificationHub> _hubContext;
-    private readonly IMessageEncryptionService _encryption;
 
     public MessagesController(
         IMongoDatabase database,
         ILogger<MessagesController> logger,
-        IHubContext<NotificationHub> hubContext,
-        IMessageEncryptionService encryption)
+        IHubContext<NotificationHub> hubContext)
     {
         _messagesCollection = database.GetCollection<Message>("Messages");
         _users = database.GetCollection<InsiderThreat.Shared.User>("Users");
         _logger = logger;
         _hubContext = hubContext;
         _notificationsController = new NotificationsController(database, hubContext);
-        _encryption = encryption;
     }
 
     // POST: api/messages
@@ -44,12 +40,8 @@ public class MessagesController : ControllerBase
             message.Timestamp = DateTime.UtcNow;
             message.IsRead = false;
 
-            // Encrypt content before storing in MongoDB
-            if (!string.IsNullOrEmpty(message.Content))
-                message.Content = _encryption.Encrypt(message.Content);
-
-            // SenderContent is no longer needed (only used by old client-side E2EE)
-            message.SenderContent = null;
+            // E2EE: Content and SenderContent are already encrypted by the client.
+            // Server stores ciphertext as-is — it cannot read the message.
 
             await _messagesCollection.InsertOneAsync(message);
 
@@ -57,7 +49,7 @@ public class MessagesController : ControllerBase
             var sender = await _users.Find(u => u.Id == message.SenderId).FirstOrDefaultAsync();
             var senderName = sender?.FullName ?? sender?.Username ?? "Someone";
 
-            // Push notification (show generic preview — actual content stored encrypted)
+            // Push notification (generic preview — server cannot read E2EE content)
             var previewText = !string.IsNullOrEmpty(message.AttachmentType)
                 ? (message.AttachmentType == "image" ? "[Hình ảnh]" : "[Tệp đính kèm]")
                 : "Đã gửi một tin nhắn mới";
@@ -72,9 +64,8 @@ public class MessagesController : ControllerBase
                 relatedId: message.Id
             );
 
-            // Return the message with decrypted content (so sender sees it immediately)
-            var returned = CloneDecrypted(message);
-            return Ok(returned);
+            // Return the message as-is (client will decrypt locally)
+            return Ok(message);
         }
         catch (Exception ex)
         {
@@ -104,9 +95,8 @@ public class MessagesController : ControllerBase
         // Filter out messages deleted for this user
         messages = messages.Where(m => m.DeletedFor == null || !m.DeletedFor.Contains(currentUserId)).ToList();
 
-        // Decrypt content before returning to client
-        var decrypted = messages.Select(CloneDecrypted).ToList();
-        return Ok(decrypted);
+        // E2EE: Return encrypted messages as-is — client decrypts locally
+        return Ok(messages);
     }
 
     // GET: api/messages/conversations
@@ -159,7 +149,7 @@ public class MessagesController : ControllerBase
                 username = user?.Username ?? "Unknown",
                 fullName = user?.FullName,
                 avatar = user?.AvatarUrl,
-                publicKey = (string?)null, // Not needed anymore
+                publicKey = user?.PublicKey, // E2EE: client needs receiver's public key
                 lastMessage = conv.LastMessage,
                 lastMessageTime = conv.LastMessageTime,
                 unreadCount = conv.UnreadCount
@@ -225,6 +215,7 @@ public class MessagesController : ControllerBase
     }
 
     // PUT: api/messages/{id}/edit
+    // E2EE: Client sends already-encrypted content + senderContent
     [HttpPut("{id}/edit")]
     public async Task<IActionResult> EditMessage(string id, [FromBody] EditMessageRequest request)
     {
@@ -235,9 +226,10 @@ public class MessagesController : ControllerBase
         if (msg == null) return NotFound();
         if (msg.SenderId != userId) return Forbid();
 
-        var encryptedContent = _encryption.Encrypt(request.Content);
+        // Store client-encrypted content directly
         var update = Builders<Message>.Update
-            .Set(m => m.Content, encryptedContent)
+            .Set(m => m.Content, request.Content)
+            .Set(m => m.SenderContent, request.SenderContent)
             .Set(m => m.IsEdited, true);
         await _messagesCollection.UpdateOneAsync(m => m.Id == id, update);
         return Ok(new { success = true });
@@ -246,24 +238,7 @@ public class MessagesController : ControllerBase
     public class EditMessageRequest
     {
         public string Content { get; set; } = string.Empty;
+        public string? SenderContent { get; set; }
     }
 
-    // ---- Helper ----
-    private Message CloneDecrypted(Message msg)
-    {
-        return new Message
-        {
-            Id = msg.Id,
-            SenderId = msg.SenderId,
-            ReceiverId = msg.ReceiverId,
-            Content = _encryption.Decrypt(msg.Content ?? ""),
-            SenderContent = null,
-            AttachmentUrl = msg.AttachmentUrl,
-            AttachmentType = msg.AttachmentType,
-            AttachmentName = msg.AttachmentName,
-            Timestamp = msg.Timestamp,
-            IsRead = msg.IsRead,
-            IsEdited = msg.IsEdited
-        };
-    }
 }
