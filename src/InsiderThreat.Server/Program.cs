@@ -134,6 +134,31 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// ==========================================
+// SEED ADMIN ACCOUNT
+// ==========================================
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
+    var usersCollection = db.GetCollection<User>("Users");
+    var existingAdmin = await usersCollection.Find(u => u.Username == "admin").FirstOrDefaultAsync();
+    if (existingAdmin == null)
+    {
+        var admin = new User
+        {
+            Username = "admin",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+            FullName = "Administrator",
+            Role = "Admin",
+            Email = "admin@insiderthreat.local",
+            CreatedAt = DateTime.Now
+        };
+        await usersCollection.InsertOneAsync(admin);
+        Console.WriteLine(">>> Admin account created: admin / admin123");
+    }
+}
+// ==========================================
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

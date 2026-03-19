@@ -26,4 +26,10 @@ public class Message
     public string? AttachmentUrl { get; set; }
     public string? AttachmentType { get; set; } // "image", "file"
     public string? AttachmentName { get; set; }
+
+    // Soft-delete: list of userIds who deleted this message for themselves
+    public List<string>? DeletedFor { get; set; }
+
+    // Edit tracking
+    public bool IsEdited { get; set; } = false;
 }

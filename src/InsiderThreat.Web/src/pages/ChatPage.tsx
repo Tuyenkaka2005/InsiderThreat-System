@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '../services/auth';
 import { API_BASE_URL } from '../services/api';
 import { userService } from '../services/userService';
 import { chatService } from '../services/chatService';
+import { cryptoService } from '../services/cryptoService';
 import { signalRService } from '../services/signalRService';
 import type { Message as ApiMessage } from '../services/chatService';
 import type { User } from '../types';
@@ -32,6 +33,7 @@ interface Message {
     attachmentType?: string;
     attachmentName?: string;
     isRead?: boolean;
+    isEdited?: boolean;
 }
 
 export default function ChatPage() {
@@ -59,11 +61,22 @@ export default function ChatPage() {
     // Search State
     const [searchTerm, setSearchTerm] = useState("");
 
+    // Long-press context menu state
+    const [contextMenu, setContextMenu] = useState<{ msgId: string; x: number; y: number } | null>(null);
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+    const [editingText, setEditingText] = useState('');
+    const longPressTimer = useRef<number | null>(null);
+
+    // E2EE Key State
+    const privateKeyRef = useRef<CryptoKey | null>(null);
+    const myPublicKeyRef = useRef<string | null>(null);
+    const [e2eeReady, setE2eeReady] = useState(false);
+
     // Filtered Content for Popover
     const filteredContent = useMemo(() => {
         switch (activeFilter) {
             case 'media':
-                return messages.filter(m => m.attachmentType === 'image');
+                return messages.filter(m => m.attachmentType === 'image' || m.attachmentType === 'video');
             case 'files':
                 return messages.filter(m => m.attachmentType === 'file');
             case 'messages':
@@ -73,7 +86,70 @@ export default function ChatPage() {
         }
     }, [messages, activeFilter]);
 
-    // No client-side key init needed — server handles encryption/decryption
+    // E2EE: Initialize RSA key pair on mount
+    useEffect(() => {
+        const initE2EE = async () => {
+            if (!currentUser?.id) return;
+            try {
+                const { publicKey, privateKey } = await cryptoService.initializeKeys(
+                    currentUser.id,
+                    chatService.uploadPublicKey
+                );
+                privateKeyRef.current = privateKey;
+                myPublicKeyRef.current = publicKey;
+                setE2eeReady(true);
+                console.log('[E2EE] Keys initialized successfully');
+            } catch (error) {
+                console.error('[E2EE] Key initialization failed:', error);
+            }
+        };
+        initE2EE();
+    }, [currentUser]);
+
+    // E2EE: Helper to decrypt a batch of messages
+    const decryptMessages = useCallback(async (apiMessages: ApiMessage[]): Promise<Message[]> => {
+        const pk = privateKeyRef.current;
+        if (!pk || !currentUser?.id) {
+            // No private key yet — return raw (will show encrypted blobs)
+            return apiMessages.map(msg => ({
+                id: msg.id || Date.now().toString(),
+                text: msg.content || '',
+                senderId: msg.senderId,
+                timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                attachmentUrl: msg.attachmentUrl,
+                attachmentType: msg.attachmentType,
+                attachmentName: msg.attachmentName,
+                isRead: msg.isRead,
+                isEdited: msg.isEdited
+            }));
+        }
+
+        const results: Message[] = [];
+        for (const msg of apiMessages) {
+            let plainText = msg.content || '';
+            const isMe = msg.senderId === currentUser.id;
+
+            if (plainText) {
+                // If I sent it, decrypt senderContent (encrypted with my public key)
+                // If I received it, decrypt content (encrypted with my public key)
+                const cipherToDecrypt = isMe ? (msg.senderContent || msg.content) : msg.content;
+                plainText = await cryptoService.decrypt(cipherToDecrypt, pk);
+            }
+
+            results.push({
+                id: msg.id || Date.now().toString(),
+                text: plainText,
+                senderId: msg.senderId,
+                timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                attachmentUrl: msg.attachmentUrl,
+                attachmentType: msg.attachmentType,
+                attachmentName: msg.attachmentName,
+                isRead: msg.isRead,
+                isEdited: msg.isEdited
+            });
+        }
+        return results;
+    }, [currentUser]);
 
     // 2. Fetch Contacts
     useEffect(() => {
@@ -199,25 +275,17 @@ export default function ChatPage() {
         };
     }, [selectedUser?.id]);
 
-    // 3. Fetch Messages when User Selected (server decrypts before returning)
+    // 3. Fetch Messages when User Selected (E2EE: client decrypts after receiving)
     useEffect(() => {
-        if (!selectedUser || !currentUser) return;
+        if (!selectedUser || !currentUser || !e2eeReady) return;
 
         const loadMessages = async () => {
             if (!currentUser?.id) return;
             try {
                 const apiMessages = await chatService.getMessages(selectedUser.id, currentUser.id);
 
-                const mappedMessages = apiMessages.map((msg: ApiMessage) => ({
-                    id: msg.id || Date.now().toString(),
-                    text: msg.content || '',
-                    senderId: msg.senderId,
-                    timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    attachmentUrl: msg.attachmentUrl,
-                    attachmentType: msg.attachmentType,
-                    attachmentName: msg.attachmentName,
-                    isRead: msg.isRead
-                }));
+                // E2EE: Decrypt all messages on client side
+                const mappedMessages = await decryptMessages(apiMessages);
 
                 setMessages(prev => {
                     const isDifferent = prev.length !== mappedMessages.length ||
@@ -247,7 +315,7 @@ export default function ChatPage() {
             if (pollInterval.current) clearInterval(pollInterval.current);
         };
 
-    }, [selectedUser, currentUser]);
+    }, [selectedUser, currentUser, e2eeReady, decryptMessages]);
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -260,14 +328,34 @@ export default function ChatPage() {
         const plainText = messageInput;
 
         try {
-            // Send plain text — server encrypts before storing in DB
+            // E2EE: Get receiver's public key
+            let receiverPublicKey = selectedUser.publicKey;
+            if (!receiverPublicKey) {
+                receiverPublicKey = await chatService.getUserPublicKey(selectedUser.id);
+            }
+            if (!receiverPublicKey) {
+                alert('Người nhận chưa thiết lập khóa mã hóa. Không thể gửi tin nhắn E2EE.');
+                return;
+            }
+
+            // E2EE: Encrypt for receiver (using their public key)
+            const encryptedForReceiver = await cryptoService.encryptForUser(plainText, receiverPublicKey);
+
+            // E2EE: Encrypt for sender (using my own public key) — so I can read my sent messages
+            let encryptedForSender: string | undefined;
+            if (myPublicKeyRef.current) {
+                encryptedForSender = await cryptoService.encryptForUser(plainText, myPublicKeyRef.current);
+            }
+
+            // Send encrypted message to server
             await chatService.sendMessage({
                 senderId: currentUser.id || '',
                 receiverId: selectedUser.id,
-                content: plainText,
+                content: encryptedForReceiver,
+                senderContent: encryptedForSender,
             });
 
-            // Optimistic UI — show immediately
+            // Optimistic UI — show plain text immediately
             const newMsg: Message = {
                 id: Date.now().toString(),
                 text: plainText,
@@ -291,7 +379,7 @@ export default function ChatPage() {
             const uploadRes = await chatService.uploadFile(file);
             const attachmentUrl = uploadRes.url;
             const attachmentName = uploadRes.originalName;
-            const attachmentType = file.type.startsWith('image/') ? 'image' : 'file';
+            const attachmentType = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';
 
             await chatService.sendMessage({
                 senderId: currentUser.id || '',
@@ -321,6 +409,101 @@ export default function ChatPage() {
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') handleSendMessage();
+    };
+
+    // ===== Long-press context menu handlers =====
+    const handleTouchStart = (msgId: string, e: React.TouchEvent) => {
+        const touch = e.touches[0];
+        const x = touch.clientX;
+        const y = touch.clientY;
+        longPressTimer.current = window.setTimeout(() => {
+            setContextMenu({ msgId, x, y });
+        }, 600);
+    };
+
+    const handleTouchEnd = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
+
+    const handleTouchMove = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
+
+    const closeContextMenu = () => setContextMenu(null);
+
+    const handleDeleteForEveryone = async () => {
+        if (!contextMenu) return;
+        try {
+            await chatService.deleteForEveryone(contextMenu.msgId);
+            setMessages(prev => prev.filter(m => m.id !== contextMenu.msgId));
+        } catch (err) {
+            console.error('Delete for everyone failed', err);
+        }
+        closeContextMenu();
+    };
+
+    const handleDeleteForMe = async () => {
+        if (!contextMenu) return;
+        try {
+            await chatService.deleteForMe(contextMenu.msgId);
+            setMessages(prev => prev.filter(m => m.id !== contextMenu.msgId));
+        } catch (err) {
+            console.error('Delete for me failed', err);
+        }
+        closeContextMenu();
+    };
+
+    const handleStartEdit = () => {
+        if (!contextMenu) return;
+        const msg = messages.find(m => m.id === contextMenu.msgId);
+        if (msg) {
+            setEditingMessageId(msg.id);
+            setEditingText(msg.text);
+        }
+        closeContextMenu();
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingMessageId || !editingText.trim() || !selectedUser) return;
+        try {
+            const plainText = editingText.trim();
+
+            // E2EE: Re-encrypt the edited text
+            let encryptedForReceiver = plainText;
+            let encryptedForSender: string | undefined;
+
+            let receiverPublicKey = selectedUser.publicKey;
+            if (!receiverPublicKey) {
+                receiverPublicKey = await chatService.getUserPublicKey(selectedUser.id);
+            }
+
+            if (receiverPublicKey) {
+                encryptedForReceiver = await cryptoService.encryptForUser(plainText, receiverPublicKey);
+            }
+            if (myPublicKeyRef.current) {
+                encryptedForSender = await cryptoService.encryptForUser(plainText, myPublicKeyRef.current);
+            }
+
+            await chatService.editMessage(editingMessageId, encryptedForReceiver, encryptedForSender);
+            setMessages(prev => prev.map(m =>
+                m.id === editingMessageId ? { ...m, text: plainText, isEdited: true } : m
+            ));
+        } catch (err) {
+            console.error('Edit message failed', err);
+        }
+        setEditingMessageId(null);
+        setEditingText('');
+    };
+
+    const handleCancelEdit = () => {
+        setEditingMessageId(null);
+        setEditingText('');
     };
 
     const handleLogout = () => {
@@ -368,7 +551,7 @@ export default function ChatPage() {
 
             <div className="chat-layout">
                 {/* Sidebar */}
-                <aside className="chat-sidebar">
+                <aside className={`chat-sidebar ${selectedUser ? 'mobile-hidden' : ''}`}>
                     <div className="sidebar-header" style={{ padding: '16px 16px 0 16px' }}>
                         <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Chats <span style={{ fontSize: 12, color: '#10b981', border: '1px solid #10b981', padding: '2px 4px', borderRadius: 4 }}>E2EE</span></h2>
                     </div>
@@ -422,7 +605,7 @@ export default function ChatPage() {
                                 </div>
                             ))}
                     </div>
-                    <div style={{ padding: 16, borderTop: '1px solid var(--color-dark-surface-lighter)' }}>
+                    <div className="sidebar-bottom-padding" style={{ padding: 16, borderTop: '1px solid var(--color-dark-surface-lighter)' }}>
                         <button onClick={handleLogout} style={{
                             display: 'flex', alignItems: 'center', gap: 12,
                             background: 'none', border: 'none', cursor: 'pointer',
@@ -433,14 +616,54 @@ export default function ChatPage() {
                             <span style={{ fontWeight: 500 }}>Logout</span>
                         </button>
                     </div>
+
+                    {/* Floating Action Button (Mobile) */}
+                    <button className="mobile-fab">
+                        <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                        </svg>
+                    </button>
                 </aside>
 
+                {/* Bottom Navigation (Mobile) */}
+                <nav className={`mobile-bottom-nav ${selectedUser ? 'mobile-hidden' : ''}`}>
+                    <a className="nav-item active" href="#" onClick={(e) => { e.preventDefault(); setSelectedUser(null); }}>
+                        <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 2.98 1 4.28L2 22l5.72-1c1.3.64 2.74 1 4.28 1 5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.47 0-2.84-.4-4.01-1.1l-.29-.17-3 .52.52-3-.17-.29C4.4 14.84 4 13.47 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"></path>
+                        </svg>
+                        <span>Chats</span>
+                    </a>
+                    <a className="nav-item" href="#">
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <span>Contacts</span>
+                    </a>
+                    <a className="nav-item" href="#" onClick={(e) => { e.preventDefault(); navigate('/profile'); }}>
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        <span>Profile</span>
+                    </a>
+                    <a className="nav-item" href="#" onClick={(e) => { e.preventDefault(); handleLogout(); }}>
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                        <span>Logout</span>
+                    </a>
+                </nav>
+
                 {/* Main Chat Area */}
-                <main className="chat-window">
+                <main className={`chat-window ${!selectedUser ? 'mobile-hidden' : ''}`}>
                     {selectedUser ? (
                         <>
                             <div className="chat-window-header">
                                 <div className="chat-window-user">
+                                    <button className="mobile-back-btn" onClick={() => setSelectedUser(null)}>
+                                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
+                                        </svg>
+                                    </button>
                                     <div className="user-avatar" style={{
                                         width: 40, height: 40, borderRadius: '50%',
                                         backgroundImage: `url(${selectedUser.avatar})`,
@@ -491,15 +714,26 @@ export default function ChatPage() {
                                                 {activeFilter === 'media' && (
                                                     <div className="popover-media-grid">
                                                         {filteredContent.map(msg => (
-                                                            <div
-                                                                key={msg.id}
-                                                                className="popover-media-item"
-                                                                style={{ backgroundImage: `url(${API_BASE_URL}${msg.attachmentUrl})` }}
-                                                                onClick={() => window.open(`${API_BASE_URL}${msg.attachmentUrl}`, '_blank')}
-                                                                title="View Image"
-                                                            ></div>
+                                                            msg.attachmentType === 'video' ? (
+                                                                <video
+                                                                    key={msg.id}
+                                                                    className="popover-media-item"
+                                                                    src={`${API_BASE_URL}${msg.attachmentUrl}`}
+                                                                    onClick={() => window.open(`${API_BASE_URL}${msg.attachmentUrl}`, '_blank')}
+                                                                    title="View Video"
+                                                                    muted
+                                                                />
+                                                            ) : (
+                                                                <div
+                                                                    key={msg.id}
+                                                                    className="popover-media-item"
+                                                                    style={{ backgroundImage: `url(${API_BASE_URL}${msg.attachmentUrl})` }}
+                                                                    onClick={() => window.open(`${API_BASE_URL}${msg.attachmentUrl}`, '_blank')}
+                                                                    title="View Image"
+                                                                ></div>
+                                                            )
                                                         ))}
-                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, gridColumn: 'span 3', textAlign: 'center', padding: 20 }}>No images shared</div>}
+                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, gridColumn: 'span 3', textAlign: 'center', padding: 20 }}>No media shared</div>}
                                                     </div>
                                                 )}
 
@@ -542,13 +776,41 @@ export default function ChatPage() {
                                 </div>
                             </div>
 
-                            <div className="chat-messages-area">
+                            <div className="chat-messages-area no-scrollbar">
+                                {/* E2EE Message Notice for Mobile inside Chat area */}
+                                <div className="e2ee-notice-mobile">
+                                    <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                    </svg>
+                                    <p>Messages are end-to-end encrypted. No one outside of this chat, not even SocialNet, can read or listen to them.</p>
+                                </div>
                                 {messages.map((msg, index) => {
                                     const isMe = msg.senderId === currentUser?.id;
                                     const isLastReadMessage = isMe && msg.isRead && !messages.slice(index + 1).some(m => m.senderId === currentUser?.id && m.isRead);
 
                                     return (
-                                        <div key={msg.id} className={`message-group ${isMe ? 'sent' : 'received'}`}>
+                                        <div
+                                            key={msg.id}
+                                            className={`message-group ${isMe ? 'sent' : 'received'}`}
+                                            onTouchStart={(e) => handleTouchStart(msg.id, e)}
+                                            onTouchEnd={handleTouchEnd}
+                                            onTouchMove={handleTouchMove}
+                                            onContextMenu={(e) => { e.preventDefault(); setContextMenu({ msgId: msg.id, x: e.clientX, y: e.clientY }); }}
+                                        >
+                                            {/* Desktop: nút 3 chấm bên trái (tin nhắn sent) */}
+                                            {isMe && (
+                                                <button
+                                                    className="msg-more-btn desktop-only"
+                                                    onClick={(e) => { e.stopPropagation(); setContextMenu({ msgId: msg.id, x: e.clientX, y: e.clientY }); }}
+                                                    title="Tùy chọn"
+                                                >
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                                        <circle cx="12" cy="5" r="2"/>
+                                                        <circle cx="12" cy="12" r="2"/>
+                                                        <circle cx="12" cy="19" r="2"/>
+                                                    </svg>
+                                                </button>
+                                            )}
                                             {!isMe && (
                                                 <div className="user-avatar" style={{
                                                     width: 28, height: 28, borderRadius: '50%',
@@ -560,10 +822,29 @@ export default function ChatPage() {
                                                 }}></div>
                                             )}
                                             <div className="message-content" style={{ maxWidth: '70%', display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                                                {/* Inline Edit Mode */}
+                                                {editingMessageId === msg.id ? (
+                                                    <div className="message-edit-inline">
+                                                        <input
+                                                            type="text"
+                                                            value={editingText}
+                                                            onChange={(e) => setEditingText(e.target.value)}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
+                                                            autoFocus
+                                                            className="message-edit-input"
+                                                        />
+                                                        <div className="message-edit-actions">
+                                                            <button onClick={handleSaveEdit} className="edit-save-btn">Lưu</button>
+                                                            <button onClick={handleCancelEdit} className="edit-cancel-btn">Hủy</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                <>
                                                 {/* Text Message */}
                                                 {(msg.text && !msg.text.startsWith('[Sent a')) && (
                                                     <div className="message-bubble" style={{ width: 'fit-content', wordBreak: 'break-word', marginTop: msg.attachmentUrl ? 8 : 0 }}>
                                                         {msg.text}
+                                                        {msg.isEdited && <span className="message-edited-label">(đã chỉnh sửa)</span>}
                                                     </div>
                                                 )}
 
@@ -579,6 +860,20 @@ export default function ChatPage() {
                                                                         maxWidth: '200px',
                                                                         display: 'block',
                                                                         border: '1px solid #374151',
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        ) : msg.attachmentType === 'video' ? (
+                                                            <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 8 }}>
+                                                                <video
+                                                                    src={`${API_BASE_URL}${msg.attachmentUrl}`}
+                                                                    controls
+                                                                    style={{
+                                                                        maxWidth: '280px',
+                                                                        maxHeight: '200px',
+                                                                        display: 'block',
+                                                                        border: '1px solid #374151',
+                                                                        backgroundColor: '#000',
                                                                     }}
                                                                 />
                                                             </div>
@@ -609,17 +904,72 @@ export default function ChatPage() {
                                                         Đã xem
                                                     </div>
                                                 )}
+                                                </>
+                                                )}
                                             </div>
+                                            {/* Desktop: nút 3 chấm bên phải (tin nhắn received) */}
+                                            {!isMe && (
+                                                <button
+                                                    className="msg-more-btn desktop-only"
+                                                    onClick={(e) => { e.stopPropagation(); setContextMenu({ msgId: msg.id, x: e.clientX, y: e.clientY }); }}
+                                                    title="Tùy chọn"
+                                                >
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                                        <circle cx="12" cy="5" r="2"/>
+                                                        <circle cx="12" cy="12" r="2"/>
+                                                        <circle cx="12" cy="19" r="2"/>
+                                                    </svg>
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 })}
                                 <div ref={messagesEndRef} />
                             </div>
 
+                            {/* Context Menu Popup */}
+                            {contextMenu && (
+                                <>
+                                    <div className="context-menu-overlay" onClick={closeContextMenu} />
+                                    <div
+                                        className="context-menu-popup"
+                                        style={{
+                                            top: Math.min(contextMenu.y, window.innerHeight - 180),
+                                            left: Math.min(contextMenu.x, window.innerWidth - 200),
+                                        }}
+                                    >
+                                        {messages.find(m => m.id === contextMenu.msgId)?.senderId === currentUser?.id && (
+                                            <>
+                                                <button className="context-menu-item" onClick={handleDeleteForEveryone}>
+                                                    <span className="context-menu-icon">🗑️</span>
+                                                    Xóa với mọi người
+                                                </button>
+                                                <button className="context-menu-item" onClick={handleStartEdit}>
+                                                    <span className="context-menu-icon">✏️</span>
+                                                    Chỉnh sửa tin nhắn
+                                                </button>
+                                            </>
+                                        )}
+                                        <button className="context-menu-item" onClick={handleDeleteForMe}>
+                                            <span className="context-menu-icon">🚫</span>
+                                            Xóa ở phía tôi
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+
                             <div className="chat-input-area">
                                 <div className="chat-input-wrapper">
                                     <button className="chat-action-btn secondary-btn" onClick={() => fileInputRef.current?.click()}>
-                                        <span className="material-symbols-outlined">add_circle</span>
+                                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                    </button>
+                                    <button className="chat-action-btn secondary-btn mobile-camera-btn" onClick={() => { }}>
+                                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        </svg>
                                     </button>
                                     <input
                                         type="file"
@@ -634,8 +984,13 @@ export default function ChatPage() {
                                         onChange={(e) => setMessageInput(e.target.value)}
                                         onKeyDown={handleKeyDown}
                                     />
-                                    <button className="chat-action-btn" onClick={handleSendMessage}>
-                                        <span className="material-symbols-outlined">send</span>
+                                    <svg className="h-6 w-6 mobile-emoji-btn" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: '#9ca3af', marginLeft: 8, cursor: 'pointer' }}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <button className="chat-action-btn send-btn" onClick={handleSendMessage}>
+                                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path>
+                                        </svg>
                                     </button>
                                 </div>
                             </div>

@@ -260,7 +260,7 @@ const LibraryPage = () => {
                         <p>Quản lý và chia sẻ tài liệu nội bộ</p>
                     </div>
 
-                    {!isMobile && user.role === 'Admin' && (
+                    {!isMobile && user.role?.toLowerCase() === 'admin' && (
                         <Button
                             type="primary"
                             size="large"
@@ -330,7 +330,7 @@ const LibraryPage = () => {
                                             <button className="doc-action-btn" onClick={() => handleDownload(doc)}>
                                                 <span className="material-symbols-outlined">download</span>
                                             </button>
-                                            {user.role === 'Admin' && (
+                                            {user.role?.toLowerCase() === 'admin' && (
                                                 <button className="doc-action-btn" onClick={() => handleOpenEditModal(doc)}>
                                                     <span className="material-symbols-outlined">edit</span>
                                                 </button>
@@ -338,7 +338,7 @@ const LibraryPage = () => {
                                             <button className="doc-action-btn" onClick={() => handlePreview(doc)} title="Xem trực tiếp">
                                                 <span className="material-symbols-outlined">visibility</span>
                                             </button>
-                                            {user.role === 'Admin' && (
+                                            {user.role?.toLowerCase() === 'admin' && (
                                                 <Popconfirm
                                                     title="Xóa tài liệu"
                                                     description="Bạn có muốn xóa vĩnh viễn tệp này?"
@@ -372,7 +372,7 @@ const LibraryPage = () => {
                     </button>
                 )}
 
-                {user.role === 'Admin' && (
+                {user.role?.toLowerCase() === 'admin' && (
                     <button className="floating-upload-btn" onClick={() => setIsUploadModalVisible(true)}>
                         <span className="material-symbols-outlined">upload_file</span>
                     </button>

