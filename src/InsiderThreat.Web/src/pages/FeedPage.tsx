@@ -14,6 +14,7 @@ import ChatSidebar from '../components/chat/ChatSidebar';
 import BottomNavigation from '../components/BottomNavigation';
 import { DEPARTMENTS, POST_CATEGORIES } from '../constants';
 import { detectSensitiveContent } from '../utils/contentAnalyzer';
+import { validateFileSize } from '../utils/imageCompressor';
 import './FeedPage.css';
 
 
@@ -155,6 +156,15 @@ export default function FeedPage() {
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
+
+            // Validate file size (reject files > 50MB)
+            const sizeError = validateFileSize(file);
+            if (sizeError) {
+                message.error(sizeError);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+                return;
+            }
+
             setSelectedFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {

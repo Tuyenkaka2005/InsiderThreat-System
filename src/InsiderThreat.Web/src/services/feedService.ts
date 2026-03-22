@@ -1,5 +1,6 @@
 import { api } from './api';
 import type { Post, Comment, MediaFile } from '../types';
+import { compressImage } from '../utils/imageCompressor';
 
 export const feedService = {
     getPosts: async (page = 1, limit = 10) => {
@@ -7,10 +8,14 @@ export const feedService = {
     },
 
     uploadFile: async (file: File) => {
+        // Compress image before uploading (reduces 5-12MB phone photos to ~300KB)
+        const processedFile = await compressImage(file);
+
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', processedFile);
         return api.post<{ url: string; fileName: string; size: number; type: string }>('/api/Upload', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 120000, // 120 seconds timeout for file uploads
         });
     },
 

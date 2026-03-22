@@ -1,4 +1,5 @@
 import { api } from './api';
+import { compressImage } from '../utils/imageCompressor';
 
 // Types
 export interface Message {
@@ -23,12 +24,16 @@ export const chatService = {
 
     // Upload File
     uploadFile: async (file: File) => {
+        // Compress image before uploading
+        const processedFile = await compressImage(file);
+
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', processedFile);
         return await api.post<{ url: string, originalName: string }>('/api/upload', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
+            timeout: 120000, // 120 seconds for file uploads
         });
     },
 
