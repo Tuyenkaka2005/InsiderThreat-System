@@ -33,6 +33,7 @@ export function useWebRTC() {
     const localStreamRef = useRef<MediaStream | null>(null);  // Camera stream (always kept)
     const screenStreamRef = useRef<MediaStream | null>(null);
     const cameraTrackRef = useRef<MediaStreamTrack | null>(null); // Keep camera track reference
+    const iceCandidateQueue = useRef<Map<string, RTCIceCandidateInit[]>>(new Map()); // Queue for early ICE candidates
 
     // Force React to re-render with new Map reference
     const updatePeers = useCallback(() => {
@@ -66,17 +67,23 @@ export function useWebRTC() {
             }
         };
 
-        // Handle remote tracks - THIS IS THE KEY FIX
+        // Handle remote tracks
         pc.ontrack = (event) => {
             console.log('[WebRTC] Received remote track:', event.track.kind, 'from', targetConnectionId);
 
-            // Add the track to remoteStream
+            // Remove existing tracks of same kind to avoid duplicates
+            remoteStream.getTracks().forEach(t => {
+                if (t.kind === event.track.kind && t.id !== event.track.id) {
+                    remoteStream.removeTrack(t);
+                }
+            });
+
+            // Add the new track
             remoteStream.addTrack(event.track);
 
-            // Force update peer state with a marker to trigger re-render
+            // Force update peer state with a NEW MediaStream to trigger React re-render
             const peer = peersRef.current.get(targetConnectionId);
             if (peer) {
-                // Create a NEW MediaStream with all current tracks to force React re-render
                 const newStream = new MediaStream(remoteStream.getTracks());
                 peer.remoteStream = newStream;
                 updatePeers();
@@ -121,9 +128,26 @@ export function useWebRTC() {
         if (peer) {
             peer.peerConnection.close();
             peersRef.current.delete(connectionId);
+            iceCandidateQueue.current.delete(connectionId);
             updatePeers();
         }
     }, [updatePeers]);
+
+    // Flush queued ICE candidates after remoteDescription is set
+    const flushIceCandidates = useCallback(async (connectionId: string, pc: RTCPeerConnection) => {
+        const queued = iceCandidateQueue.current.get(connectionId);
+        if (queued && queued.length > 0) {
+            console.log(`[WebRTC] Flushing ${queued.length} queued ICE candidates for:`, connectionId);
+            for (const candidate of queued) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (err) {
+                    console.error('[WebRTC] Error adding queued ICE candidate:', err);
+                }
+            }
+            iceCandidateQueue.current.delete(connectionId);
+        }
+    }, []);
 
     const setupSignalRHandlers = useCallback((conn: signalR.HubConnection) => {
         // Remove any existing handlers first
@@ -144,6 +168,8 @@ export function useWebRTC() {
                 const pc = createPeerConnection(senderConnectionId, displayName);
                 const offer = JSON.parse(sdp);
                 await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                // Flush any ICE candidates that arrived before remoteDescription was set
+                await flushIceCandidates(senderConnectionId, pc);
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 await conn.invoke('SendAnswer', senderConnectionId, JSON.stringify(pc.localDescription));
@@ -159,6 +185,8 @@ export function useWebRTC() {
                 const peer = peersRef.current.get(senderConnectionId);
                 if (peer && peer.peerConnection.signalingState === 'have-local-offer') {
                     await peer.peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(sdp)));
+                    // Flush any ICE candidates that arrived before remoteDescription was set
+                    await flushIceCandidates(senderConnectionId, peer.peerConnection);
                 }
             } catch (err) {
                 console.error('[WebRTC] Error handling answer:', err);
@@ -167,9 +195,18 @@ export function useWebRTC() {
 
         conn.on('ReceiveIceCandidate', async (senderConnectionId: string, candidate: string) => {
             try {
+                const parsed = JSON.parse(candidate);
                 const peer = peersRef.current.get(senderConnectionId);
                 if (peer && peer.peerConnection.remoteDescription) {
-                    await peer.peerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(candidate)));
+                    // Peer is ready, add candidate immediately
+                    await peer.peerConnection.addIceCandidate(new RTCIceCandidate(parsed));
+                } else {
+                    // Peer not ready yet, queue the candidate
+                    console.log('[WebRTC] Queuing ICE candidate for:', senderConnectionId);
+                    if (!iceCandidateQueue.current.has(senderConnectionId)) {
+                        iceCandidateQueue.current.set(senderConnectionId, []);
+                    }
+                    iceCandidateQueue.current.get(senderConnectionId)!.push(parsed);
                 }
             } catch (err) {
                 console.error('[WebRTC] Error adding ICE candidate:', err);
@@ -180,7 +217,7 @@ export function useWebRTC() {
             console.log('[SignalR] UserLeft:', connectionId);
             removePeer(connectionId);
         });
-    }, [createPeerConnection, removePeer]);
+    }, [createPeerConnection, removePeer, flushIceCandidates]);
 
     const getMediaStream = useCallback(async (): Promise<MediaStream> => {
         try {

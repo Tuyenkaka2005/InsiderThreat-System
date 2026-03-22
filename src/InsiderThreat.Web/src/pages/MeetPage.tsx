@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Typography, Card, Input, Button, Space, message, Layout, Tag, Tooltip } from 'antd';
 import {
     VideoCameraOutlined, EnterOutlined, ApiOutlined,
@@ -17,7 +17,6 @@ const { Content } = Layout;
 export default function MeetPage() {
     const [inputCode, setInputCode] = useState('');
     const [loading, setLoading] = useState(false);
-    const localVideoRef = useRef<HTMLVideoElement>(null);
     const user = authService.getCurrentUser();
 
     const {
@@ -27,11 +26,13 @@ export default function MeetPage() {
         toggleAudio, toggleVideo, toggleScreenShare,
     } = useWebRTC();
 
-    // Attach local stream (camera or screen share) to video element
-    useEffect(() => {
-        if (localVideoRef.current && localStream) {
-            localVideoRef.current.srcObject = localStream;
-            localVideoRef.current.play().catch(() => { });
+    // Callback ref: fires when the video element mounts AND when localStream changes
+    // This fixes the timing issue where useEffect([localStream]) misses because
+    // the video element only renders after inMeeting becomes true
+    const localVideoRef = useCallback((node: HTMLVideoElement | null) => {
+        if (node && localStream) {
+            node.srcObject = localStream;
+            node.play().catch(() => { });
         }
     }, [localStream]);
 
@@ -243,13 +244,37 @@ export default function MeetPage() {
 /* Remote video component - uses useEffect to update srcObject when stream changes */
 function RemoteVideo({ peer }: { peer: { connectionId: string; displayName: string; remoteStream: MediaStream } }) {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const [, forceUpdate] = useState(0);
 
     useEffect(() => {
-        if (videoRef.current && peer.remoteStream) {
-            videoRef.current.srcObject = peer.remoteStream;
-            // Force play in case autoplay is blocked
-            videoRef.current.play().catch(() => { });
-        }
+        const videoEl = videoRef.current;
+        if (!videoEl || !peer.remoteStream) return;
+
+        // Always reassign srcObject when stream reference changes
+        videoEl.srcObject = peer.remoteStream;
+        videoEl.play().catch(() => { });
+
+        // Listen for track changes on the stream itself
+        const handleTrackAdded = () => {
+            console.log('[RemoteVideo] Track added to remote stream');
+            videoEl.srcObject = peer.remoteStream;
+            videoEl.play().catch(() => { });
+            forceUpdate(n => n + 1);
+        };
+
+        const handleTrackRemoved = () => {
+            console.log('[RemoteVideo] Track removed from remote stream');
+            videoEl.srcObject = peer.remoteStream;
+            forceUpdate(n => n + 1);
+        };
+
+        peer.remoteStream.addEventListener('addtrack', handleTrackAdded);
+        peer.remoteStream.addEventListener('removetrack', handleTrackRemoved);
+
+        return () => {
+            peer.remoteStream.removeEventListener('addtrack', handleTrackAdded);
+            peer.remoteStream.removeEventListener('removetrack', handleTrackRemoved);
+        };
     }, [peer.remoteStream]);
 
     return (
