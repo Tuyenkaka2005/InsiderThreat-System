@@ -10,6 +10,7 @@ import PostCard from '../components/PostCard';
 import BottomNavigation from '../components/BottomNavigation';
 import LeftSidebar from '../components/LeftSidebar';
 import FaceRegistrationModal from '../components/FaceRegistrationModal';
+import EditProfileModal from '../components/EditProfileModal';
 import './ProfilePage.css';
 
 type TabType = 'overview' | 'security' | 'activity' | 'connections';
@@ -29,6 +30,7 @@ export default function ProfilePage() {
     const currentUser = useMemo(() => authService.getCurrentUser(), []);
     const [isOwnProfile, setIsOwnProfile] = useState(true);
     const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -115,6 +117,13 @@ export default function ProfilePage() {
         }
     };
 
+    const handleProfileUpdate = (updatedUser: User) => {
+        setUser(updatedUser);
+        if (updatedUser.id === currentUser?.id) {
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+    };
+
     if (!user) {
         return <div className="flex h-screen items-center justify-center bg-[#f8fafc] text-[#64748b]">Đang tải...</div>;
     }
@@ -151,7 +160,7 @@ export default function ProfilePage() {
 
                     <div className="profile-hero-content">
                         <div className="hero-actions">
-                            <Button className="btn-primary-mobile" onClick={() => navigate('/edit-profile')}>
+                            <Button className="btn-primary-mobile" onClick={() => setIsEditModalOpen(true)} style={{ display: isOwnProfile ? 'block' : 'none' }}>
                                 Edit Profile
                             </Button>
                             <Button className="btn-icon-mobile">
@@ -298,6 +307,13 @@ export default function ProfilePage() {
                     onCancel={() => setIsFaceModalOpen(false)}
                     userId={user.id || null}
                     userName={user.fullName || user.username}
+                />
+
+                <EditProfileModal
+                    visible={isEditModalOpen}
+                    onCancel={() => setIsEditModalOpen(false)}
+                    user={user}
+                    onUpdate={handleProfileUpdate}
                 />
             </main>
         </div>
