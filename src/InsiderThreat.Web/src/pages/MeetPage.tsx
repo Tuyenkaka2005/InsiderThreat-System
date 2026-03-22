@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { useState, useCallback } from 'react';
+=======
+import { useState, useCallback, useRef, useEffect } from 'react';
+>>>>>>> buigiaduy/duy-design
 import { Typography, Card, Input, Button, Space, message, Layout, Tag, Tooltip } from 'antd';
 import {
     VideoCameraOutlined, EnterOutlined, ApiOutlined,
@@ -17,6 +21,10 @@ const { Content } = Layout;
 export default function MeetPage() {
     const [inputCode, setInputCode] = useState('');
     const [loading, setLoading] = useState(false);
+<<<<<<< HEAD
+=======
+    const localVideoRef = useRef<HTMLVideoElement>(null);
+>>>>>>> buigiaduy/duy-design
     const user = authService.getCurrentUser();
 
     const {
@@ -26,10 +34,18 @@ export default function MeetPage() {
         toggleAudio, toggleVideo, toggleScreenShare,
     } = useWebRTC();
 
+<<<<<<< HEAD
     // Callback ref to attach local stream to video element
     const localVideoRef = useCallback((node: HTMLVideoElement | null) => {
         if (node && localStream) {
             node.srcObject = localStream;
+=======
+    // Attach local stream (camera or screen share) to video element
+    useEffect(() => {
+        if (localVideoRef.current && localStream) {
+            localVideoRef.current.srcObject = localStream;
+            localVideoRef.current.play().catch(() => { });
+>>>>>>> buigiaduy/duy-design
         }
     }, [localStream]);
 
@@ -238,11 +254,23 @@ export default function MeetPage() {
     );
 }
 
+<<<<<<< HEAD
 /* Remote video component - handles srcObject assignment */
 function RemoteVideo({ peer }: { peer: { connectionId: string; displayName: string; remoteStream: MediaStream } }) {
     const videoRef = useCallback((node: HTMLVideoElement | null) => {
         if (node) {
             node.srcObject = peer.remoteStream;
+=======
+/* Remote video component - uses useEffect to update srcObject when stream changes */
+function RemoteVideo({ peer }: { peer: { connectionId: string; displayName: string; remoteStream: MediaStream } }) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        if (videoRef.current && peer.remoteStream) {
+            videoRef.current.srcObject = peer.remoteStream;
+            // Force play in case autoplay is blocked
+            videoRef.current.play().catch(() => { });
+>>>>>>> buigiaduy/duy-design
         }
     }, [peer.remoteStream]);
 
