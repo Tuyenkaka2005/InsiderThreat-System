@@ -11,6 +11,7 @@ import BottomNavigation from '../components/BottomNavigation';
 import LeftSidebar from '../components/LeftSidebar';
 import FaceRegistrationModal from '../components/FaceRegistrationModal';
 import EditProfileModal from '../components/EditProfileModal';
+import { useTranslation } from 'react-i18next';
 import './ProfilePage.css';
 
 type TabType = 'overview' | 'security' | 'activity' | 'connections';
@@ -24,6 +25,7 @@ interface LogEntry {
 }
 
 export default function ProfilePage() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { userId } = useParams<{ userId?: string }>();
     const [user, setUser] = useState<User | null>(null);
@@ -108,10 +110,10 @@ export default function ProfilePage() {
             const updatedUser = { ...user, avatarUrl };
             setUser(updatedUser);
             localStorage.setItem('user', JSON.stringify(updatedUser));
-            antdMessage.success('Cập nhật ảnh đại diện thành công');
+            antdMessage.success(t('profile.update_avatar_success', 'Cập nhật ảnh đại diện thành công'));
         } catch (error) {
             console.error('Failed to upload avatar:', error);
-            antdMessage.error('Không thể tải lên ảnh đại diện');
+            antdMessage.error(t('profile.update_avatar_fail', 'Không thể tải lên ảnh đại diện'));
         } finally {
             setIsUploading(false);
         }
@@ -125,7 +127,7 @@ export default function ProfilePage() {
     };
 
     if (!user) {
-        return <div className="flex h-screen items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-muted)]">Đang tải...</div>;
+        return <div className="flex h-screen items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-muted)]">{t('profile.loading', 'Đang tải...')}</div>;
     }
 
     const getDisplayAvatarUrl = (url?: string) => {
@@ -161,7 +163,7 @@ export default function ProfilePage() {
                     <div className="profile-hero-content">
                         <div className="hero-actions">
                             <Button className="btn-primary-mobile" onClick={() => setIsEditModalOpen(true)} style={{ display: isOwnProfile ? 'block' : 'none' }}>
-                                Edit Profile
+                                {t('profile.btn_edit', 'Chỉnh sửa hồ sơ')}
                             </Button>
                             <Button className="btn-icon-mobile">
                                 <span className="material-symbols-outlined">settings</span>
@@ -199,15 +201,15 @@ export default function ProfilePage() {
                                 <button
                                     className={`profile-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
                                     onClick={() => setActiveTab('overview')}
-                                >Activity</button>
+                                >{t('profile.tab_activity', 'Hoạt động')}</button>
                                 <button
                                     className={`profile-tab-btn ${activeTab === 'security' ? 'active' : ''}`}
                                     onClick={() => setActiveTab('security')}
-                                >Security</button>
+                                >{t('profile.tab_security', 'Bảo mật')}</button>
                                 <button
                                     className={`profile-tab-btn ${activeTab === 'activity' ? 'active' : ''}`}
                                     onClick={() => setActiveTab('activity')}
-                                >About</button>
+                                >{t('profile.tab_about', 'Giới thiệu')}</button>
                             </div>
                         </div>
                     </div>
@@ -217,14 +219,14 @@ export default function ProfilePage() {
                     {/* Left Column (Info) */}
                     <div className="flex flex-col gap-6">
                         <section className="profile-section">
-                            <span className="section-label">Professional Information</span>
+                            <span className="section-label">{t('profile.section_professional_info', 'Thông tin nghề nghiệp')}</span>
                             <div className="info-card-mobile">
                                 <div className="info-item-mobile">
                                     <div className="info-icon-box">
                                         <span className="material-symbols-outlined">badge</span>
                                     </div>
                                     <div className="info-text-box">
-                                        <label>Role</label>
+                                        <label>{t('profile.lbl_role', 'Vai trò')}</label>
                                         <span>{user.role || 'Senior Security Analyst'}</span>
                                     </div>
                                 </div>
@@ -233,7 +235,7 @@ export default function ProfilePage() {
                                         <span className="material-symbols-outlined">apartment</span>
                                     </div>
                                     <div className="info-text-box">
-                                        <label>Department</label>
+                                        <label>{t('profile.lbl_department', 'Phòng ban')}</label>
                                         <span>{user.department || 'Information Security (SecOps)'}</span>
                                     </div>
                                 </div>
@@ -242,7 +244,7 @@ export default function ProfilePage() {
                                         <span className="material-symbols-outlined">mail</span>
                                     </div>
                                     <div className="info-text-box">
-                                        <label>Email</label>
+                                        <label>{t('profile.lbl_email', 'Email')}</label>
                                         <span>{user.email || 'insider.threat@corporate.com'}</span>
                                     </div>
                                 </div>
@@ -251,7 +253,7 @@ export default function ProfilePage() {
                                         <span className="material-symbols-outlined">call</span>
                                     </div>
                                     <div className="info-text-box">
-                                        <label>Phone</label>
+                                        <label>{t('profile.lbl_phone', 'Số điện thoại')}</label>
                                         <span>{user.phoneNumber || '+1 (555) 902-3412'}</span>
                                     </div>
                                 </div>
@@ -259,18 +261,18 @@ export default function ProfilePage() {
                         </section>
 
                         <section className="profile-section">
-                            <span className="section-label">Security Settings</span>
+                            <span className="section-label">{t('profile.section_security_settings', 'Cài đặt bảo mật')}</span>
                             <div className="info-card-mobile">
                                 <div className="security-list">
                                     <div className="security-item-card">
                                         <span className="material-symbols-outlined icon-green">sentiment_satisfied</span>
-                                        <span className="security-item-title">Face ID</span>
-                                        <span className="status-tag verified">Verified</span>
+                                        <span className="security-item-title">{t('profile.item_face_id', 'Nhận diện khuôn mặt')}</span>
+                                        <span className="status-tag verified">{t('profile.status_verified', 'Đã xác thực')}</span>
                                     </div>
                                     <div className="security-item-card">
                                         <span className="material-symbols-outlined icon-blue">key</span>
-                                        <span className="security-item-title">F2K Keys</span>
-                                        <span className="status-tag unauthorized">Not Setup</span>
+                                        <span className="security-item-title">{t('profile.item_f2k_keys', 'Khóa F2K')}</span>
+                                        <span className="status-tag unauthorized">{t('profile.status_not_setup', 'Chưa thiết lập')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -279,11 +281,11 @@ export default function ProfilePage() {
 
                     {/* Right Column (Feed) */}
                     <section className="profile-section">
-                        <span className="section-label">Recent Activity</span>
+                        <span className="section-label">{t('profile.section_recent_activity', 'Hoạt động gần đây')}</span>
                         <div className="mobile-activity-feed">
                             {userPosts.length === 0 ? (
                                 <div className="bg-[var(--color-surface)] rounded-[20px] p-8 border border-[var(--color-border)] text-center">
-                                    <p className="text-[var(--color-text-muted)]">Chưa có bài đăng nào.</p>
+                                    <p className="text-[var(--color-text-muted)]">{t('profile.no_posts', 'Chưa có bài đăng nào.')}</p>
                                 </div>
                             ) : (
                                 userPosts.map(post => (

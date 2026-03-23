@@ -12,6 +12,7 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { authService } from '../services/auth';
 import { attendanceService } from '../services/attendanceService';
 import { confirmLogout } from '../utils/logoutUtils';
@@ -35,6 +36,7 @@ function DashboardPage() {
     const [selectedKey, setSelectedKey] = useState('usb');
     const navigate = useNavigate();
     const user = authService.getCurrentUser();
+    const { t } = useTranslation();
 
     useEffect(() => {
         if (!user) {
@@ -52,7 +54,7 @@ function DashboardPage() {
     const handleLogout = () => {
         confirmLogout(() => {
             authService.logout();
-            message.success('Đã đăng xuất!');
+            message.success(t('dashboard.logged_out', 'Đã đăng xuất!'));
             navigate('/login');
         });
     };
@@ -61,22 +63,22 @@ function DashboardPage() {
         {
             key: 'feed',
             icon: <TeamOutlined />,
-            label: 'Feed',
+            label: t('dashboard.menu_feed', 'Feed'),
         },
         {
             key: 'usb',
             icon: <UsbOutlined />,
-            label: 'USB Management',
+            label: t('dashboard.menu_usb', 'USB Management'),
         },
         {
             key: 'documents',
             icon: <FileTextOutlined />,
-            label: 'Document Logs',
+            label: t('dashboard.menu_documents', 'Document Logs'),
         },
         {
             key: 'attendance',
             icon: <TeamOutlined />,
-            label: 'Attendance',
+            label: t('dashboard.menu_attendance', 'Attendance'),
         },
     ];
 
@@ -89,17 +91,17 @@ function DashboardPage() {
         menuItems.splice(1, 0, {
             key: 'users',
             icon: <UserOutlined />,
-            label: 'User Management',
+            label: t('dashboard.menu_users', 'User Management'),
         });
         menuItems.splice(2, 0, {
             key: 'posts',
             icon: <MessageOutlined />,
-            label: 'Post Management',
+            label: t('dashboard.menu_posts', 'Post Management'),
         });
         menuItems.splice(3, 0, {
             key: 'reports',
             icon: <WarningOutlined />,
-            label: 'Báo cáo vi phạm',
+            label: t('dashboard.menu_reports', 'Báo cáo vi phạm'),
         });
     }
 
@@ -107,12 +109,12 @@ function DashboardPage() {
         {
             key: 'profile',
             icon: <UserOutlined />,
-            label: 'Thông tin',
+            label: t('dashboard.user_profile', 'Thông tin'),
         },
         {
             key: 'logout',
             icon: <LogoutOutlined />,
-            label: 'Đăng xuất',
+            label: t('dashboard.user_logout', 'Đăng xuất'),
             onClick: handleLogout,
         },
     ];
@@ -120,22 +122,22 @@ function DashboardPage() {
     const tabItems = [
         {
             key: 'blocked',
-            label: '🚫 Blocked Devices',
+            label: t('dashboard.tab_blocked', '🚫 Blocked Devices'),
             children: <BlockedDevicesTable />,
         },
         {
             key: 'whitelist',
-            label: '✅ Whitelisted Devices',
+            label: t('dashboard.tab_whitelist', '✅ Whitelisted Devices'),
             children: <WhitelistTable />,
         },
         {
             key: 'alerts',
-            label: '⚠️ Security Alerts',
+            label: t('dashboard.tab_alerts', '⚠️ Security Alerts'),
             children: <RecentLogsTable defaultFilter="Warning" />,
         },
         {
             key: 'recent-logs',
-            label: '📝 Recent Logs',
+            label: t('dashboard.tab_logs', '📝 Recent Logs'),
             children: <RecentLogsTable />,
         },
     ];
@@ -155,7 +157,7 @@ function DashboardPage() {
             case 'usb':
                 return (
                     <div className={`content-wrapper ${isMobile ? 'mobile-usb-content' : ''}`}>
-                        {!isMobile && <Title level={2}>🔐 USB Device Management</Title>}
+                        {!isMobile && <Title level={2}>{t('dashboard.usb_title', '🔐 USB Device Management')}</Title>}
                         {isMobile && (
                             <header className="mobile-usb-header">
                                 <div className="mobile-usb-header-left">
@@ -163,8 +165,8 @@ function DashboardPage() {
                                         <span className="material-symbols-outlined">shield</span>
                                     </div>
                                     <div className="usb-header-text">
-                                        <h1>USB Security</h1>
-                                        <p>InsiderThreat Admin</p>
+                                        <h1>{t('dashboard.usb_sec', 'USB Security')}</h1>
+                                        <p>{t('dashboard.admin_label', 'InsiderThreat Admin')}</p>
                                     </div>
                                 </div>
                                 <Avatar size={40} src="https://i.pravatar.cc/150?u=admin" />
@@ -213,15 +215,15 @@ function DashboardPage() {
     };
 
     const dashboardNavItems = [
-        { icon: 'newspaper', label: 'Feed', path: '/feed' },
+        { icon: 'newspaper', label: t('dashboard.nav_feed', 'Feed'), path: '/feed' },
         ...(user?.role === 'Admin' ? [
-            { icon: 'person_search', label: 'Users', key: 'users', onClick: () => setSelectedKey('users') },
-            { icon: 'chat', label: 'Posts', key: 'posts', onClick: () => setSelectedKey('posts') },
-            { icon: 'report', label: 'Vi phạm', key: 'reports', onClick: () => setSelectedKey('reports') },
+            { icon: 'person_search', label: t('dashboard.nav_users', 'Users'), key: 'users', onClick: () => setSelectedKey('users') },
+            { icon: 'chat', label: t('dashboard.nav_posts', 'Posts'), key: 'posts', onClick: () => setSelectedKey('posts') },
+            { icon: 'report', label: t('dashboard.nav_reports', 'Vi phạm'), key: 'reports', onClick: () => setSelectedKey('reports') },
         ] : []),
-        { icon: 'usb', label: 'USB', key: 'usb', onClick: () => setSelectedKey('usb') },
-        { icon: 'folder_open', label: 'Documents', key: 'documents', onClick: () => setSelectedKey('documents') },
-        { icon: 'checklist', label: 'Attendance', key: 'attendance', onClick: () => setSelectedKey('attendance') },
+        { icon: 'usb', label: t('dashboard.nav_usb', 'USB'), key: 'usb', onClick: () => setSelectedKey('usb') },
+        { icon: 'folder_open', label: t('dashboard.nav_documents', 'Documents'), key: 'documents', onClick: () => setSelectedKey('documents') },
+        { icon: 'checklist', label: t('dashboard.nav_attendance', 'Attendance'), key: 'attendance', onClick: () => setSelectedKey('attendance') },
     ];
 
     if (isMobile) {
@@ -275,15 +277,15 @@ function DashboardPage() {
                             try {
                                 const res = await attendanceService.checkCanCheckIn();
                                 if (!res.canCheckIn) {
-                                    message.warning("Bạn phải kết nối vào mạng WiFi (IP) được chỉ định để chấm công");
+                                    message.warning(t('dashboard.attendance_warning', "Bạn phải kết nối vào mạng WiFi (IP) được chỉ định để chấm công"));
                                     return;
                                 }
                                 setSelectedKey('attendance');
                             } catch (e) {
-                                message.error("Lỗi khi kiểm tra kết nối mạng");
+                                message.error(t('dashboard.attendance_error', "Lỗi khi kiểm tra kết nối mạng"));
                             }
                         }}>
-                            Điểm danh chấm công
+                            {t('dashboard.check_in_btn', 'Điểm danh chấm công')}
                         </Button>
                         <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
                             <div className="user-info">

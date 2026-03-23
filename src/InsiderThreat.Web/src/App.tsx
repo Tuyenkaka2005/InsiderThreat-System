@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, theme } from 'antd';
 import viVN from 'antd/locale/vi_VN';
+import enUS from 'antd/locale/en_US';
+import { useTranslation } from 'react-i18next';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UsbMonitorPage from './pages/UsbMonitorPage';
@@ -44,6 +46,7 @@ function RoleBasedRedirect() {
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
   const { theme: currentTheme } = useTheme();
+  const { i18n } = useTranslation();
   const isDarkMode = currentTheme === 'dark';
 
   useEffect(() => {
@@ -62,7 +65,7 @@ function App() {
 
   return (
     <ConfigProvider 
-      locale={viVN}
+      locale={i18n.language === 'en' ? enUS : viVN}
       theme={{
         algorithm: isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {

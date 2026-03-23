@@ -3,6 +3,7 @@ import { Button, Upload, message, Input, Modal, Select, Popconfirm, Avatar } fro
 import {
     SearchOutlined
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { api, API_BASE_URL } from '../services/api';
 import BottomNavigation from '../components/BottomNavigation';
 import LeftSidebar from '../components/LeftSidebar';
@@ -12,6 +13,7 @@ import { renderAsync } from "docx-preview";
 import './LibraryPage.css';
 
 const DocxPreview = ({ fileId }: { fileId: string }) => {
+    const { t } = useTranslation();
     const containerRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ const DocxPreview = ({ fileId }: { fileId: string }) => {
             try {
                 setLoading(true);
                 const response = await fetch(`${API_BASE_URL}/api/Upload/${fileId}`);
-                if (!response.ok) throw new Error('Không thể tải tài liệu');
+                if (!response.ok) throw new Error(t('library.load_doc_fail', 'Không thể tải tài liệu'));
                 const blob = await response.blob();
 
                 if (isMounted && containerRef.current) {
@@ -41,7 +43,7 @@ const DocxPreview = ({ fileId }: { fileId: string }) => {
                 }
             } catch (err: any) {
                 console.error("Docx Preview Error:", err);
-                if (isMounted) setError(err.message || 'Lỗi khi hiển thị tài liệu');
+                if (isMounted) setError(err.message || t('library.preview_error', 'Lỗi khi hiển thị tài liệu'));
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -53,8 +55,8 @@ const DocxPreview = ({ fileId }: { fileId: string }) => {
 
     return (
         <div style={{ width: '100%', height: '100%', overflow: 'auto', backgroundColor: 'var(--color-bg)', position: 'relative' }}>
-            {loading && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '10px 20px', background: 'var(--color-surface)', borderRadius: 8, boxShadow: '0 4px 6px rgba(0,0,0,0.1)', color: 'var(--color-text-main)' }}>Đang tải...</div>}
-            {error && <div style={{ padding: 20, textAlign: 'center', color: 'red' }}>Lỗi: {error}</div>}
+            {loading && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '10px 20px', background: 'var(--color-surface)', borderRadius: 8, boxShadow: '0 4px 6px rgba(0,0,0,0.1)', color: 'var(--color-text-main)' }}>{t('library.loading', 'Đang tải...')}</div>}
+            {error && <div style={{ padding: 20, textAlign: 'center', color: 'red' }}>{t('library.error_prefix', 'Lỗi:')} {error}</div>}
             <div ref={containerRef} style={{ padding: '20px', minHeight: '100%' }} />
         </div>
     );
@@ -85,6 +87,7 @@ interface UserSummary {
 }
 
 const LibraryPage = () => {
+    const { t } = useTranslation();
     const [documents, setDocuments] = useState<SharedDocument[]>([]);
     const [allUsers, setAllUsers] = useState<UserSummary[]>([]);
     const [loading, setLoading] = useState(false);
@@ -116,7 +119,7 @@ const LibraryPage = () => {
             setDocuments(data);
         } catch (error) {
             console.error('Error fetching documents:', error);
-            message.error('Không thể tải danh sách tài liệu');
+            message.error(t('library.load_list_fail', 'Không thể tải danh sách tài liệu'));
         } finally {
             setLoading(false);
         }
@@ -147,10 +150,10 @@ const LibraryPage = () => {
     const handleDelete = async (id: string) => {
         try {
             await api.delete(`/api/DocumentLibrary/${id}`);
-            message.success('Đã xóa tài liệu');
+            message.success(t('library.delete_success', 'Đã xóa tài liệu'));
             fetchDocuments();
         } catch (error) {
-            message.error('Không thể xóa tài liệu');
+            message.error(t('library.delete_fail', 'Không thể xóa tài liệu'));
         }
     };
 
@@ -170,12 +173,12 @@ const LibraryPage = () => {
                 minimumRole: minRole,
                 allowedUserIds: selectedUserIds
             });
-            message.success('Đã cập nhật quyền truy cập');
+            message.success(t('library.update_success', 'Đã cập nhật quyền truy cập'));
             setIsEditModalVisible(false);
             fetchDocuments();
         } catch (error) {
             console.error('Error updating permissions:', error);
-            message.error('Không thể cập nhật quyền truy cập');
+            message.error(t('library.update_fail', 'Không thể cập nhật quyền truy cập'));
         } finally {
             setLoading(false);
         }
@@ -227,7 +230,7 @@ const LibraryPage = () => {
             setUploadFileList(info.fileList);
             const { status } = info.file;
             if (status === 'done') {
-                message.success(`${info.file.name} đã được tải lên thành công.`);
+                message.success(t('library.upload_success', { name: info.file.name, defaultValue: `${info.file.name} đã được tải lên thành công.` }));
                 fetchDocuments();
                 setIsUploadModalVisible(false);
                 setUploadFileList([]);
@@ -235,8 +238,8 @@ const LibraryPage = () => {
                 setSelectedUserIds([]);
                 setMinRole('Nhân viên');
             } else if (status === 'error') {
-                const errorMsg = info.file.response?.message || info.file.response || "Lỗi không xác định";
-                message.error(`${info.file.name} tải lên thất bại: ${errorMsg}`);
+                const errorMsg = info.file.response?.message || info.file.response || t('library.unknown_error', "Lỗi không xác định");
+                message.error(t('library.upload_fail', { name: info.file.name, error: errorMsg, defaultValue: `${info.file.name} tải lên thất bại: ${errorMsg}` }));
             }
         },
     };
@@ -256,8 +259,8 @@ const LibraryPage = () => {
                         <span className="material-symbols-outlined">folder</span>
                     </div>
                     <div className="library-header-text">
-                        <h1>Kho tài liệu</h1>
-                        <p>Quản lý và chia sẻ tài liệu nội bộ</p>
+                        <h1>{t('library.title', 'Kho tài liệu')}</h1>
+                        <p>{t('library.subtitle', 'Quản lý và chia sẻ tài liệu nội bộ')}</p>
                     </div>
 
                     {!isMobile && user.role?.toLowerCase() === 'admin' && (
@@ -268,7 +271,7 @@ const LibraryPage = () => {
                             onClick={() => setIsUploadModalVisible(true)}
                             className="desktop-upload-btn"
                         >
-                            Thêm tài liệu
+                            {t('library.add_btn', 'Thêm tài liệu')}
                         </Button>
                     )}
 
@@ -277,7 +280,7 @@ const LibraryPage = () => {
 
                 <div className="mobile-search-wrapper">
                     <Input
-                        placeholder="Tìm kiếm tài liệu hoặc người đăng..."
+                        placeholder={t('library.search_placeholder', "Tìm kiếm tài liệu hoặc người đăng...")}
                         prefix={<SearchOutlined style={{ color: 'var(--color-text-muted)' }} />}
                         value={searchText}
                         onChange={e => setSearchText(e.target.value)}
@@ -288,11 +291,11 @@ const LibraryPage = () => {
 
                 <main className="mobile-document-list">
                     {loading && documents.length === 0 ? (
-                        <div className="p-10 text-center">Đang tải tài liệu...</div>
+                        <div className="p-10 text-center">{t('library.loading_docs', 'Đang tải tài liệu...')}</div>
                     ) : filteredDocs.length === 0 ? (
                         <div className="empty-library">
                             <span className="material-symbols-outlined">folder_off</span>
-                            <p>Không thấy tài liệu nào</p>
+                            <p>{t('library.no_docs', 'Không thấy tài liệu nào')}</p>
                         </div>
                     ) : (
                         <div className="doc-grid">
@@ -335,16 +338,16 @@ const LibraryPage = () => {
                                                     <span className="material-symbols-outlined">edit</span>
                                                 </button>
                                             )}
-                                            <button className="doc-action-btn" onClick={() => handlePreview(doc)} title="Xem trực tiếp">
+                                            <button className="doc-action-btn" onClick={() => handlePreview(doc)} title={t('library.tooltip_preview', "Xem trực tiếp")}>
                                                 <span className="material-symbols-outlined">visibility</span>
                                             </button>
                                             {user.role?.toLowerCase() === 'admin' && (
                                                 <Popconfirm
-                                                    title="Xóa tài liệu"
-                                                    description="Bạn có muốn xóa vĩnh viễn tệp này?"
+                                                    title={t('library.delete_title', "Xóa tài liệu")}
+                                                    description={t('library.delete_confirm', "Bạn có muốn xóa vĩnh viễn tệp này?")}
                                                     onConfirm={() => handleDelete(doc.id)}
-                                                    okText="Xóa"
-                                                    cancelText="Hủy"
+                                                    okText={t('library.btn_delete', "Xóa")}
+                                                    cancelText={t('library.btn_cancel', "Hủy")}
                                                     okButtonProps={{ danger: true }}
                                                 >
                                                     <button className="doc-action-btn delete-btn">
@@ -395,14 +398,14 @@ const LibraryPage = () => {
                     <button className="back-btn-mobile" onClick={() => setIsUploadModalVisible(false)}>
                         <span className="material-symbols-outlined">arrow_back_ios</span>
                     </button>
-                    <h2>Tải tài liệu lên</h2>
+                    <h2>{t('library.upload_title', 'Tải tài liệu lên')}</h2>
                 </div>
 
                 <div className="modal-body-mobile">
                     <div className="upload-field">
-                        <label className="field-label">Tên tài liệu</label>
+                        <label className="field-label">{t('library.field_name', 'Tên tài liệu')}</label>
                         <Input
-                            placeholder="Nhập tên tài liệu..."
+                            placeholder={t('library.name_placeholder', "Nhập tên tài liệu...")}
                             className="mobile-input"
                             value={description}
                             onChange={e => setDescription(e.target.value)}
@@ -410,26 +413,26 @@ const LibraryPage = () => {
                     </div>
 
                     <div className="upload-field">
-                        <label className="field-label">Cấp bậc tối thiểu</label>
+                        <label className="field-label">{t('library.field_min_role', 'Cấp bậc tối thiểu')}</label>
                         <Select
                             className="mobile-select"
                             value={minRole}
                             onChange={value => setMinRole(value)}
                             getPopupContainer={triggerNode => triggerNode.parentElement}
                             options={[
-                                { value: 'Giám đốc', label: 'Giám đốc' },
-                                { value: 'Quản lý', label: 'Quản lý trở lên' },
-                                { value: 'Nhân viên', label: 'Tất cả nhân viên' },
+                                { value: 'Giám đốc', label: t('library.role_director', 'Giám đốc') },
+                                { value: 'Quản lý', label: t('library.role_manager_up', 'Quản lý trở lên') },
+                                { value: 'Nhân viên', label: t('library.role_all_employees', 'Tất cả nhân viên') },
                             ]}
                         />
                     </div>
 
                     <div className="upload-field">
-                        <label className="field-label">Người được xem (Tùy chọn)</label>
+                        <label className="field-label">{t('library.field_viewers', 'Người được xem (Tùy chọn)')}</label>
                         <Select
                             mode="multiple"
                             className="mobile-select"
-                            placeholder="Chọn người được phép xem..."
+                            placeholder={t('library.viewers_placeholder', "Chọn người được phép xem...")}
                             value={selectedUserIds}
                             onChange={ids => setSelectedUserIds(ids)}
                             getPopupContainer={triggerNode => triggerNode.parentElement}
@@ -444,15 +447,15 @@ const LibraryPage = () => {
                     </div>
 
                     <div className="upload-field">
-                        <label className="field-label">Tải tệp lên</label>
+                        <label className="field-label">{t('library.field_upload', 'Tải tệp lên')}</label>
                         <Dragger {...uploadProps} className="dragger-mobile">
                             <div className="dragger-content-mobile">
                                 <div className="upload-cloud-icon">
                                     <span className="material-symbols-outlined">cloud_upload</span>
                                 </div>
                                 <div className="dragger-text">
-                                    <h4>Kéo và thả hoặc Chọn tệp</h4>
-                                    <p>Hỗ trợ Word, Excel, PDF (Tối đa 25MB)</p>
+                                    <h4>{t('library.dragger_title', 'Kéo và thả hoặc Chọn tệp')}</h4>
+                                    <p>{t('library.dragger_hint', 'Hỗ trợ Word, Excel, PDF (Tối đa 25MB)')}</p>
                                 </div>
                             </div>
                         </Dragger>
@@ -478,10 +481,10 @@ const LibraryPage = () => {
 
                 <div className="modal-footer-mobile">
                     <Button type="primary" className="mobile-primary-btn" onClick={() => (document.querySelector('.dragger-mobile input') as HTMLInputElement)?.click()}>
-                        Tải lên
+                        {t('library.btn_upload', 'Tải lên')}
                     </Button>
                     <Button className="mobile-secondary-btn" onClick={() => setIsUploadModalVisible(false)}>
-                        Hủy
+                        {t('library.btn_cancel', 'Hủy')}
                     </Button>
                 </div>
             </Modal>
@@ -501,12 +504,12 @@ const LibraryPage = () => {
                     <button className="back-btn-mobile" onClick={() => setIsEditModalVisible(false)}>
                         <span className="material-symbols-outlined">arrow_back_ios</span>
                     </button>
-                    <h2>Sửa quyền xem</h2>
+                    <h2>{t('library.edit_title', 'Sửa quyền xem')}</h2>
                 </div>
 
                 <div className="modal-body-mobile">
                     <div className="upload-field">
-                        <label className="field-label">Tên tài liệu</label>
+                        <label className="field-label">{t('library.field_name', 'Tên tài liệu')}</label>
                         <Input
                             value={editingDocument?.fileName}
                             disabled
@@ -516,26 +519,26 @@ const LibraryPage = () => {
                     </div>
 
                     <div className="upload-field">
-                        <label className="field-label">Cấp bậc tối thiểu</label>
+                        <label className="field-label">{t('library.field_min_role', 'Cấp bậc tối thiểu')}</label>
                         <Select
                             className="mobile-select"
                             value={minRole}
                             onChange={value => setMinRole(value)}
                             getPopupContainer={triggerNode => triggerNode.parentElement}
                             options={[
-                                { value: 'Giám đốc', label: 'Giám đốc' },
-                                { value: 'Quản lý', label: 'Quản lý trở lên' },
-                                { value: 'Nhân viên', label: 'Tất cả nhân viên' },
+                                { value: 'Giám đốc', label: t('library.role_director', 'Giám đốc') },
+                                { value: 'Quản lý', label: t('library.role_manager_up', 'Quản lý trở lên') },
+                                { value: 'Nhân viên', label: t('library.role_all_employees', 'Tất cả nhân viên') },
                             ]}
                         />
                     </div>
 
                     <div className="upload-field">
-                        <label className="field-label">Người được xem (Tùy chọn)</label>
+                        <label className="field-label">{t('library.field_viewers', 'Người được xem (Tùy chọn)')}</label>
                         <Select
                             mode="multiple"
                             className="mobile-select"
-                            placeholder="Chọn người được phép xem..."
+                            placeholder={t('library.viewers_placeholder', "Chọn người được phép xem...")}
                             value={selectedUserIds}
                             onChange={ids => setSelectedUserIds(ids)}
                             getPopupContainer={triggerNode => triggerNode.parentElement}
@@ -557,10 +560,10 @@ const LibraryPage = () => {
                         onClick={handleUpdatePermissions}
                         loading={loading}
                     >
-                        Lưu thay đổi
+                        {t('library.btn_save', 'Lưu thay đổi')}
                     </Button>
                     <Button className="mobile-secondary-btn" onClick={() => setIsEditModalVisible(false)}>
-                        Hủy
+                        {t('library.btn_cancel', 'Hủy')}
                     </Button>
                 </div>
             </Modal>
