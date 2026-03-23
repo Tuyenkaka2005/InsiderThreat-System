@@ -28,6 +28,8 @@ export default function SecureDocumentViewer({ children }: SecureDocumentViewerP
         }
     }, [isPhoneDetected, t]);
 
+    const isProtecting = isPhoneDetected || isLoadingAI || !cameraGranted;
+
     // 1. Lỗi Camera
     if (cameraError) {
         return (
@@ -43,25 +45,28 @@ export default function SecureDocumentViewer({ children }: SecureDocumentViewerP
         );
     }
 
-    // 2. Chờ AI khởi động
-    if (isLoadingAI || !cameraGranted) {
-        return (
-            <div className="secure-viewer-container flex-center">
-                <Spin size="large" tip={t('security.loading_ai', 'Đang khởi động hệ thống an ninh AI...')} />
-            </div>
-        );
-    }
-
-    // 3. Render nội dung chính với lớp bảo vệ
+    // 2. Render nội dung chính với lớp bảo vệ toàn diện
     return (
         <div className="secure-viewer-container relative">
-            {/* Lớp hiển thị nội dung, bị làm mờ nếu phát hiện điện thoại */}
-            <div className={`secure-content ${isPhoneDetected ? 'is-blurred' : ''}`}>
+            {/* Lớp hiển thị nội dung: Render NGAY LẬP TỨC để tiết kiệm thời gian, nhưng Làm mờ nếu AI chưa sẵn sàng hoặc phát hiện điện thoại */}
+            <div className={`secure-content ${isProtecting ? 'is-blurred' : ''}`}>
                 {children}
             </div>
 
+            {/* Màn hình loading khi AI đang tải (Nhưng document chạy ngầm phía sau) */}
+            {(isLoadingAI || !cameraGranted) && (
+                <div className="secure-overlay flex-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <Spin size="large" />
+                        <Title level={4} style={{ color: '#fff', marginTop: 16 }}>
+                            {t('security.loading_ai', 'Đang thiết lập lớp khiên AI...')}
+                        </Title>
+                    </div>
+                </div>
+            )}
+
             {/* Màn hình cảnh báo đỏ rực nếu có điện thoại */}
-            {isPhoneDetected && (
+            {isPhoneDetected && !isLoadingAI && (
                 <div className="secure-overlay flex-center">
                     <div className="warning-box">
                         <WarningOutlined className="warning-icon" />
@@ -75,10 +80,12 @@ export default function SecureDocumentViewer({ children }: SecureDocumentViewerP
                 </div>
             )}
             
-            {/* Camera Indicator (Optional: để nhân viên biết mình đang được scan) */}
-            <div className="camera-indicator">
-                 <VideoCameraOutlined /> <span style={{ marginLeft: 4, fontSize: 12 }}>AI Scanning Active</span>
-            </div>
+            {/* Camera Indicator */}
+            {cameraGranted && (
+                <div className="camera-indicator">
+                    <VideoCameraOutlined /> <span style={{ marginLeft: 4, fontSize: 12 }}>AI Scanning Active</span>
+                </div>
+            )}
         </div>
     );
 }
