@@ -20,11 +20,11 @@ export const preloadPhoneDetectorModel = () => {
     return globalModelPromise;
 };
 
-export function usePhoneDetector() {
+export function usePhoneDetector(enabled = true) {
     const [isPhoneDetected, setIsPhoneDetected] = useState(false);
-    const [isLoadingAI, setIsLoadingAI] = useState(true);
+    const [isLoadingAI, setIsLoadingAI] = useState(enabled);
     const [cameraError, setCameraError] = useState<string | null>(null);
-    const [cameraGranted, setCameraGranted] = useState(false);
+    const [cameraGranted, setCameraGranted] = useState(!enabled); // Giả lập đã cấp quyền nếu không yêu cầu
 
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const modelRef = useRef<cocoSsd.ObjectDetection | null>(null);
@@ -33,6 +33,12 @@ export function usePhoneDetector() {
 
     // Bắt đầu bật camera và load AI
     useEffect(() => {
+        if (!enabled) {
+            setIsLoadingAI(false);
+            setCameraGranted(true);
+            return;
+        }
+
         let isMounted = true;
 
         // Hàm quét frame liên tục

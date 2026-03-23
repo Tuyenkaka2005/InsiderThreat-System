@@ -65,7 +65,9 @@ namespace InsiderThreat.Server.Controllers
             [FromForm] IFormFile file, 
             [FromForm] string? description, 
             [FromForm] string? minimumRole,
-            [FromForm] string? allowedUserIdsJson)
+            [FromForm] string? allowedUserIdsJson,
+            [FromForm] bool requireCamera = true,
+            [FromForm] bool requireWatermark = true)
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
@@ -122,7 +124,9 @@ namespace InsiderThreat.Server.Controllers
                     Size = file.Length,
                     Description = description,
                     MinimumRole = minimumRole ?? "Nhân viên",
-                    AllowedUserIds = allowedUserIds
+                    AllowedUserIds = allowedUserIds,
+                    RequireCamera = requireCamera,
+                    RequireWatermark = requireWatermark
                 };
 
                 await _documents.InsertOneAsync(sharedDoc);
@@ -204,7 +208,9 @@ namespace InsiderThreat.Server.Controllers
 
             var update = Builders<SharedDocument>.Update
                 .Set(d => d.MinimumRole, request.MinimumRole ?? "Nhân viên")
-                .Set(d => d.AllowedUserIds, request.AllowedUserIds ?? new List<string>());
+                .Set(d => d.AllowedUserIds, request.AllowedUserIds ?? new List<string>())
+                .Set(d => d.RequireCamera, request.RequireCamera)
+                .Set(d => d.RequireWatermark, request.RequireWatermark);
 
             var result = await _documents.UpdateOneAsync(d => d.Id == id, update);
 
@@ -231,5 +237,7 @@ namespace InsiderThreat.Server.Controllers
     {
         public string? MinimumRole { get; set; }
         public List<string>? AllowedUserIds { get; set; }
+        public bool RequireCamera { get; set; } = true;
+        public bool RequireWatermark { get; set; } = true;
     }
 }

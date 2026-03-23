@@ -12,11 +12,18 @@ const { Title, Text } = Typography;
 interface SecureDocumentViewerProps {
     children: React.ReactNode;
     documentName?: string;
+    requireCamera?: boolean;
+    requireWatermark?: boolean;
 }
 
-export default function SecureDocumentViewer({ children, documentName = "Tài liệu không xác định" }: SecureDocumentViewerProps) {
+export default function SecureDocumentViewer({ 
+    children, 
+    documentName = "Tài liệu không xác định",
+    requireCamera = true,
+    requireWatermark = true
+}: SecureDocumentViewerProps) {
     const { t } = useTranslation();
-    const { isPhoneDetected, isLoadingAI, cameraError, cameraGranted } = usePhoneDetector();
+    const { isPhoneDetected, isLoadingAI, cameraError, cameraGranted } = usePhoneDetector(requireCamera);
     const hasLoggedWarningRef = useRef(false);
     
     // Lấy thông tin user hiện tại
@@ -80,8 +87,8 @@ export default function SecureDocumentViewer({ children, documentName = "Tài li
                 {children}
             </div>
 
-            {/* Lớp lưới bảo vệ bản quyền: Luôn hiển thị đè lên tài liệu */}
-            <DynamicWatermark />
+            {/* Lớp lưới bảo vệ bản quyền: Luôn hiển thị đè lên tài liệu nếu được yêu cầu */}
+            {requireWatermark && <DynamicWatermark />}
 
             {/* Màn hình loading khi AI đang tải... */}
             {(isLoadingAI || !cameraGranted) && (

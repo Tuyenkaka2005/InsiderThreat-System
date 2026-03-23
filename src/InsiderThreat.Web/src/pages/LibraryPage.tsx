@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Upload, message, Input, Modal, Select, Popconfirm, Avatar } from 'antd';
+import { Button, Upload, message, Input, Modal, Select, Popconfirm, Avatar, Switch } from 'antd';
 import {
     SearchOutlined
 } from '@ant-design/icons';
@@ -78,6 +78,8 @@ interface SharedDocument {
     description?: string;
     minimumRole: string;
     allowedUserIds?: string[];
+    requireCamera?: boolean;
+    requireWatermark?: boolean;
 }
 
 interface UserSummary {
@@ -105,6 +107,8 @@ const LibraryPage = () => {
     const [description, setDescription] = useState('');
     const [minRole, setMinRole] = useState('Nhân viên');
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+    const [requireCamera, setRequireCamera] = useState(true);
+    const [requireWatermark, setRequireWatermark] = useState(true);
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -165,6 +169,8 @@ const LibraryPage = () => {
         setEditingDocument(doc);
         setMinRole(doc.minimumRole);
         setSelectedUserIds(doc.allowedUserIds || []);
+        setRequireCamera(doc.requireCamera ?? true);
+        setRequireWatermark(doc.requireWatermark ?? true);
         setIsEditModalVisible(true);
     };
 
@@ -175,9 +181,11 @@ const LibraryPage = () => {
         try {
             await api.put(`/api/DocumentLibrary/${editingDocument.id}/permissions`, {
                 minimumRole: minRole,
-                allowedUserIds: selectedUserIds
+                allowedUserIds: selectedUserIds,
+                requireCamera,
+                requireWatermark
             });
-            message.success(t('library.update_success', 'Đã cập nhật quyền truy cập'));
+            message.success(t('library.update_success', 'Đã cập nhật cấu hình bảo mật và quyền truy cập'));
             setIsEditModalVisible(false);
             fetchDocuments();
         } catch (error) {
@@ -227,7 +235,9 @@ const LibraryPage = () => {
         data: {
             description,
             minimumRole: minRole,
-            allowedUserIdsJson: JSON.stringify(selectedUserIds)
+            allowedUserIdsJson: JSON.stringify(selectedUserIds),
+            requireCamera,
+            requireWatermark
         },
         showFileList: false,
         onChange(info: any) {
@@ -241,6 +251,8 @@ const LibraryPage = () => {
                 setDescription('');
                 setSelectedUserIds([]);
                 setMinRole('Nhân viên');
+                setRequireCamera(true);
+                setRequireWatermark(true);
             } else if (status === 'error') {
                 const errorMsg = info.file.response?.message || info.file.response || t('library.unknown_error', "Lỗi không xác định");
                 message.error(t('library.upload_fail', { name: info.file.name, error: errorMsg, defaultValue: `${info.file.name} tải lên thất bại: ${errorMsg}` }));
@@ -450,6 +462,16 @@ const LibraryPage = () => {
                         />
                     </div>
 
+                    <div className="upload-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="field-label" style={{ marginBottom: 0 }}>Yêu cầu Camera AI (Chống chụp trộm màn hình)</label>
+                        <Switch checked={requireCamera} onChange={setRequireCamera} />
+                    </div>
+
+                    <div className="upload-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="field-label" style={{ marginBottom: 0 }}>Kích hoạt Dynamic Watermark (Đóng dấu IP)</label>
+                        <Switch checked={requireWatermark} onChange={setRequireWatermark} />
+                    </div>
+
                     <div className="upload-field">
                         <label className="field-label">{t('library.field_upload', 'Tải tệp lên')}</label>
                         <Dragger {...uploadProps} className="dragger-mobile">
@@ -555,6 +577,16 @@ const LibraryPage = () => {
                             }
                         />
                     </div>
+
+                    <div className="upload-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="field-label" style={{ marginBottom: 0 }}>Yêu cầu Camera AI (Chống chụp trộm màn hình)</label>
+                        <Switch checked={requireCamera} onChange={setRequireCamera} />
+                    </div>
+
+                    <div className="upload-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="field-label" style={{ marginBottom: 0 }}>Kích hoạt Dynamic Watermark (Đóng dấu IP)</label>
+                        <Switch checked={requireWatermark} onChange={setRequireWatermark} />
+                    </div>
                 </div>
 
                 <div className="modal-footer-mobile">
@@ -584,7 +616,11 @@ const LibraryPage = () => {
                 destroyOnClose
             >
                 {previewingDocument && (
-                    <SecureDocumentViewer documentName={previewingDocument.fileName}>
+                    <SecureDocumentViewer 
+                        documentName={previewingDocument.fileName}
+                        requireCamera={previewingDocument.requireCamera ?? true}
+                        requireWatermark={previewingDocument.requireWatermark ?? true}
+                    >
                         {previewingDocument.fileName.toLowerCase().endsWith('.docx') ? (
                             <DocxPreview fileId={previewingDocument.fileId} />
                         ) : (

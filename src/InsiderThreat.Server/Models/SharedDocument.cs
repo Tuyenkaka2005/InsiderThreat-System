@@ -21,5 +21,7 @@ namespace InsiderThreat.Server.Models
         public string? Description { get; set; }
         public string MinimumRole { get; set; } = "Nhân viên"; // Default role
         public List<string> AllowedUserIds { get; set; } = new(); // Specific users granted access
+        public bool RequireCamera { get; set; } = true;
+        public bool RequireWatermark { get; set; } = true;
     }
 }
