@@ -1,5 +1,5 @@
 import React from 'react';
-import { Spin, Alert, Typography } from 'antd';
+import { Spin, Alert, Typography, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { usePhoneDetector } from '../hooks/usePhoneDetector';
 import { VideoCameraOutlined, WarningOutlined } from '@ant-design/icons';
@@ -14,6 +14,19 @@ interface SecureDocumentViewerProps {
 export default function SecureDocumentViewer({ children }: SecureDocumentViewerProps) {
     const { t } = useTranslation();
     const { isPhoneDetected, isLoadingAI, cameraError, cameraGranted } = usePhoneDetector();
+
+    // Effect để bật thông báo Toast
+    React.useEffect(() => {
+        if (!isLoadingAI && cameraGranted && !cameraError) {
+            message.success(t('security.ai_started_success', 'Hệ thống Mắt thần AI đã kích hoạt thành công, tài liệu được bảo vệ.'));
+        }
+    }, [isLoadingAI, cameraGranted, cameraError, t]);
+
+    React.useEffect(() => {
+        if (isPhoneDetected) {
+            message.warning(t('security.toast_phone_detected', 'Phát hiện vật dụng khả nghi là điện thoại!'));
+        }
+    }, [isPhoneDetected, t]);
 
     // 1. Lỗi Camera
     if (cameraError) {
