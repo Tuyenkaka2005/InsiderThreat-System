@@ -8,6 +8,7 @@ import { attendanceService } from '../services/attendanceService';
 import type { ActiveNetwork } from '../services/attendanceService';
 import type { AttendanceLog } from '../types';
 import type { ColumnsType } from 'antd/es/table';
+import './AttendancePage.css';
 
 const { Title } = Typography;
 
@@ -129,11 +130,11 @@ function AttendancePage() {
                         showIcon
                         style={{ marginBottom: 16 }}
                     />
-                    <Space direction="vertical" style={{ width: '100%', gap: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                            <span style={{ fontWeight: 500, width: 150 }}>{t('attendance.lbl_active_network', 'Mạng đang hoạt động:')}</span>
+                    <div className="attendance-config-container">
+                        <div className="config-row">
+                            <span className="config-label">{t('attendance.lbl_active_network', 'Mạng đang hoạt động:')}</span>
                             <Select
-                                style={{ width: 400 }}
+                                className="config-select"
                                 placeholder={t('attendance.placeholder_network', 'Chọn mạng để tự động điền dải IP')}
                                 loading={loadingNetworks}
                                 onChange={(value) => setAllowedIPs(value)}
@@ -143,26 +144,27 @@ function AttendancePage() {
                                 }))}
                             />
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                            <span style={{ fontWeight: 500, width: 150, marginTop: 5 }}>{t('attendance.lbl_allowed_ips', 'Dải IP cho phép:')}</span>
-                            <Space align="start">
+                        <div className="config-row align-top">
+                            <span className="config-label">{t('attendance.lbl_allowed_ips', 'Dải IP cho phép:')}</span>
+                            <div className="config-input-group">
                                 <Input
+                                    className="config-input"
                                     placeholder={t('attendance.placeholder_ips', 'Ví dụ: 192.168.1., 10.0.0.5, ::1')}
                                     value={allowedIPs}
                                     onChange={(e) => setAllowedIPs(e.target.value)}
-                                    style={{ width: 400 }}
                                 />
                                 <Button
                                     type="primary"
                                     icon={<SaveOutlined />}
                                     onClick={handleSaveConfig}
                                     loading={savingConfig}
+                                    className="config-btn"
                                 >
                                     {t('attendance.btn_save', 'Lưu cấu hình')}
                                 </Button>
-                            </Space>
+                            </div>
                         </div>
-                    </Space>
+                    </div>
                 </Card>
             )}
 
@@ -172,6 +174,7 @@ function AttendancePage() {
                 rowKey="id"
                 loading={loading}
                 pagination={{ pageSize: 10 }}
+                scroll={{ x: 'max-content' }}
             />
         </div>
     );
