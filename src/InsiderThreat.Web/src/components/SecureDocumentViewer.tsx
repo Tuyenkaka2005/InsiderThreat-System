@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 import { usePhoneDetector } from '../hooks/usePhoneDetector';
 import { VideoCameraOutlined, WarningOutlined } from '@ant-design/icons';
+import DynamicWatermark from './watermark/DynamicWatermark';
 import './SecureDocumentViewer.css';
 
 const { Title, Text } = Typography;
@@ -79,7 +80,10 @@ export default function SecureDocumentViewer({ children, documentName = "Tài li
                 {children}
             </div>
 
-            {/* Màn hình loading khi AI đang tải (Nhưng document chạy ngầm phía sau) */}
+            {/* Lớp lưới bảo vệ bản quyền: Luôn hiển thị đè lên tài liệu */}
+            <DynamicWatermark />
+
+            {/* Màn hình loading khi AI đang tải... */}
             {(isLoadingAI || !cameraGranted) && (
                 <div className="secure-overlay flex-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
                     <div style={{ textAlign: 'center' }}>
