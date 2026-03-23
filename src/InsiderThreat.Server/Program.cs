@@ -8,7 +8,8 @@ using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Cấu hình giới hạn upload file (200MB)
+// Cấu hình giới hạn upload file (200MB) và ép cổng WebHost
+builder.WebHost.UseUrls("http://127.0.0.1:5038");
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = 209715200; // 200MB
@@ -21,11 +22,17 @@ var mongoSettings = builder.Configuration.GetSection("InsiderThreatDatabase");
 
 // Đăng ký MongoClient (Singleton)
 builder.Services.AddSingleton<IMongoClient>(s =>
-    new MongoClient(mongoSettings.GetValue<string>("ConnectionString")));
+{
+    var connStr = mongoSettings.GetValue<string>("ConnectionString") ?? "mongodb://admin:admin123@192.168.203.142:27017/?authSource=admin";
+    return new MongoClient(connStr);
+});
 
 // Đăng ký IMongoDatabase (Scoped)
 builder.Services.AddScoped<IMongoDatabase>(s =>
-    s.GetRequiredService<IMongoClient>().GetDatabase(mongoSettings.GetValue<string>("DatabaseName")));
+{
+    var dbName = mongoSettings.GetValue<string>("DatabaseName") ?? "InsiderThreatDB";
+    return s.GetRequiredService<IMongoClient>().GetDatabase(dbName);
+});
 
 // Đăng ký GridFSBucket để lưu trữ file/ảnh trong MongoDB
 builder.Services.AddScoped<MongoDB.Driver.GridFS.IGridFSBucket>(s =>
@@ -51,6 +58,9 @@ builder.Services.AddCors(options =>
             "http://localhost:5176", "http://127.0.0.1:5176",
             "http://localhost:5177", "http://127.0.0.1:5177",
             // === Production Server ===
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+            "tauri://localhost",
             "http://150.95.104.244",
             "https://150.95.104.244",
             "https://tuyen-thda.io.vn",
