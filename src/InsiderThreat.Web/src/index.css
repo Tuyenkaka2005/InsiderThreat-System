@@ -47,6 +47,7 @@ html.dark:root {
   --color-surface: #1E1E1E;
   --color-surface-lighter: #2d2d2d;
   --color-surface-glass: rgba(30,30,30,0.8);
+  --color-primary-light: rgba(37, 99, 235, 0.15);
   
   --color-text-main: #f1f5f9;
   --color-text-muted: #94a3b8;
@@ -77,7 +78,7 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  overflow-x: clip; /* Fix position: sticky */
   position: relative;
   width: 100%;
 }
@@ -90,7 +91,7 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
+  overflow-x: clip; /* Fix position: sticky */
   position: relative;
 }
 
@@ -161,6 +162,22 @@ body {
 .dark-theme-modal .ant-btn-default:hover {
   color: var(--color-text-main);
   border-color: var(--color-primary);
+}
+
+/* ===== ANT DESIGN OVERRIDES (Global Dark) ===== */
+.dark .ant-input,
+.dark .ant-input-password,
+.dark .ant-input-number,
+.dark .ant-select-selector,
+.dark .ant-select-selection-item {
+  background-color: var(--color-surface-lighter) !important;
+  color: var(--color-text-main) !important;
+  border-color: var(--color-border) !important;
+}
+
+.dark .ant-input::placeholder,
+.dark .ant-select-selection-placeholder {
+  color: var(--color-text-muted) !important;
 }
 
 /* ===== MATERIAL SYMBOLS ===== */

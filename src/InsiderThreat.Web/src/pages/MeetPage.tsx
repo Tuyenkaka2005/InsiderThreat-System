@@ -7,6 +7,7 @@ import {
 } from '@ant-design/icons';
 import { authService } from '../services/auth';
 import { useWebRTC } from '../hooks/useWebRTC';
+import { useTranslation } from 'react-i18next';
 import LeftSidebar from '../components/LeftSidebar';
 import BottomNavigation from '../components/BottomNavigation';
 import styles from './MeetPage.module.css';
@@ -15,6 +16,7 @@ const { Title, Text } = Typography;
 const { Content } = Layout;
 
 export default function MeetPage() {
+    const { t } = useTranslation();
     const [inputCode, setInputCode] = useState('');
     const [loading, setLoading] = useState(false);
     const user = authService.getCurrentUser();
@@ -41,40 +43,40 @@ export default function MeetPage() {
         setLoading(true);
         try {
             const code = await createRoom();
-            message.success(`Đã tạo phòng: ${code}`);
+            message.success(`${t('meet.create_success', 'Đã tạo phòng: ')}${code}`);
         } catch (err: any) {
-            message.error(err?.message || 'Không thể tạo phòng');
+            message.error(err?.message || t('meet.create_fail', 'Không thể tạo phòng'));
         }
         setLoading(false);
-    }, [createRoom]);
+    }, [createRoom, t]);
 
     const handleJoinRoom = useCallback(async () => {
         const code = inputCode.trim().toUpperCase();
         if (!code) {
-            message.warning('Vui lòng nhập mã phòng');
+            message.warning(t('meet.input_code_warning', 'Vui lòng nhập mã phòng'));
             return;
         }
         setLoading(true);
         try {
             await joinRoom(code);
-            message.success('Đã tham gia phòng');
+            message.success(t('meet.join_success', 'Đã tham gia phòng'));
         } catch (err: any) {
-            message.error(err?.message || 'Không thể tham gia phòng');
+            message.error(err?.message || t('meet.join_fail', 'Không thể tham gia phòng'));
         }
         setLoading(false);
-    }, [inputCode, joinRoom]);
+    }, [inputCode, joinRoom, t]);
 
     const handleLeave = useCallback(() => {
         leaveRoom();
-        message.info('Đã rời phòng');
-    }, [leaveRoom]);
+        message.info(t('meet.leave_room', 'Đã rời phòng'));
+    }, [leaveRoom, t]);
 
     const copyRoomCode = useCallback(() => {
         if (roomCode) {
             navigator.clipboard.writeText(roomCode);
-            message.success('Đã sao chép mã phòng');
+            message.success(t('meet.copy_code_success', 'Đã sao chép mã phòng'));
         }
-    }, [roomCode]);
+    }, [roomCode, t]);
 
     const inMeeting = isConnected && roomCode;
 
@@ -90,22 +92,22 @@ export default function MeetPage() {
                         /* ========== LOBBY ========== */
                         <div style={{ maxWidth: 600, margin: '0 auto', marginTop: 80, width: '100%' }}>
                             <Card
-                                title={<><VideoCameraOutlined style={{ color: 'var(--color-primary)', marginRight: 8 }} /> Phòng Họp Trực Tuyến</>}
+                                title={<><VideoCameraOutlined style={{ color: 'var(--color-primary)', marginRight: 8 }} /> {t('meet.lobby_title', 'Phòng Họp Trực Tuyến')}</>}
                                 bordered={false}
                                 style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                             >
                                 <div style={{ textAlign: 'center', marginBottom: 24 }}>
                                     <ApiOutlined style={{ fontSize: 48, color: 'var(--color-primary)', marginBottom: 16 }} />
-                                    <Title level={4}>Kết nối với đồng nghiệp của bạn</Title>
+                                    <Title level={4}>{t('meet.lobby_subtitle', 'Kết nối với đồng nghiệp của bạn')}</Title>
                                     <Text type="secondary">
-                                        Tạo phòng mới và chia sẻ mã cho người khác, hoặc nhập mã phòng để tham gia.
+                                        {t('meet.lobby_desc', 'Tạo phòng mới và chia sẻ mã cho người khác, hoặc nhập mã phòng để tham gia.')}
                                     </Text>
                                 </div>
 
                                 <Space direction="vertical" style={{ width: '100%' }} size="large">
                                     <Input
                                         size="large"
-                                        placeholder="Nhập mã phòng (VD: ABC123)"
+                                        placeholder={t('meet.placeholder_code', 'Nhập mã phòng (VD: ABC123)')}
                                         value={inputCode}
                                         onChange={(e) => setInputCode(e.target.value.toUpperCase())}
                                         prefix={<VideoCameraOutlined />}
@@ -121,7 +123,7 @@ export default function MeetPage() {
                                             onClick={handleCreateRoom}
                                             loading={loading}
                                         >
-                                            Tạo phòng mới
+                                            {t('meet.btn_create', 'Tạo phòng mới')}
                                         </Button>
                                         <Button
                                             type="primary"
@@ -131,7 +133,7 @@ export default function MeetPage() {
                                             loading={loading}
                                             disabled={!inputCode.trim()}
                                         >
-                                            Tham gia
+                                            {t('meet.btn_join', 'Tham gia')}
                                         </Button>
                                     </div>
                                 </Space>
@@ -142,11 +144,11 @@ export default function MeetPage() {
                         <div className={styles.meetingContainer}>
                             {/* Room Info Bar */}
                             <div className={styles.roomInfoBar}>
-                                <span>Mã phòng: </span>
+                                <span>{t('meet.lbl_room_code', 'Mã phòng: ')} </span>
                                 <Tag color="blue" style={{ fontSize: 16, padding: '2px 12px', letterSpacing: 3, fontWeight: 'bold' }}>
                                     {roomCode}
                                 </Tag>
-                                <Tooltip title="Sao chép mã phòng">
+                                <Tooltip title={t('meet.tooltip_copy', 'Sao chép mã phòng')}>
                                     <Button
                                         type="text"
                                         icon={<CopyOutlined />}
@@ -155,7 +157,7 @@ export default function MeetPage() {
                                     />
                                 </Tooltip>
                                 <span style={{ marginLeft: 'auto', color: 'var(--color-text-muted)', fontSize: 13 }}>
-                                    {peers.size + 1} người tham gia
+                                    {t('meet.participants_count', '{{count}} người tham gia', { count: peers.size + 1 })}
                                 </span>
                             </div>
 
@@ -176,7 +178,7 @@ export default function MeetPage() {
                                         </div>
                                     )}
                                     <span className={styles.nameTag}>
-                                        {user?.fullName || user?.username || 'Bạn'} (Bạn)
+                                        {user?.fullName || user?.username || t('meet.lbl_you', 'Bạn')} ({t('meet.lbl_you', 'Bạn')})
                                     </span>
                                 </div>
 
@@ -188,7 +190,7 @@ export default function MeetPage() {
 
                             {/* Control Bar */}
                             <div className={styles.controlBar}>
-                                <Tooltip title={isAudioEnabled ? 'Tắt mic' : 'Bật mic'}>
+                                <Tooltip title={isAudioEnabled ? t('meet.tooltip_mute', 'Tắt mic') : t('meet.tooltip_unmute', 'Bật mic')}>
                                     <Button
                                         shape="circle"
                                         size="large"
@@ -198,7 +200,7 @@ export default function MeetPage() {
                                         className={styles.controlBtn}
                                     />
                                 </Tooltip>
-                                <Tooltip title={isVideoEnabled ? 'Tắt camera' : 'Bật camera'}>
+                                <Tooltip title={isVideoEnabled ? t('meet.tooltip_video_off', 'Tắt camera') : t('meet.tooltip_video_on', 'Bật camera')}>
                                     <Button
                                         shape="circle"
                                         size="large"
@@ -208,7 +210,7 @@ export default function MeetPage() {
                                         className={styles.controlBtn}
                                     />
                                 </Tooltip>
-                                <Tooltip title={isScreenSharing ? 'Dừng chia sẻ' : 'Chia sẻ màn hình'}>
+                                <Tooltip title={isScreenSharing ? t('meet.tooltip_stop_share', 'Dừng chia sẻ') : t('meet.tooltip_share_screen', 'Chia sẻ màn hình')}>
                                     <Button
                                         shape="circle"
                                         size="large"
@@ -218,7 +220,7 @@ export default function MeetPage() {
                                         className={styles.controlBtn}
                                     />
                                 </Tooltip>
-                                <Tooltip title="Rời phòng">
+                                <Tooltip title={t('meet.tooltip_leave', 'Rời phòng')}>
                                     <Button
                                         shape="circle"
                                         size="large"

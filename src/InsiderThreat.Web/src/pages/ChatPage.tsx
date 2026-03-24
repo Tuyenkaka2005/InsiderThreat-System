@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { authService } from '../services/auth';
 import { API_BASE_URL } from '../services/api';
 import { userService } from '../services/userService';
@@ -43,6 +44,7 @@ export default function ChatPage() {
 
     // Stabilize currentUser to prevent infinite useEffect loops
     const currentUser = useMemo(() => authService.getCurrentUser(), []);
+    const { t } = useTranslation();
     const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
     const [messageInput, setMessageInput] = useState('');
     const [contacts, setContacts] = useState<ChatUser[]>([]);
@@ -196,7 +198,7 @@ export default function ChatPage() {
                             fullName: u.fullName,
                             avatar: getAvatarUrl(u),
                             isOnline: onlineSet.has(u.id),
-                            lastMessage: "Bắt đầu trò chuyện",
+                            lastMessage: t('chat.start_chat', "Bắt đầu trò chuyện"),
                             lastMessageTime: "",
                             publicKey: u.publicKey,
                             unreadCount: 0
@@ -334,7 +336,7 @@ export default function ChatPage() {
                 receiverPublicKey = await chatService.getUserPublicKey(selectedUser.id);
             }
             if (!receiverPublicKey) {
-                alert('Người nhận chưa thiết lập khóa mã hóa. Không thể gửi tin nhắn E2EE.');
+                alert(t('chat.no_key_e2ee', 'Người nhận chưa thiết lập khóa mã hóa. Không thể gửi tin nhắn E2EE.'));
                 return;
             }
 
@@ -367,7 +369,7 @@ export default function ChatPage() {
 
         } catch (error) {
             console.error("Failed to send message", error);
-            alert("Failed to send message");
+            alert(t('chat.send_fail', "Failed to send message"));
         }
     };
 
@@ -403,7 +405,7 @@ export default function ChatPage() {
 
         } catch (error) {
             console.error("Failed to send file", error);
-            alert("Failed to upload/send file");
+            alert(t('chat.send_file_fail', "Failed to upload/send file"));
         }
     };
 
@@ -553,14 +555,14 @@ export default function ChatPage() {
                 {/* Sidebar */}
                 <aside className={`chat-sidebar ${selectedUser ? 'mobile-hidden' : ''}`}>
                     <div className="sidebar-header" style={{ padding: '16px 16px 0 16px' }}>
-                        <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Chats <span style={{ fontSize: 12, color: '#10b981', border: '1px solid #10b981', padding: '2px 4px', borderRadius: 4 }}>E2EE</span></h2>
+                        <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t('chat.title_chats', 'Chats')} <span style={{ fontSize: 12, color: '#10b981', border: '1px solid #10b981', padding: '2px 4px', borderRadius: 4 }}>E2EE</span></h2>
                     </div>
                     <div className="sidebar-search">
                         <div className="chat-search-input-wrapper">
                             <span className="material-symbols-outlined" style={{ color: '#9ca3af', fontSize: 20 }}>search</span>
                             <input
                                 className="chat-search-input"
-                                placeholder="Search Messenger"
+                                placeholder={t('chat.search_placeholder', "Search Messenger")}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -613,7 +615,7 @@ export default function ChatPage() {
                             borderRadius: 8, transition: 'background-color 0.2s'
                         }}>
                             <span className="material-symbols-outlined">logout</span>
-                            <span style={{ fontWeight: 500 }}>Logout</span>
+                            <span style={{ fontWeight: 500 }}>{t('chat.logout', 'Logout')}</span>
                         </button>
                     </div>
 
@@ -631,25 +633,25 @@ export default function ChatPage() {
                         <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 2.98 1 4.28L2 22l5.72-1c1.3.64 2.74 1 4.28 1 5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.47 0-2.84-.4-4.01-1.1l-.29-.17-3 .52.52-3-.17-.29C4.4 14.84 4 13.47 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"></path>
                         </svg>
-                        <span>Chats</span>
+                        <span>{t('chat.nav_chats', 'Chats')}</span>
                     </a>
                     <a className="nav-item" href="#">
                         <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                         </svg>
-                        <span>Contacts</span>
+                        <span>{t('chat.nav_contacts', 'Contacts')}</span>
                     </a>
                     <a className="nav-item" href="#" onClick={(e) => { e.preventDefault(); navigate('/profile'); }}>
                         <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                         </svg>
-                        <span>Profile</span>
+                        <span>{t('chat.nav_profile', 'Profile')}</span>
                     </a>
                     <a className="nav-item" href="#" onClick={(e) => { e.preventDefault(); handleLogout(); }}>
                         <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                         </svg>
-                        <span>Logout</span>
+                        <span>{t('chat.logout', 'Logout')}</span>
                     </a>
                 </nav>
 
@@ -671,14 +673,14 @@ export default function ChatPage() {
                                     }}></div>
                                     <div>
                                         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{selectedUser.fullName || selectedUser.username}</h3>
-                                        <span style={{ fontSize: 12, color: '#9ca3af' }}>{selectedUser.isOnline ? 'Active now' : 'Offline'}</span>
+                                        <span style={{ fontSize: 12, color: '#9ca3af' }}>{selectedUser.isOnline ? t('chat.status_active', 'Active now') : t('chat.status_offline', 'Offline')}</span>
                                     </div>
                                 </div>
                                 <div className="info-popover-container">
                                     <button
                                         className={`chat-action-btn secondary-btn ${isInfoPopoverOpen ? 'active' : ''}`}
                                         onClick={() => setIsInfoPopoverOpen(!isInfoPopoverOpen)}
-                                        title="Chat Info"
+                                        title={t('chat.info_title', 'Chat Info')}
                                     >
                                         <span className="material-symbols-outlined">info</span>
                                     </button>
@@ -687,26 +689,26 @@ export default function ChatPage() {
                                     {isInfoPopoverOpen && (
                                         <div className="info-popover" ref={infoPopoverRef}>
                                             <div className="info-popover-header">
-                                                Chat Info
+                                                {t('chat.info_title', 'Chat Info')}
                                             </div>
                                             <div className="info-popover-tabs">
                                                 <button
                                                     className={`info-tab ${activeFilter === 'media' ? 'active' : ''}`}
                                                     onClick={() => setActiveFilter('media')}
                                                 >
-                                                    Media
+                                                    {t('chat.tab_media', 'Media')}
                                                 </button>
                                                 <button
                                                     className={`info-tab ${activeFilter === 'files' ? 'active' : ''}`}
                                                     onClick={() => setActiveFilter('files')}
                                                 >
-                                                    Files
+                                                    {t('chat.tab_files', 'Files')}
                                                 </button>
                                                 <button
                                                     className={`info-tab ${activeFilter === 'messages' ? 'active' : ''}`}
                                                     onClick={() => setActiveFilter('messages')}
                                                 >
-                                                    Text
+                                                    {t('chat.tab_text', 'Text')}
                                                 </button>
                                             </div>
 
@@ -733,7 +735,7 @@ export default function ChatPage() {
                                                                 ></div>
                                                             )
                                                         ))}
-                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, gridColumn: 'span 3', textAlign: 'center', padding: 20 }}>No media shared</div>}
+                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, gridColumn: 'span 3', textAlign: 'center', padding: 20 }}>{t('chat.no_media', 'No media shared')}</div>}
                                                     </div>
                                                 )}
 
@@ -749,13 +751,13 @@ export default function ChatPage() {
                                                             >
                                                                 <span className="material-symbols-outlined popover-file-icon">description</span>
                                                                 <div className="popover-file-info">
-                                                                    <div className="popover-file-name">{msg.attachmentName || 'Unknown File'}</div>
+                                                                    <div className="popover-file-name">{msg.attachmentName || t('chat.unknown_file', 'Unknown File')}</div>
                                                                     <div style={{ fontSize: 10, color: '#9ca3af' }}>{msg.timestamp}</div>
                                                                 </div>
                                                                 <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#9ca3af' }}>download</span>
                                                             </a>
                                                         ))}
-                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center', padding: 20 }}>No files shared</div>}
+                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center', padding: 20 }}>{t('chat.no_files', 'No files shared')}</div>}
                                                     </div>
                                                 )}
 
@@ -767,7 +769,7 @@ export default function ChatPage() {
                                                                 <span className="popover-message-time">{msg.timestamp}</span>
                                                             </div>
                                                         ))}
-                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center', padding: 20 }}>No text messages</div>}
+                                                        {filteredContent.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center', padding: 20 }}>{t('chat.no_text', 'No text messages')}</div>}
                                                     </div>
                                                 )}
                                             </div>
@@ -782,7 +784,7 @@ export default function ChatPage() {
                                     <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                                     </svg>
-                                    <p>Messages are end-to-end encrypted. No one outside of this chat, not even SocialNet, can read or listen to them.</p>
+                                    <p>{t('chat.e2ee_notice', 'Messages are end-to-end encrypted. No one outside of this chat, not even SocialNet, can read or listen to them.')}</p>
                                 </div>
                                 {messages.map((msg, index) => {
                                     const isMe = msg.senderId === currentUser?.id;
@@ -834,8 +836,8 @@ export default function ChatPage() {
                                                             className="message-edit-input"
                                                         />
                                                         <div className="message-edit-actions">
-                                                            <button onClick={handleSaveEdit} className="edit-save-btn">Lưu</button>
-                                                            <button onClick={handleCancelEdit} className="edit-cancel-btn">Hủy</button>
+                                                            <button onClick={handleSaveEdit} className="edit-save-btn">{t('chat.btn_save', 'Lưu')}</button>
+                                                            <button onClick={handleCancelEdit} className="edit-cancel-btn">{t('chat.btn_cancel', 'Hủy')}</button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -844,7 +846,7 @@ export default function ChatPage() {
                                                 {(msg.text && !msg.text.startsWith('[Sent a')) && (
                                                     <div className="message-bubble" style={{ width: 'fit-content', wordBreak: 'break-word', marginTop: msg.attachmentUrl ? 8 : 0 }}>
                                                         {msg.text}
-                                                        {msg.isEdited && <span className="message-edited-label">(đã chỉnh sửa)</span>}
+                                                        {msg.isEdited && <span className="message-edited-label">{t('chat.edited_label', '(đã chỉnh sửa)')}</span>}
                                                     </div>
                                                 )}
 
@@ -889,7 +891,7 @@ export default function ChatPage() {
                                                                 }}
                                                             >
                                                                 <span className="material-symbols-outlined">description</span>
-                                                                <span style={{ fontSize: 14 }}>{msg.attachmentName || 'Download File'}</span>
+                                                                <span style={{ fontSize: 14 }}>{msg.attachmentName || t('chat.download_file', 'Download File')}</span>
                                                             </a>
                                                         )}
                                                     </div>
@@ -901,7 +903,7 @@ export default function ChatPage() {
                                                 {isLastReadMessage && (
                                                     <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                                                         <span className="material-symbols-outlined" style={{ fontSize: 12 }}>done_all</span>
-                                                        Đã xem
+                                                        {t('chat.read_receipt', 'Đã xem')}
                                                     </div>
                                                 )}
                                                 </>
@@ -942,17 +944,17 @@ export default function ChatPage() {
                                             <>
                                                 <button className="context-menu-item" onClick={handleDeleteForEveryone}>
                                                     <span className="context-menu-icon">🗑️</span>
-                                                    Xóa với mọi người
+                                                    {t('chat.delete_everyone', 'Xóa với mọi người')}
                                                 </button>
                                                 <button className="context-menu-item" onClick={handleStartEdit}>
                                                     <span className="context-menu-icon">✏️</span>
-                                                    Chỉnh sửa tin nhắn
+                                                    {t('chat.edit_message', 'Chỉnh sửa tin nhắn')}
                                                 </button>
                                             </>
                                         )}
                                         <button className="context-menu-item" onClick={handleDeleteForMe}>
                                             <span className="context-menu-icon">🚫</span>
-                                            Xóa ở phía tôi
+                                            {t('chat.delete_me', 'Xóa ở phía tôi')}
                                         </button>
                                     </div>
                                 </>
@@ -979,7 +981,7 @@ export default function ChatPage() {
                                     />
                                     <input
                                         className="chat-input-field"
-                                        placeholder="Type an encrypted message..."
+                                        placeholder={t('chat.type_message', "Type an encrypted message...")}
                                         value={messageInput}
                                         onChange={(e) => setMessageInput(e.target.value)}
                                         onKeyDown={handleKeyDown}
@@ -998,8 +1000,8 @@ export default function ChatPage() {
                     ) : (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#9ca3af' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: 64, marginBottom: 16, opacity: 0.5 }}>lock</span>
-                            <h2 style={{ fontSize: 24, fontWeight: 600, color: '#f3f4f6' }}>End-to-End Encrypted Chat</h2>
-                            <p>Messages are encrypted on your device. Only the recipient can read them.</p>
+                            <h2 style={{ fontSize: 24, fontWeight: 600, color: '#f3f4f6' }}>{t('chat.e2ee_title', 'End-to-End Encrypted Chat')}</h2>
+                            <p>{t('chat.e2ee_desc', 'Messages are encrypted on your device. Only the recipient can read them.')}</p>
                         </div>
                     )}
                 </main>

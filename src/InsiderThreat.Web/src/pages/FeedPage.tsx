@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { message } from 'antd';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { authService } from '../services/auth';
 import { API_BASE_URL } from '../services/api';
 import { userService } from '../services/userService';
@@ -23,6 +24,7 @@ export default function FeedPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const user = authService.getCurrentUser();
+    const { t } = useTranslation();
     const [openChats, setOpenChats] = useState<User[]>([]); // Max 3 chat windows
 
     // Helper function to open a chat window
@@ -33,7 +35,7 @@ export default function FeedPage() {
         }
         // Check max limit
         if (openChats.length >= 3) {
-            message.warning('Maximum 3 chat windows allowed');
+            message.warning(t('feed.max_chat_windows', 'Maximum 3 chat windows allowed'));
             return;
         }
         setOpenChats(prev => [...prev, chatUser]);
@@ -235,8 +237,8 @@ export default function FeedPage() {
             removeSelectedFile();
         } catch (error: any) {
             console.error("Failed to create post", error);
-            const errMsg = error.response?.data?.message || error.message || "Please try again.";
-            alert(`Failed to post: ${errMsg}`);
+            const errMsg = error.response?.data?.message || error.message || t('feed.post_fail_try_again', "Please try again.");
+            alert(t('feed.post_fail_msg', { msg: errMsg, defaultValue: `Failed to post: ${errMsg}` }));
         } finally {
             setIsPosting(false);
         }
@@ -309,16 +311,16 @@ export default function FeedPage() {
 
                             <div className="relative z-10 max-w-[80%]">
                                 <h1 className="text-3xl md:text-4xl font-extrabold mb-3 tracking-tight block dark:hidden">
-                                    Chào mừng trở lại, <span className="text-white/90">{user?.fullName || user?.username}</span> 👋
+                                    {t('feed.welcome_back_user', { name: user?.fullName || user?.username, defaultValue: `Chào mừng trở lại, ${user?.fullName || user?.username} 👋` })}
                                 </h1>
-                                <h1 className="text-3xl md:text-4xl font-extrabold mb-3 tracking-tight hidden dark:block">
-                                    Chào mừng trở lại, <span className="text-blue-400">Administrator</span>
+                                <h1 className="text-3xl md:text-4xl font-extrabold mb-3 tracking-tight hidden dark:block text-blue-400">
+                                    {t('feed.welcome_back_admin', 'Chào mừng trở lại, Administrator')}
                                 </h1>
                                 <p className="text-sm md:text-base opacity-90 font-medium block dark:hidden">
-                                     Hôm nay có gì mới không? Chia sẻ với đồng nghiệp nhé!
+                                     {t('feed.daily_prompt_user', 'Hôm nay có gì mới không? Chia sẻ với đồng nghiệp nhé!')}
                                 </p>
                                 <p className="text-sm md:text-base text-slate-400 font-medium hidden dark:block">
-                                    Theo dõi các biến động truy cập hệ thống và hoạt động mới nhất.
+                                    {t('feed.daily_prompt_admin', 'Theo dõi các biến động truy cập hệ thống và hoạt động mới nhất.')}
                                 </p>
                             </div>
 
@@ -339,7 +341,7 @@ export default function FeedPage() {
                                             transition: 'all 0.2s'
                                         }}
                                     >
-                                        Admin Panel
+                                        {t('feed.admin_panel', 'Admin Panel')}
                                     </button>
                                 )}
                             </div>
@@ -354,7 +356,7 @@ export default function FeedPage() {
                                 border: '2px solid #e2e8f0'
                             }} />
                             <div className="flex-1 bg-[var(--color-surface-lighter)] hover:bg-[var(--color-bg)] transition-colors rounded-full h-10 flex items-center px-4 text-[var(--color-text-muted)] text-[15px] select-none">
-                                {user?.fullName?.split(' ').pop() || user?.username} ơi, bạn đang nghĩ gì?
+                                {t('feed.post_placeholder', { name: user?.fullName?.split(' ').pop() || user?.username, defaultValue: `${user?.fullName?.split(' ').pop() || user?.username} ơi, bạn đang nghĩ gì?` })}
                             </div>
                         </div>
 
@@ -368,7 +370,7 @@ export default function FeedPage() {
                                 <div className="bg-[var(--color-surface)] rounded-2xl shadow-2xl w-full max-w-[520px] mx-4 flex flex-col overflow-hidden" style={{ maxHeight: '90vh' }}>
                                     {/* Modal Header */}
                                     <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
-                                        <h2 className="text-lg font-bold text-[var(--color-text-main)]">TẠO BÀI VIẾT</h2>
+                                        <h2 className="text-lg font-bold text-[var(--color-text-main)]">{t('feed.create_post_title', 'TẠO BÀI VIẾT')}</h2>
                                         <button
                                             onClick={() => { setShowPostModal(false); setNewPostContent(''); setPostBgColor(null); removeSelectedFile(); }}
                                             className="w-9 h-9 flex items-center justify-center rounded-full bg-[var(--color-surface-lighter)] hover:bg-[var(--color-bg)] transition-colors text-[var(--color-text-muted)] text-xl font-bold"
@@ -386,7 +388,7 @@ export default function FeedPage() {
                                         <div>
                                             <div className="font-semibold text-[var(--color-text-main)] text-[15px]">{user?.fullName || user?.username}</div>
                                             <div className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 text-[11px] font-bold px-2 py-0.5 rounded-md mt-0.5">
-                                                🌐 CÔNG KHAI
+                                                {t('feed.public_badge', '🌐 CÔNG KHAI')}
                                             </div>
                                         </div>
                                     </div>
@@ -421,8 +423,8 @@ export default function FeedPage() {
                                             }}
                                             placeholder={
                                                 previewUrl
-                                                    ? 'Thêm chú thích...'
-                                                    : `${user?.fullName?.split(' ').pop() || user?.username} ơi, bạn đang nghĩ gì?`
+                                                    ? t('feed.caption_placeholder', 'Thêm chú thích...')
+                                                    : t('feed.post_placeholder', { name: user?.fullName?.split(' ').pop() || user?.username, defaultValue: `${user?.fullName?.split(' ').pop() || user?.username} ơi, bạn đang nghĩ gì?` })
                                             }
                                             value={newPostContent}
                                             onChange={(e) => setNewPostContent(e.target.value)}
@@ -477,8 +479,8 @@ export default function FeedPage() {
                                     </div>
 
                                     {/* Add to Post Bar — merged photo+video, no emoji */}
-                                    <div className="mx-5 mb-4 border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between">
-                                        <span className="text-slate-500 text-sm font-medium">Thêm vào bài viết</span>
+                                    <div className="mx-5 mb-4 border border-[var(--color-border)] bg-[var(--color-surface-lighter)]/30 rounded-xl px-4 py-3 flex items-center justify-between">
+                                        <span className="text-[var(--color-text-muted)] text-sm font-medium">{t('feed.add_to_post', 'Thêm vào bài viết')}</span>
                                         <div className="flex items-center gap-2">
                                             {/* Merged Photo + Video button */}
                                             <input
@@ -491,12 +493,12 @@ export default function FeedPage() {
                                             <button
                                                 onClick={() => fileInputRef.current?.click()}
                                                 className="flex items-center gap-1.5 text-green-500 hover:text-green-600 hover:bg-green-50 px-2 py-1.5 rounded-lg transition-colors text-sm font-medium"
-                                                title="Ảnh hoặc Video"
+                                                title={t('feed.add_media_title', 'Ảnh hoặc Video')}
                                             >
                                                 <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
                                                     <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
                                                 </svg>
-                                                <span>Ảnh/Video</span>
+                                                <span>{t('feed.add_media', 'Ảnh/Video')}</span>
                                             </button>
                                         </div>
                                     </div>
@@ -504,7 +506,7 @@ export default function FeedPage() {
                                     {/* Visibility + Category */}
                                     <div className="flex items-center gap-2 px-5 pb-4">
                                         <select
-                                            className="flex-1 bg-slate-50 text-slate-700 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 cursor-pointer"
+                                            className="flex-1 bg-[var(--color-surface-lighter)] text-[var(--color-text-main)] text-sm border border-[var(--color-border)] rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 cursor-pointer"
                                             onChange={(e) => {
                                                 const val = e.target.value;
                                                 setAllowedRoles([]);
@@ -513,12 +515,12 @@ export default function FeedPage() {
                                                 else if (DEPARTMENTS.includes(val)) setAllowedDepartments([val]);
                                             }}
                                         >
-                                            <option value="Public">🌐 Toàn công ty</option>
-                                            <option value="Managers">👔 Chỉ quản lý</option>
+                                            <option value="Public">{t('feed.scope_public', '🌐 Toàn công ty')}</option>
+                                            <option value="Managers">{t('feed.scope_managers', '👔 Chỉ quản lý')}</option>
                                             {DEPARTMENTS.map(d => <option key={d} value={d}>🏢 {d}</option>)}
                                         </select>
                                         <select
-                                            className="flex-1 bg-slate-50 text-slate-700 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 cursor-pointer"
+                                            className="flex-1 bg-[var(--color-surface-lighter)] text-[var(--color-text-main)] text-sm border border-[var(--color-border)] rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 cursor-pointer"
                                             value={selectedCategory}
                                             onChange={(e) => setSelectedCategory(e.target.value)}
                                         >
@@ -534,9 +536,9 @@ export default function FeedPage() {
                                             className="w-full py-3 rounded-xl font-bold text-[15px] tracking-wide transition-all duration-300"
                                             style={{
                                                 background: (!newPostContent.trim() && !selectedFile)
-                                                    ? '#e2e8f0'
+                                                    ? 'var(--color-surface-lighter)'
                                                     : 'linear-gradient(135deg,#1e40af,#3b82f6)',
-                                                color: (!newPostContent.trim() && !selectedFile) ? '#94a3b8' : '#fff',
+                                                color: (!newPostContent.trim() && !selectedFile) ? 'var(--color-text-muted)' : '#fff',
                                                 cursor: (!newPostContent.trim() && !selectedFile) ? 'not-allowed' : 'pointer',
                                                 boxShadow: (!newPostContent.trim() && !selectedFile) ? 'none' : '0 4px 15px rgba(37,99,235,0.35)',
                                             }}
@@ -544,9 +546,9 @@ export default function FeedPage() {
                                             {isPosting ? (
                                                 <span className="flex items-center justify-center gap-2">
                                                     <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                                                    Đang đăng bài...
+                                                    {t('feed.posting', 'Đang đăng bài...')}
                                                 </span>
-                                            ) : 'ĐĂNG BÀI NGAY'}
+                                            ) : t('feed.post_now', 'ĐĂNG BÀI NGAY')}
                                         </button>
                                     </div>
                                 </div>
@@ -557,13 +559,13 @@ export default function FeedPage() {
                         <div className="bg-[var(--color-surface)] rounded-2xl p-5 border border-[var(--color-border)] shadow-sm flex flex-col gap-4">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[13px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">Bộ lọc:</span>
+                                    <span className="text-[13px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">{t('feed.filter', 'Bộ lọc:')}</span>
                                     <select
                                         className="bg-[var(--color-surface-lighter)] text-[var(--color-text-main)] text-[15px] font-medium border border-[var(--color-border)] rounded-xl px-4 py-2 focus:outline-none focus:border-[var(--color-primary)] cursor-pointer"
                                         value={filterCategory}
                                         onChange={(e) => setFilterCategory(e.target.value)}
                                     >
-                                        <option value="All">Tất cả danh mục</option>
+                                        <option value="All">{t('feed.all_categories', 'Tất cả danh mục')}</option>
                                         {POST_CATEGORIES.map(cat => (
                                             <option key={cat} value={cat}>{cat}</option>
                                         ))}
@@ -581,7 +583,7 @@ export default function FeedPage() {
                                             : 'bg-[var(--color-surface-lighter)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] border border-[var(--color-border)]'
                                             }`}
                                     >
-                                        {period === 'All' ? 'Tất cả' : period === 'Today' ? 'Hôm nay' : period === 'Week' ? 'Tuần này' : 'Tháng này'}
+                                        {period === 'All' ? t('feed.period_all', 'Tất cả') : period === 'Today' ? t('feed.period_today', 'Hôm nay') : period === 'Week' ? t('feed.period_week', 'Tuần này') : t('feed.period_month', 'Tháng này')}
                                     </button>
                                 ))}
                             </div>
@@ -598,7 +600,7 @@ export default function FeedPage() {
                                 {focusedPostId && (
                                     <div className="mb-4 p-4 bg-[var(--color-dark-surface)] rounded-xl border border-[var(--color-border)] flex items-center justify-between">
                                         <p className="text-[var(--color-text-muted)] text-sm">
-                                            Viewing single post from notification
+                                            {t('feed.viewing_single', 'Viewing single post from notification')}
                                         </p>
                                         <button
                                             onClick={() => {
@@ -607,7 +609,7 @@ export default function FeedPage() {
                                             }}
                                             className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors text-sm font-medium"
                                         >
-                                            View All Posts
+                                            {t('feed.view_all', 'View All Posts')}
                                         </button>
                                     </div>
                                 )}
@@ -633,7 +635,7 @@ export default function FeedPage() {
                                                 fontWeight: 600,
                                                 textAlign: 'center'
                                             }}>
-                                                📌 Bài viết được báo cáo
+                                                {t('feed.reported_post', '📌 Bài viết được báo cáo')}
                                             </div>
                                         )}
                                         <PostCard
@@ -661,10 +663,10 @@ export default function FeedPage() {
                     <div className="bg-[var(--color-surface)] border-2 border-yellow-400 rounded-2xl p-6 max-w-md mx-4 shadow-2xl animate-in fade-in zoom-in duration-200">
                         <div className="flex items-center gap-3 mb-4">
                             <span className="material-symbols-outlined text-yellow-500 text-3xl">warning</span>
-                            <h3 className="text-xl font-bold text-[var(--color-text-main)]">Sensitive Content Detected</h3>
+                            <h3 className="text-xl font-bold text-[var(--color-text-main)]">{t('feed.sensitive_detected', 'Sensitive Content Detected')}</h3>
                         </div>
                         <p className="text-[var(--color-text-muted)] mb-4 leading-relaxed">{warningMessage}</p>
-                        <p className="text-sm text-[var(--color-text-muted)] mb-6">Do you want to continue posting anyway?</p>
+                        <p className="text-sm text-[var(--color-text-muted)] mb-6">{t('feed.sensitive_continue', 'Do you want to continue posting anyway?')}</p>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => {
@@ -673,7 +675,7 @@ export default function FeedPage() {
                                 }}
                                 className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors border border-slate-200"
                             >
-                                Cancel
+                                {t('feed.btn_cancel', 'Cancel')}
                             </button>
                             <button
                                 onClick={() => {
@@ -683,7 +685,7 @@ export default function FeedPage() {
                                 }}
                                 className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-semibold"
                             >
-                                Post Anyway
+                                {t('feed.btn_post_anyway', 'Post Anyway')}
                             </button>
                         </div>
                     </div>

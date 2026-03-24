@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Table, Button, message, Tag, Space, Card } from 'antd';
 import { FileTextOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 import type { LogEntry } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 
 function DocumentsPage() {
+    const { t } = useTranslation();
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -30,7 +32,7 @@ function DocumentsPage() {
 
     const columns: ColumnsType<LogEntry> = [
         {
-            title: 'Tài liệu / File',
+            title: t('docs.col_doc', 'Tài liệu / File'),
             dataIndex: 'message',
             key: 'message',
             render: (text) => (
@@ -41,12 +43,12 @@ function DocumentsPage() {
             )
         },
         {
-            title: 'Tài khoản / Máy tính',
+            title: t('docs.col_account', 'Tài khoản / Máy tính'),
             dataIndex: 'computerName',
             key: 'computerName',
         },
         {
-            title: 'Hành động',
+            title: t('docs.col_action', 'Hành động'),
             dataIndex: 'actionTaken',
             key: 'actionTaken',
             render: (action) => {
@@ -56,11 +58,12 @@ function DocumentsPage() {
                 if (action === 'Delete') color = 'red';
                 if (action === 'Create' || action === 'Created') color = 'green';
                 if (action === 'Download') color = 'cyan';
+                if (action === 'Cảnh báo Camera' || action === 'CameraWarning') color = 'volcano';
                 return <Tag color={color}>{action}</Tag>;
             }
         },
         {
-            title: 'Thời gian',
+            title: t('docs.col_time', 'Thời gian'),
             dataIndex: 'timestamp',
             key: 'timestamp',
             render: (timestamp: string) => new Date(timestamp).toLocaleString('vi-VN'),
@@ -70,9 +73,9 @@ function DocumentsPage() {
     return (
         <div style={{ padding: 24 }}>
             <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>📄 Nhật ký Truy cập Tài liệu</h2>
+                <h2>📄 {t('docs.title', 'Nhật ký Truy cập Tài liệu')}</h2>
                 <Button icon={<ReloadOutlined />} onClick={fetchLogs}>
-                    Làm mới
+                    {t('docs.btn_refresh', 'Làm mới')}
                 </Button>
             </div>
 
@@ -82,7 +85,7 @@ function DocumentsPage() {
                     dataSource={logs}
                     rowKey="id"
                     loading={loading}
-                    locale={{ emptyText: 'Chưa có nhật ký truy cập tài liệu nào' }}
+                    locale={{ emptyText: t('docs.empty_text', 'Chưa có nhật ký truy cập tài liệu nào') }}
                 />
             </Card>
         </div>

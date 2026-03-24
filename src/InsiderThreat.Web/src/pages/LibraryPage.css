@@ -214,6 +214,8 @@
     border-radius: 12px !important;
     height: 48px !important;
     border-color: var(--color-border) !important;
+    background: var(--color-surface-lighter) !important;
+    color: var(--color-text-main) !important;
 }
 
 .mobile-select {

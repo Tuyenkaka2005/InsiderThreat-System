@@ -228,6 +228,7 @@
     font-family: 'Inter', sans-serif;
     font-size: 14px;
     color: var(--color-text-main);
+    background: var(--color-surface-lighter);
     outline: none;
     transition: border-color 0.2s;
     box-sizing: border-box;

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userService } from '../services/userService';
 import { API_BASE_URL } from '../services/api';
+import { useTranslation } from 'react-i18next';
 import type { User } from '../types';
 import BottomNavigation from '../components/BottomNavigation';
 import LeftSidebar from '../components/LeftSidebar';
@@ -23,6 +24,7 @@ function getColor(name: string) {
 // Removed static DEPARTMENTS_DATA
 
 export default function StaffPage() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [users, setUsers] = useState<User[]>([]);
     const [search, setSearch] = useState('');
@@ -53,9 +55,9 @@ export default function StaffPage() {
         // Base departments with their specific icons/colors
         const defaultDepts = [
             { id: 'marketing', name: 'Marketing', count: 0, icon: 'groups', color: '#3b82f6' },
-            { id: 'tech', name: 'Kỹ thuật', count: 0, icon: 'code', color: '#8b5cf6' },
-            { id: 'accounting', name: 'Kế toán', count: 0, icon: 'account_balance', color: '#f59e0b' },
-            { id: 'hr', name: 'Nhân sự', count: 0, icon: 'badge', color: '#10b981' }
+            { id: 'tech', name: t('staff.dept_tech', 'Kỹ thuật'), count: 0, icon: 'code', color: '#8b5cf6' },
+            { id: 'accounting', name: t('staff.dept_accounting', 'Kế toán'), count: 0, icon: 'account_balance', color: '#f59e0b' },
+            { id: 'hr', name: t('staff.dept_hr', 'Nhân sự'), count: 0, icon: 'badge', color: '#10b981' }
         ];
 
         defaultDepts.forEach(d => {
@@ -75,7 +77,7 @@ export default function StaffPage() {
         }));
 
         return [...defaultDepts, ...extraDepts];
-    }, [users]);
+    }, [users, t]);
 
     const getAvatarUrl = (user: User) => {
         if (!user.avatarUrl) return '';
@@ -101,7 +103,7 @@ export default function StaffPage() {
             <div className="staffMainWrapper">
                 {/* Header */}
                 <header className="staffHeaderMobile">
-                    <h1 className="staffTitleMobile">Nhân sự</h1>
+                    <h1 className="staffTitleMobile">{t('staff.title', 'Nhân sự')}</h1>
                     <button className="addStaffBtn">
                         <span className="material-symbols-outlined">person_add</span>
                     </button>
@@ -113,7 +115,7 @@ export default function StaffPage() {
                         <span className="material-symbols-outlined">search</span>
                         <input
                             type="text"
-                            placeholder="Tìm kiếm đồng nghiệp..."
+                            placeholder={t('staff.search_placeholder', "Tìm kiếm đồng nghiệp...")}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -124,7 +126,7 @@ export default function StaffPage() {
                     {/* Suggestions Section */}
                     <section className="staffSection">
                         <div className="staffSectionHeader">
-                            <h2>GỢI Ý LIÊN HỆ</h2>
+                            <h2>{t('staff.section_suggestions', 'GỢI Ý LIÊN HỆ')}</h2>
                             <span className="material-symbols-outlined">chevron_right</span>
                         </div>
                         <div className="suggestionsList">
@@ -153,7 +155,7 @@ export default function StaffPage() {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <span className="statusText">ĐANG ONLINE</span>
+                                                <span className="statusText">{t('staff.status_online', 'ĐANG ONLINE')}</span>
                                             </div>
                                         </div>
                                         <button className="chatQuickBtn" onClick={() => navigate(`/chat?userId=${user.id}`)}>
@@ -168,7 +170,7 @@ export default function StaffPage() {
                     {/* Departments Section */}
                     <section className="staffSection">
                         <div className="staffSectionHeader">
-                            <h2>PHÒNG BAN</h2>
+                            <h2>{t('staff.section_departments', 'PHÒNG BAN')}</h2>
                         </div>
                         <div className="deptGridMobile">
                             {dynamicDepartments.map((dept: any) => (
@@ -178,7 +180,7 @@ export default function StaffPage() {
                                     </div>
                                     <div className="deptCardInfo">
                                         <h3>{dept.name}</h3>
-                                        <span>{dept.count} nhân viên</span>
+                                        <span>{dept.count} {t('staff.employee_count', 'nhân viên')}</span>
                                     </div>
                                 </div>
                             ))}

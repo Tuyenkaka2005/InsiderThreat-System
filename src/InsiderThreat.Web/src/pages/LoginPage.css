@@ -10,6 +10,16 @@
   overflow: hidden;
 }
 
+.login-theme-toggle {
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  z-index: 10;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
 /* Decorative circles */
 .login-container::before,
 .login-container::after {
@@ -73,4 +83,47 @@
   margin-top: 16px;
   color: var(--color-text-muted);
   font-size: 0.875rem;
+}
+
+/* Ant Design Input Overrides for Dark Mode */
+.login-card .ant-input,
+.login-card .ant-input-password {
+  background-color: var(--color-dark-bg) !important;
+  color: var(--color-text-main) !important;
+  border-color: var(--color-border) !important;
+}
+
+.login-card .ant-input::placeholder {
+  color: var(--color-text-muted) !important;
+}
+
+.login-card .ant-input-prefix,
+.login-card .ant-input-password-icon {
+  color: var(--color-text-muted) !important;
+}
+
+.login-card .ant-input-affix-wrapper {
+  background-color: var(--color-dark-bg) !important;
+  border-color: var(--color-border) !important;
+}
+
+.login-card .ant-input-affix-wrapper > input.ant-input {
+  background-color: transparent !important;
+  color: var(--color-text-main) !important;
+}
+
+.login-card .ant-input-affix-wrapper-focused,
+.login-card .ant-input:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
+}
+
+/* Ghi đè màu nền Autofill (tự động điền mật khẩu) của trình duyệt ở chế độ Dark Mode */
+.login-card input:-webkit-autofill,
+.login-card input:-webkit-autofill:hover, 
+.login-card input:-webkit-autofill:focus, 
+.login-card input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px var(--color-dark-bg) inset !important;
+    -webkit-text-fill-color: var(--color-text-main) !important;
+    transition: background-color 5000s ease-in-out 0s;
 }

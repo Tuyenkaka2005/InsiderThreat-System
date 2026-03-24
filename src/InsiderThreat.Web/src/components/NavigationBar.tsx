@@ -4,6 +4,11 @@ import { authService } from '../services/auth';
 import api, { API_BASE_URL } from '../services/api';
 import SearchBar from './SearchBar';
 import type { Notification } from '../services/notificationService';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext';
+import ThemeToggle from './ThemeToggle';
+import LanguageToggle from './LanguageToggle';
+import Logo from './Logo';
 import styles from './NavigationBar.module.css';
 
 interface NavigationBarProps {
@@ -19,6 +24,9 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const { theme, toggleTheme } = useTheme();
+    const { t } = useTranslation();
+    const isDarkMode = theme === 'dark';
 
     const avatarRef = useRef<HTMLDivElement>(null);
     const notificationRef = useRef<HTMLDivElement>(null);
@@ -62,7 +70,7 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
     };
 
     const handleLogout = () => {
-        if (window.confirm('Are you sure you want to logout?')) {
+        if (window.confirm(t('nav.logout_confirm', 'Are you sure you want to logout?'))) {
             authService.logout();
             navigate('/login');
         }
@@ -81,13 +89,8 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
         <nav className={styles.navbar}>
             <div className={styles.leftSection}>
                 {/* Logo */}
-                <div className={styles.logo} onClick={() => navigate('/feed')}>
-                    <div className={`${styles.logoIcon} dark:bg-darkCard dark:border dark:border-darkBorder dark:shadow-none`}>
-                        <span className="material-symbols-outlined block dark:hidden" style={{ color: '#fff' }}>hub</span>
-                        <span className="material-symbols-outlined hidden dark:block" style={{ color: '#3b82f6' }}>dashboard_customize</span>
-                    </div>
-                    <span className={`${styles.logoText} block dark:hidden`}>Luminous</span>
-                    <span className={`${styles.logoText} hidden dark:block !text-brandBlue`} style={{ letterSpacing: '1px' }}>Midnight Curator</span>
+                <div className={styles.logo} onClick={() => navigate('/feed')} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <Logo width={40} height={40} showText={true} />
                 </div>
             </div>
 
@@ -129,7 +132,7 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
                     {showNotifications && (
                         <div className={styles.notificationDropdown}>
                             <div className={styles.notificationHeader}>
-                                Notifications
+                                {t('nav.notifications', 'Notifications')}
                             </div>
                             {notifications.length > 0 ? (
                                 notifications.map(notif => (
@@ -149,7 +152,7 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
                                 ))
                             ) : (
                                 <div className={styles.emptyNotifications}>
-                                    No new notifications
+                                    {t('nav.no_notifications', 'No new notifications')}
                                 </div>
                             )}
                         </div>
@@ -183,7 +186,7 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
                                 }}
                             >
                                 <span className="material-symbols-outlined">person</span>
-                                <span>Profile</span>
+                                <span>{t('nav.profile', 'Profile')}</span>
                             </button>
 
                             {user?.role === 'Admin' && (
@@ -195,16 +198,38 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
                                     }}
                                 >
                                     <span className="material-symbols-outlined">admin_panel_settings</span>
-                                    <span>Admin Dashboard</span>
+                                    <span>{t('nav.admin_dashboard', 'Admin Dashboard')}</span>
                                 </button>
                             )}
+
+                            <div
+                                className={styles.dropdownItem}
+                                style={{ justifyContent: 'space-between', cursor: 'default', paddingRight: '8px' }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <span>{isDarkMode ? t('nav.theme_dark', 'Giao diện: Tối') : t('nav.theme_light', 'Giao diện: Sáng')}</span>
+                                <div style={{ transform: 'scale(0.65)', transformOrigin: 'right center', display: 'flex' }}>
+                                    <ThemeToggle />
+                                </div>
+                            </div>
+                            
+                            <div
+                                className={styles.dropdownItem}
+                                style={{ justifyContent: 'space-between', cursor: 'default', paddingRight: '8px' }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <span>{t('nav.language', 'Ngôn ngữ')} / Lang</span>
+                                <div style={{ transform: 'scale(0.85)', transformOrigin: 'right center', display: 'flex' }}>
+                                    <LanguageToggle />
+                                </div>
+                            </div>
 
                             <button
                                 className={`${styles.dropdownItem} ${styles.danger}`}
                                 onClick={handleLogout}
                             >
                                 <span className="material-symbols-outlined">logout</span>
-                                <span>Logout</span>
+                                <span>{t('nav.logout', 'Logout')}</span>
                             </button>
                         </div>
                     )}

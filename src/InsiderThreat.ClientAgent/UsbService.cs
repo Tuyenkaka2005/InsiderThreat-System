@@ -194,6 +194,49 @@ namespace InsiderThreat.ClientAgent
             }
         }
 
+        public static void RestoreAllUsbDevices()
+        {
+            Console.WriteLine("[Restore All USB Devices] Started...");
+            Guid guid = Guid.Empty;
+            // Dùng DIGCF_ALLCLASSES (bỏ DIGCF_PRESENT vì device bị disable có thể không present tùy version OS)
+            IntPtr deviceInfoSet = NativeMethods.SetupDiGetClassDevs(ref guid, null, IntPtr.Zero, NativeMethods.DIGCF_ALLCLASSES);
+            if (deviceInfoSet == IntPtr.Zero) return;
+
+            NativeMethods.SP_DEVINFO_DATA deviceInfoData = new NativeMethods.SP_DEVINFO_DATA();
+            deviceInfoData.cbSize = (uint)Marshal.SizeOf(deviceInfoData);
+            uint index = 0;
+
+            while (NativeMethods.SetupDiEnumDeviceInfo(deviceInfoSet, index, ref deviceInfoData))
+            {
+                uint propRegDataType;
+                StringBuilder buffer = new StringBuilder(1024);
+                uint requiredSize;
+
+                if (NativeMethods.SetupDiGetDeviceRegistryProperty(deviceInfoSet, ref deviceInfoData, NativeMethods.SPDRP_HARDWAREID, out propRegDataType, buffer, 1024, out requiredSize))
+                {
+                    var ids = buffer.ToString().ToUpperInvariant();
+                    // Khôi phục tất cả thiết bị USB và thiết bị lưu trữ.
+                    if (ids.Contains("USB\\") || ids.Contains("SCSI\\") || ids.Contains("STORAGE\\") || ids.Contains("VEN_10EC"))
+                    {
+                        NativeMethods.SP_PROPCHANGE_PARAMS params_ = new NativeMethods.SP_PROPCHANGE_PARAMS();
+                        params_.ClassInstallHeader.cbSize = (uint)Marshal.SizeOf(typeof(NativeMethods.SP_CLASSINSTALL_HEADER));
+                        params_.ClassInstallHeader.InstallFunction = NativeMethods.DIF_PROPERTYCHANGE;
+                        params_.StateChange = NativeMethods.DICS_ENABLE;
+                        params_.Scope = NativeMethods.DICS_FLAG_GLOBAL;
+                        params_.HwProfile = 0;
+
+                        if (NativeMethods.SetupDiSetClassInstallParams(deviceInfoSet, ref deviceInfoData, ref params_, (uint)Marshal.SizeOf(params_)))
+                        {
+                            NativeMethods.SetupDiCallClassInstaller(NativeMethods.DIF_PROPERTYCHANGE, deviceInfoSet, ref deviceInfoData);
+                        }
+                    }
+                }
+                index++;
+            }
+            NativeMethods.SetupDiDestroyDeviceInfoList(deviceInfoSet);
+            Console.WriteLine("[Restore All USB Devices] Finished.");
+        }
+
         // Helper class để lưu thông tin tạm
         private class UsbDeviceInfo
         {

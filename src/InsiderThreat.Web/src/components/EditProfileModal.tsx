@@ -46,7 +46,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onCancel, 
 
     return (
         <Modal
-            title={<div className="text-xl font-bold text-gray-800">Chỉnh sửa hồ sơ (Edit Profile)</div>}
+            title={<div className="text-xl font-bold text-[var(--color-text-main)]">Chỉnh sửa hồ sơ (Edit Profile)</div>}
             open={visible}
             onCancel={onCancel}
             footer={null}
@@ -60,7 +60,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onCancel, 
                 className="mt-6"
             >
                 <Form.Item
-                    label={<span className="font-semibold text-gray-700">Họ và tên (Full Name)</span>}
+                    label={<span className="font-semibold text-[var(--color-text-main)]">Họ và tên (Full Name)</span>}
                     name="fullName"
                     rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
                 >
@@ -68,14 +68,14 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onCancel, 
                 </Form.Item>
 
                 <Form.Item
-                    label={<span className="font-semibold text-gray-700">Phòng ban (Department)</span>}
+                    label={<span className="font-semibold text-[var(--color-text-main)]">Phòng ban (Department)</span>}
                     name="department"
                 >
                     <Input placeholder="Ví dụ: Information Security (SecOps)" className="h-[42px] rounded-lg" />
                 </Form.Item>
 
                 <Form.Item
-                    label={<span className="font-semibold text-gray-700">Email công việc</span>}
+                    label={<span className="font-semibold text-[var(--color-text-main)]">Email công việc</span>}
                     name="email"
                     rules={[
                         { required: true, message: 'Vui lòng nhập email' },
@@ -86,14 +86,14 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onCancel, 
                 </Form.Item>
 
                 <Form.Item
-                    label={<span className="font-semibold text-gray-700">Số điện thoại</span>}
+                    label={<span className="font-semibold text-[var(--color-text-main)]">Số điện thoại</span>}
                     name="phoneNumber"
                 >
                     <Input placeholder="+1 (555) 902-3412" className="h-[42px] rounded-lg" />
                 </Form.Item>
 
                 <Form.Item
-                    label={<span className="font-semibold text-gray-700">Giới thiệu ngắn (Bio)</span>}
+                    label={<span className="font-semibold text-[var(--color-text-main)]">Giới thiệu ngắn (Bio)</span>}
                     name="bio"
                 >
                     <Input.TextArea placeholder="Thông tin thêm về bạn..." rows={3} className="rounded-lg" />
