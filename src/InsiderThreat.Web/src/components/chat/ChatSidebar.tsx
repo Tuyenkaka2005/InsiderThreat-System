@@ -118,34 +118,6 @@ export default function ChatSidebar({ onContactClick }: ChatSidebarProps) {
                 })}
             </div>
 
-            {/* Trending Topics (Mới Thêm Do Dark Mode Image) */}
-            <div className="px-3 py-2 mt-2 border-t border-slate-100 dark:border-darkBorder">
-                <div className="text-[10px] font-extrabold tracking-widest text-slate-400 dark:text-slate-500 uppercase mb-2">
-                    {t('chat_sidebar.trending', 'Xu hướng')}
-                </div>
-                <div className="flex flex-col gap-2">
-                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-blue-500 cursor-pointer transition-colors">
-                        #MIDNIGHTCURATOR
-                        <div className="text-xs font-normal text-slate-400 mt-0.5">2.4k {t('chat_sidebar.posts_count', 'bài viết')}</div>
-                    </div>
-                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-blue-500 cursor-pointer transition-colors">
-                        #UIUXDESIGN
-                        <div className="text-xs font-normal text-slate-400 mt-0.5">1.2k {t('chat_sidebar.posts_count', 'bài viết')}</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Feature Buttons (Mới Thêm) */}
-            <div className="px-3 pb-4 pt-2 flex flex-col gap-2">
-                <button className="flex items-center gap-2 w-full px-3 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-bold shadow-md shadow-orange-500/20 transition-all active:scale-[0.98]">
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>star</span>
-                    {t('chat_sidebar.top_fans', 'Top Fans')}
-                </button>
-                <button className="flex items-center gap-2 w-full px-3 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white rounded-xl font-bold shadow-md shadow-pink-500/20 transition-all active:scale-[0.98]">
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>local_fire_department</span>
-                    {t('chat_sidebar.hot_events', 'Hot Events')}
-                </button>
-            </div>
         </aside>
     );
 }
