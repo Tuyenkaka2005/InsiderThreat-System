@@ -124,11 +124,17 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
 
                 {/* Chat Link */}
                 <button
-                    className={styles.iconButton}
+                    className={`${styles.iconButton} ${styles.chatButton}`}
                     onClick={onChatClick || (() => navigate('/chat'))}
                     title="Chat"
                 >
-                    <span className="material-symbols-outlined">chat</span>
+                    <div className={styles.messengerIcon}>
+                        {/* Custom Messenger SVG */}
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+                            <path d="M12.001 2.011a9.982 9.982 0 00-9.98 10.03c0 3.16 1.48 6.13 3.99 8.04L5.68 22l3.24-1.74a9.907 9.907 0 003.081.49 9.982 9.982 0 000-18.739h.001zm0 13.5l-2.61-2.92-4.99 2.92 5.5-5.91 2.7 2.92 4.88-2.92-5.48 5.91z" />
+                        </svg>
+                        <div className={styles.messageBadge}>2</div>
+                    </div>
                 </button>
 
                 {/* Notifications */}
