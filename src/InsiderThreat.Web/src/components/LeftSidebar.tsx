@@ -16,7 +16,16 @@ export default function LeftSidebar() {
     const { t } = useTranslation();
     const isDark = theme === 'dark';
 
-    const user = authService.getCurrentUser();
+    const [user, setUser] = useState(authService.getCurrentUser());
+
+    useEffect(() => {
+        const handleUserUpdate = (e: any) => {
+            setUser(e.detail);
+        };
+        window.addEventListener('auth-user-updated', handleUserUpdate as EventListener);
+        return () => window.removeEventListener('auth-user-updated', handleUserUpdate as EventListener);
+    }, []);
+
     // Admin detection: check role (case-insensitive) or if username is 'admin'
     const isAdmin = user?.role?.toLowerCase().includes('admin') ||
         user?.username?.toLowerCase() === 'admin';

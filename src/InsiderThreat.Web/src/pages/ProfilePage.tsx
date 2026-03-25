@@ -42,9 +42,19 @@ export default function ProfilePage() {
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
+        const handleUserUpdate = (e: any) => {
+            if (isOwnProfile) {
+                setUser(e.detail);
+            }
+        };
+
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+        window.addEventListener('auth-user-updated', handleUserUpdate as EventListener);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('auth-user-updated', handleUserUpdate as EventListener);
+        };
+    }, [isOwnProfile]);
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -62,9 +72,9 @@ export default function ProfilePage() {
                 const userData = await userService.getUserById(targetUserId!);
                 setUser(userData);
                 
-                // If viewing own profile, sync local storage
+                // If viewing own profile, sync local storage and state via central service
                 if (viewingOwnProfile) {
-                    localStorage.setItem('user', JSON.stringify(userData));
+                    authService.dispatchUserUpdate(userData);
                 }
             } catch (error) {
                 console.error("Error fetching user profile", error);
@@ -116,7 +126,7 @@ export default function ProfilePage() {
 
             const updatedUser = { ...user, avatarUrl };
             setUser(updatedUser);
-            localStorage.setItem('user', JSON.stringify(updatedUser));
+            authService.dispatchUserUpdate(updatedUser);
             antdMessage.success(t('profile.update_avatar_success', 'Cập nhật ảnh đại diện thành công'));
         } catch (error) {
             console.error('Failed to upload avatar:', error);
@@ -129,7 +139,7 @@ export default function ProfilePage() {
     const handleProfileUpdate = (updatedUser: User) => {
         setUser(updatedUser);
         if (updatedUser.id === currentUser?.id) {
-            localStorage.setItem('user', JSON.stringify(updatedUser));
+            authService.dispatchUserUpdate(updatedUser);
         }
     };
 
