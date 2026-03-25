@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import LeftSidebar from '../components/LeftSidebar';
 import BottomNavigation from '../components/BottomNavigation';
 import { userService } from '../services/userService';
+import { API_BASE_URL } from '../services/api';
 import type { User } from '../types';
 import './GroupsPage.css';
 
@@ -60,7 +61,8 @@ export default function GroupsPage() {
         },
     ];
 
-    const [groups] = useState<Group[]>(MOCK_GROUPS);
+    // Hooks for UI state
+    const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
     const [showCreate, setShowCreate] = useState(false);
     const [form, setForm] = useState({ 
         name: '', description: '', privacy: 'PUBLIC', 
@@ -90,6 +92,12 @@ export default function GroupsPage() {
             !form.members.find(m => m.id === u.id)
           ).slice(0, 5)
         : [];
+
+    const getAvatarUrl = (user: User) => {
+        if (!user.avatarUrl) return `https://ui-avatars.com/api/?name=${user.username}`;
+        if (user.avatarUrl.startsWith('http')) return user.avatarUrl;
+        return `${API_BASE_URL}${user.avatarUrl}`;
+    };
 
     return (
         <div className="groupsPage-container">
@@ -210,7 +218,7 @@ export default function GroupsPage() {
                                                             setSearchUserQuery('');
                                                         }}
                                                     >
-                                                        <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`} alt="Avatar" />
+                                                        <img src={getAvatarUrl(user)} alt="Avatar" />
                                                         <div className="userInfoBlock">
                                                             <div className="uName">{user.fullName || user.username}</div>
                                                             <div className="uEmail">{user.email || `@${user.username}`}</div>
@@ -223,7 +231,7 @@ export default function GroupsPage() {
                                     <div className="selectedMembers">
                                         {form.members.map(member => (
                                             <span key={member.id} className="memberTag">
-                                                <img src={member.avatarUrl || `https://ui-avatars.com/api/?name=${member.username}`} alt="Avatar" />
+                                                <img src={getAvatarUrl(member)} alt="Avatar" />
                                                 {member.fullName || member.username}
                                                 <button 
                                                     className="removeTag"
@@ -249,7 +257,33 @@ export default function GroupsPage() {
                                 </div>
                                 <div className="modalActions">
                                     <button className="btnCancel" onClick={() => setShowCreate(false)}>{t('groups.btn_cancel', 'Hủy')}</button>
-                                    <button className="btnCreate" onClick={() => setShowCreate(false)}>{t('groups.btn_confirm_create', 'Tạo dự án')}</button>
+                                    <button 
+                                        className="btnCreate" 
+                                        onClick={() => {
+                                            if (!form.name.trim()) {
+                                                alert('Vui lòng nhập tên dự án/nhóm!');
+                                                return;
+                                            }
+                                            const newGroup: Group = {
+                                                id: Date.now().toString(),
+                                                name: form.name,
+                                                description: form.description || 'Dự án mới',
+                                                members: form.members.length + 1,
+                                                category: 'Dự án mới',
+                                                privacy: form.privacy as 'PUBLIC' | 'PRIVATE',
+                                                coverImage: `https://picsum.photos/seed/${Date.now()}/400/200`
+                                            };
+                                            setGroups([...groups, newGroup]);
+                                            setForm({ 
+                                                name: '', description: '', privacy: 'PUBLIC', 
+                                                startDate: '', endDate: '', members: [] 
+                                            });
+                                            setSearchUserQuery('');
+                                            setShowCreate(false);
+                                        }}
+                                    >
+                                        {t('groups.btn_confirm_create', 'Tạo dự án')}
+                                    </button>
                                 </div>
                             </div>
                         </div>
