@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import LeftSidebar from '../components/LeftSidebar';
 import BottomNavigation from '../components/BottomNavigation';
+import { userService } from '../services/userService';
+import type { User } from '../types';
 import './GroupsPage.css';
 
 interface Group {
@@ -62,8 +64,10 @@ export default function GroupsPage() {
     const [showCreate, setShowCreate] = useState(false);
     const [form, setForm] = useState({ 
         name: '', description: '', privacy: 'PUBLIC', 
-        startDate: '', endDate: '', members: [] as string[] 
+        startDate: '', endDate: '', members: [] as User[] 
     });
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [searchUserQuery, setSearchUserQuery] = useState('');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
     useEffect(() => {
@@ -71,6 +75,21 @@ export default function GroupsPage() {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    useEffect(() => {
+        if (showCreate) {
+            userService.getAllUsers().then(setAllUsers).catch(console.error);
+        }
+    }, [showCreate]);
+
+    const filteredUsers = searchUserQuery 
+        ? allUsers.filter(u => 
+            (u.fullName?.toLowerCase().includes(searchUserQuery.toLowerCase()) || 
+             u.username.toLowerCase().includes(searchUserQuery.toLowerCase()) ||
+             u.email?.toLowerCase().includes(searchUserQuery.toLowerCase())) &&
+            !form.members.find(m => m.id === u.id)
+          ).slice(0, 5)
+        : [];
 
     return (
         <div className="groupsPage-container">
@@ -169,25 +188,51 @@ export default function GroupsPage() {
                                 </div>
 
                                 <div className="formRow">
-                                    <label className="formLabel">Thêm thành viên</label>
-                                    <div className="membersInputWrap">
+                                    <label className="formLabel">Thêm thành viên dự án</label>
+                                    <div className="membersInputWrap" style={{ position: 'relative' }}>
                                         <input
                                             className="formInput"
-                                            placeholder="Nhập tên hoặc email người dùng..."
+                                            placeholder="Nhập tên hoặc email tài khoản thực tế..."
+                                            value={searchUserQuery}
+                                            onChange={e => setSearchUserQuery(e.target.value)}
                                         />
-                                        <button className="addMemberBtn"><span className="material-symbols-outlined">add</span></button>
+                                        <button className="addMemberBtn"><span className="material-symbols-outlined">search</span></button>
+                                        
+                                        {/* Dropdown for search results */}
+                                        {filteredUsers.length > 0 && (
+                                            <div className="userSearchResults">
+                                                {filteredUsers.map(user => (
+                                                    <div 
+                                                        key={user.id} 
+                                                        className="userResultItem"
+                                                        onClick={() => {
+                                                            setForm({ ...form, members: [...form.members, user] });
+                                                            setSearchUserQuery('');
+                                                        }}
+                                                    >
+                                                        <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`} alt="Avatar" />
+                                                        <div className="userInfoBlock">
+                                                            <div className="uName">{user.fullName || user.username}</div>
+                                                            <div className="uEmail">{user.email || `@${user.username}`}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="selectedMembers">
-                                        <span className="memberTag">
-                                            <img src="https://i.pravatar.cc/150?u=12" alt="Avatar" />
-                                            Jerome Bell
-                                            <button className="removeTag">×</button>
-                                        </span>
-                                        <span className="memberTag">
-                                            <img src="https://i.pravatar.cc/150?u=24" alt="Avatar" />
-                                            Brooklyn Simmons
-                                            <button className="removeTag">×</button>
-                                        </span>
+                                        {form.members.map(member => (
+                                            <span key={member.id} className="memberTag">
+                                                <img src={member.avatarUrl || `https://ui-avatars.com/api/?name=${member.username}`} alt="Avatar" />
+                                                {member.fullName || member.username}
+                                                <button 
+                                                    className="removeTag"
+                                                    onClick={() => setForm({ ...form, members: form.members.filter(m => m.id !== member.id) })}
+                                                >
+                                                    ×
+                                                </button>
+                                            </span>
+                                        ))}
                                     </div>
                                 </div>
 
