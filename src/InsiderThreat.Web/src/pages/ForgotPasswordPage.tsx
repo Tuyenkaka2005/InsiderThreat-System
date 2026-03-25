@@ -94,7 +94,7 @@ function ForgotPasswordPage() {
     };
 
     return (
-        <div className={`forgot-password-page ${isDarkMode ? 'dark-mode' : ''}`}>
+        <div className="forgot-password-page">
              <div className="fp-controls">
                 <LanguageToggle />
                 <ThemeToggle />

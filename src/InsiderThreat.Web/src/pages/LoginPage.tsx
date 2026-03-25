@@ -76,7 +76,7 @@ function LoginPage() {
     const orangeEye = getPupilOffset(4.5);
 
     return (
-        <div className={`zdak-login-page ${theme === 'dark' ? 'dark-mode' : ''}`}>
+        <div className="zdak-login-page">
             {/* Toggles */}
             <div className="login-controls">
                 <LanguageToggle />
