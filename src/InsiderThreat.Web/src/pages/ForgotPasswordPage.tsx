@@ -7,6 +7,7 @@ import { api } from '../services/api';
 import ThemeToggle from '../components/ThemeToggle';
 import LanguageToggle from '../components/LanguageToggle';
 import { useTheme } from '../context/ThemeContext';
+import Logo from '../components/Logo';
 import './ForgotPasswordPage.css';
 
 const { Title } = Typography;
@@ -101,14 +102,10 @@ function ForgotPasswordPage() {
             </div>
 
             <div className="fp-card">
-                {/* Header Icon */}
+                {/* Header Icon - Replaced with official Logo */}
                 <div className="fp-header-icon">
-                    <div className="icon-circle">
-                        <LockOutlined />
-                    </div>
+                    <Logo width={80} height={80} showText={false} />
                 </div>
-
-                <h2 className="fp-title">{t('auth.forgot_password_title', 'Quên Mật Khẩu')}</h2>
 
                 {/* Progress Steps */}
                 <div className="fp-steps">
