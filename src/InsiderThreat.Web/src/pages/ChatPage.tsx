@@ -10,6 +10,7 @@ import { signalRService } from '../services/signalRService';
 import type { Message as ApiMessage } from '../services/chatService';
 import type { User } from '../types';
 import { confirmLogout } from '../utils/logoutUtils';
+import Logo from '../components/Logo';
 import './ChatPage.css';
 
 // Types
@@ -520,10 +521,7 @@ export default function ChatPage() {
             {/* Header */}
             <header className="chat-header">
                 <div className="logo-section" style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => navigate('/feed')}>
-                    <div className="logo-icon" style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span className="material-symbols-outlined" style={{ color: '#3b82f6' }}>hub</span>
-                    </div>
-                    <span className="logo-text" style={{ fontSize: 20, fontWeight: 700, color: 'white' }}>SocialNet</span>
+                    <Logo width={36} height={36} showText={true} />
                 </div>
 
                 <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

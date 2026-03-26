@@ -10,7 +10,8 @@
 
 @media (min-width: 1024px) {
   .social-layout {
-    grid-template-columns: 160px 1fr 220px;
+    grid-template-columns: 300px 1fr 300px;
+    gap: 0;
   }
 }
 
@@ -18,10 +19,19 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 16px 12px;
+  padding: 16px 8px;
   padding-bottom: calc(var(--bottom-nav-height) + 24px);
   background: var(--color-bg);
   min-height: 100%;
+}
+
+.feed-container {
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 @media (min-width: 768px) {

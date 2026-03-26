@@ -1,0 +1,365 @@
+.myTaskTab {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Header Bar */
+.myTask-topBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--color-surface);
+    padding: 12px 20px;
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+}
+
+.topBar-left h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.topBar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.searchTask {
+    display: flex;
+    align-items: center;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    gap: 8px;
+}
+
+.searchTask input {
+    border: none;
+    background: transparent;
+    outline: none;
+    color: var(--color-text-main);
+    font-size: 13px;
+    width: 200px;
+}
+
+.searchTask span {
+    font-size: 18px;
+    color: var(--color-text-muted);
+}
+
+.iconBtn {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.iconBtn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text-main);
+    border-color: var(--color-border);
+}
+
+.divider {
+    width: 1px;
+    height: 24px;
+    background: var(--color-border);
+    margin: 0 4px;
+}
+
+.lastSync {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+/* Calendar Panel */
+.taskCalendar {
+    padding: 24px;
+}
+
+.calendarGridWrapper {
+    margin-top: 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow-x: auto;
+    background: var(--color-background);
+}
+
+.calendarHeader {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(120px, 1fr));
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 0;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-main);
+}
+
+.calendarBody {
+    position: relative;
+    height: 200px;
+    background: repeating-linear-gradient(90deg, transparent, transparent calc(12.5% - 1px), var(--color-border) 12.5%);
+}
+
+.timeBar {
+    position: absolute;
+    height: 32px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.timeBar.dark {
+    background: var(--color-text-main);
+    color: var(--color-background);
+}
+
+.currentTimeLine {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--color-text-main);
+    z-index: 10;
+}
+
+.timeNode {
+    position: absolute;
+    top: 50%;
+    left: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-background);
+    border: 2px solid var(--color-text-main);
+}
+
+/* Kanban Panel & Toggles */
+.allTaskPanel {
+    padding: 24px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.taskViewOptions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.viewToggles {
+    display: flex;
+    background: var(--color-background);
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px solid var(--color-border);
+}
+
+.viewToggles button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.viewToggles button span {
+    font-size: 16px;
+}
+
+.viewToggles button:hover {
+    color: var(--color-text-main);
+}
+
+.viewToggles button.active {
+    background: var(--color-surface);
+    color: var(--color-text-main);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Kanban Board Layout */
+.kanbanBoard {
+    display: flex;
+    gap: 24px;
+    margin-top: 24px;
+    overflow-x: auto;
+    padding-bottom: 16px;
+    flex: 1;
+}
+
+.kanbanColumn {
+    flex: 1;
+    min-width: 280px;
+    background: var(--color-background);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.colHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.colTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-text-main);
+}
+
+.colCount {
+    background: var(--color-surface-lighter);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+/* Kanban Card */
+.kCard {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    cursor: grab;
+}
+
+.kCard:active {
+    cursor: grabbing;
+}
+
+.kCardTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.kCardTag {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.kCardDate {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.kCardDate span {
+    font-size: 14px;
+}
+
+.kCardTitle {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text-main);
+}
+
+.kCardProgress {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pText {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.pBar {
+    height: 4px;
+    background: var(--color-background);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.pFill {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: 2px;
+}
+
+.kCardFooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.kCardMembers {
+    display: flex;
+}
+
+.kCardMembers img {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--color-surface);
+    margin-left: -6px;
+}
+.kCardMembers img:first-child {
+    margin-left: 0;
+}
+
+.kCardMeta {
+    display: flex;
+    gap: 12px;
+}
+
+.kCardMeta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.kCardMeta span .material-symbols-outlined {
+    font-size: 14px;
+}

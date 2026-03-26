@@ -1,0 +1,350 @@
+.dashboardTab {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Quick Actions Topbar */
+.dashboard-topBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--color-surface);
+    padding: 16px 20px;
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+}
+
+.quickActions {
+    display: flex;
+    gap: 12px;
+}
+
+.actionBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-main);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.actionBtn:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-text-muted);
+}
+
+.topBar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.memberPile {
+    display: flex;
+    align-items: center;
+}
+
+.avatar-overlap {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--color-surface);
+    margin-left: -8px;
+}
+
+.avatar-overlap:first-child {
+    margin-left: 0;
+}
+
+.avatar-more {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--color-surface-lighter);
+    border: 2px solid var(--color-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-left: -8px;
+}
+
+.inviteBtn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--color-text-main);
+    color: var(--color-background);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.inviteBtn:hover {
+    opacity: 0.9;
+}
+
+/* Stat Cards */
+.statCards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.statCard {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.statLabel {
+    font-size: 14px;
+    color: var(--color-text-muted);
+    font-weight: 500;
+    margin: 0;
+}
+
+.statValueWrap {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.statValue {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--color-text-main);
+}
+
+.statSubvalue {
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+/* Main Dashboard Grid */
+.dashboard-mainGrid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+}
+
+.mainGrid-left {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.mainGrid-right {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.panelCard {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.panelHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.panelHeader h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--color-text-main);
+}
+
+.panelTabs {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.panelTabs span {
+    cursor: pointer;
+}
+
+.panelTabs span.active {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.btnDark {
+    background: var(--color-text-main);
+    color: var(--color-background);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    border: none;
+    cursor: pointer;
+}
+
+/* Activity Map Mockup */
+.activityMapPlaceholder {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 10px;
+    border-left: 1px solid var(--color-border);
+    padding-left: 16px;
+    position: relative;
+}
+
+.ganttRow {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.ganttLabel {
+    width: 120px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+}
+
+.ganttTrack {
+    flex: 1;
+    position: relative;
+    height: 32px;
+    background: repeating-linear-gradient(90deg, transparent, transparent 100px, var(--color-border) 100px, var(--color-border) 101px);
+}
+
+.ganttBar {
+    height: 100%;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Projects Grid */
+.projectsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.projectBlock {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px;
+    background: var(--color-background);
+}
+
+.projectBlock h4 {
+    margin: 0 0 8px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-main);
+}
+
+.projectBlock p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}
+
+/* Team List */
+.teamList {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.teamMember {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.memberAvatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.memberName {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-main);
+}
+
+.memberRole {
+    margin: 2px 0 0 0;
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+/* Meeting Block */
+.meetingBlock {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px;
+    background: var(--color-surface-lighter);
+}
+
+.meetingBlock h4 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.meetingBlock p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+@media (max-width: 1200px) {
+    .dashboard-mainGrid {
+        grid-template-columns: 1fr;
+    }
+    .statCards-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 768px) {
+    .quickActions {
+        display: none;
+    }
+    .projectsGrid {
+        grid-template-columns: 1fr;
+    }
+}

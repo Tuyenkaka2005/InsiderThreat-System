@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Button, Input, message, Card, Typography, Alert, Steps } from 'antd';
-import { MailOutlined, ArrowLeftOutlined, LockOutlined, SafetyOutlined } from '@ant-design/icons';
+import { LockOutlined, ArrowLeftOutlined, SafetyOutlined, MailOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 import ThemeToggle from '../components/ThemeToggle';
 import LanguageToggle from '../components/LanguageToggle';
+import { useTheme } from '../context/ThemeContext';
+import Logo from '../components/Logo';
 import './ForgotPasswordPage.css';
 
 const { Title } = Typography;
@@ -19,7 +21,10 @@ function ForgotPasswordPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [otpTokenId, setOtpTokenId] = useState('');
     const [loading, setLoading] = useState(false);
+    const { theme } = useTheme();
     const { t } = useTranslation();
+
+    const isDarkMode = theme === 'dark';
 
     const handleSendOtp = async () => {
         if (!email) {
@@ -90,139 +95,168 @@ function ForgotPasswordPage() {
     };
 
     return (
-        <div className="forgot-password-container" style={{ position: 'relative' }}>
-            <div style={{ position: 'absolute', top: 24, right: 32, display: 'flex', gap: 16, alignItems: 'center', zIndex: 10 }}>
+        <div className="forgot-password-page">
+             <div className="fp-controls">
                 <LanguageToggle />
                 <ThemeToggle />
             </div>
-            <Card className="forgot-password-card">
-                <Title level={3}>{t('auth.forgot_password_title', '🔒 Quên Mật Khẩu')}</Title>
 
-                <Steps
-                    current={currentStep}
-                    style={{ marginBottom: 30 }}
-                    items={[
-                        { title: t('auth.enter_email', 'Nhập Email'), icon: <MailOutlined /> },
-                        { title: t('auth.verify_otp', 'Xác thực OTP'), icon: <SafetyOutlined /> },
-                        { title: t('auth.set_new_password', 'Đặt mật khẩu mới'), icon: <LockOutlined /> }
-                    ]}
-                />
+            <div className="fp-card">
+                {/* Header Icon - Replaced with official Logo */}
+                <div className="fp-header-icon">
+                    <Logo width={80} height={80} showText={false} />
+                </div>
 
-                {currentStep === 0 && (
-                    <div>
-                        <Alert
-                            message={t('auth.email_instruction_title', 'Nhập email đã đăng ký')}
-                            description={t('auth.email_instruction_desc', 'Chúng tôi sẽ gửi mã OTP đến email của bạn')}
-                            type="info"
-                            showIcon
-                            style={{ marginBottom: 20 }}
-                        />
-                        <Input
-                            size="large"
-                            placeholder={t('auth.your_email', 'Email của bạn')}
-                            prefix={<MailOutlined />}
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            onPressEnter={handleSendOtp}
-                            style={{ marginBottom: 16 }}
-                        />
-                        <Button
-                            type="primary"
-                            size="large"
-                            block
-                            loading={loading}
-                            onClick={handleSendOtp}
-                        >
-                            {t('auth.send_otp', 'Gửi mã OTP')}
-                        </Button>
+                {/* Progress Steps */}
+                <div className="fp-steps">
+                    <div className={`fp-step ${currentStep >= 0 ? 'active' : ''}`}>
+                        <div className="step-icon">
+                            <MailOutlined />
+                        </div>
+                        <span>{t('auth.enter_email', 'NHẬP EMAIL')}</span>
                     </div>
-                )}
-
-                {currentStep === 1 && (
-                    <div>
-                        <Alert
-                            message={t('auth.check_email', 'Kiểm tra email của bạn')}
-                            description={t('auth.otp_sent_to', { email, defaultValue: `Mã OTP đã được gửi đến ${email}. Mã có hiệu lực trong 5 phút.` })}
-                            type="success"
-                            showIcon
-                            style={{ marginBottom: 20 }}
-                        />
-                        <Input
-                            size="large"
-                            placeholder={t('auth.enter_otp', 'Nhập mã OTP (6 chữ số)')}
-                            prefix={<SafetyOutlined />}
-                            value={otpCode}
-                            onChange={(e) => setOtpCode(e.target.value)}
-                            onPressEnter={handleVerifyOtp}
-                            maxLength={6}
-                            style={{ marginBottom: 16 }}
-                        />
-                        <Button
-                            type="primary"
-                            size="large"
-                            block
-                            loading={loading}
-                            onClick={handleVerifyOtp}
-                        >
-                            {t('auth.verify_otp', 'Xác thực OTP')}
-                        </Button>
-                        <Button
-                            type="link"
-                            onClick={() => setCurrentStep(0)}
-                            style={{ marginTop: 8 }}
-                        >
-                            {t('auth.resend_otp', 'Gửi lại mã OTP')}
-                        </Button>
+                    <div className="step-line"></div>
+                    <div className={`fp-step ${currentStep >= 1 ? 'active' : ''}`}>
+                        <div className="step-icon">
+                            <SafetyOutlined />
+                        </div>
+                        <span>{t('auth.verify_otp', 'XÁC THỰC OTP')}</span>
                     </div>
-                )}
-
-                {currentStep === 2 && (
-                    <div>
-                        <Alert
-                            message={t('auth.create_new_password', 'Tạo mật khẩu mới')}
-                            description={t('auth.password_length', 'Mật khẩu phải có ít nhất 6 ký tự')}
-                            type="info"
-                            showIcon
-                            style={{ marginBottom: 20 }}
-                        />
-                        <Input.Password
-                            size="large"
-                            placeholder={t('auth.new_password', 'Mật khẩu mới')}
-                            prefix={<LockOutlined />}
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            style={{ marginBottom: 12 }}
-                        />
-                        <Input.Password
-                            size="large"
-                            placeholder={t('auth.confirm_password', 'Xác nhận mật khẩu')}
-                            prefix={<LockOutlined />}
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            onPressEnter={handleResetPassword}
-                            style={{ marginBottom: 16 }}
-                        />
-                        <Button
-                            type="primary"
-                            size="large"
-                            block
-                            loading={loading}
-                            onClick={handleResetPassword}
-                        >
-                            {t('auth.reset_password', 'Đặt lại mật khẩu')}
-                        </Button>
+                    <div className="step-line"></div>
+                    <div className={`fp-step ${currentStep >= 2 ? 'active' : ''}`}>
+                        <div className="step-icon">
+                            <LockOutlined />
+                        </div>
+                        <span>{t('auth.set_new_password', 'ĐẶT MẬT KHẨU')}</span>
                     </div>
-                )}
+                </div>
 
-                <Button
-                    type="link"
-                    icon={<ArrowLeftOutlined />}
-                    onClick={() => navigate('/login')}
-                    style={{ marginTop: 16 }}
-                >
-                    {t('auth.back_to_login', 'Quay lại đăng nhập')}
-                </Button>
-            </Card>
+                {/* Step Content */}
+                <div className="fp-content">
+                    {currentStep === 0 && (
+                        <div className="step-item">
+                            <div className="info-box">
+                                <InfoCircleOutlined className="info-icon" />
+                                <div className="info-text">
+                                    <strong>{t('auth.email_instruction_title', 'Nhập email đã đăng ký')}</strong>
+                                    <p>{t('auth.email_instruction_desc', 'Chúng tôi sẽ gửi mã OTP đến email của bạn để xác thực yêu cầu cấp lại mật khẩu.')}</p>
+                                </div>
+                            </div>
+
+                            <div className="field-group">
+                                <label className="field-label">{t('auth.your_email', 'ĐỊA CHỈ EMAIL')}</label>
+                                <Input
+                                    size="large"
+                                    placeholder="Email của bạn"
+                                    prefix={<span style={{ color: '#94a3b8' }}>@</span>}
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="fp-input"
+                                />
+                            </div>
+
+                            <Button
+                                type="primary"
+                                loading={loading}
+                                onClick={handleSendOtp}
+                                className="fp-btn-primary"
+                            >
+                                {t('auth.send_otp', 'Gửi mã OTP')} <RightOutlined style={{ fontSize: 12, marginLeft: 4 }} />
+                            </Button>
+                        </div>
+                    )}
+
+                    {currentStep === 1 && (
+                        <div className="step-item">
+                             <div className="info-box success">
+                                <SafetyOutlined className="info-icon" />
+                                <div className="info-text">
+                                    <strong>{t('auth.check_email', 'Kiểm tra email của bạn')}</strong>
+                                    <p>{t('auth.otp_sent_to', { email, defaultValue: `Mã OTP đã được gửi đến ${email}.` })}</p>
+                                </div>
+                            </div>
+
+                            <div className="field-group">
+                                <label className="field-label">{t('auth.enter_otp', 'MÃ XÁC THỰC OTP')}</label>
+                                <Input
+                                    size="large"
+                                    placeholder="6 chữ số"
+                                    value={otpCode}
+                                    onChange={(e) => setOtpCode(e.target.value)}
+                                    maxLength={6}
+                                    className="fp-input"
+                                />
+                            </div>
+
+                            <Button
+                                type="primary"
+                                loading={loading}
+                                onClick={handleVerifyOtp}
+                                className="fp-btn-primary"
+                            >
+                                {t('auth.verify_otp', 'Xác thực OTP')} <RightOutlined style={{ fontSize: 12, marginLeft: 4 }} />
+                            </Button>
+                            
+                            <div style={{ textAlign: 'center', marginTop: 12 }}>
+                                <span className="fp-link-resend" onClick={() => setCurrentStep(0)}>
+                                    {t('auth.resend_otp', 'Gửi lại mã OTP')}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {currentStep === 2 && (
+                        <div className="step-item">
+                             <div className="info-box">
+                                <LockOutlined className="info-icon" />
+                                <div className="info-text">
+                                    <strong>{t('auth.create_new_password', 'Tạo mật khẩu mới')}</strong>
+                                    <p>{t('auth.password_length', 'Mật khẩu phải có ít nhất 6 ký tự để đảm bảo an toàn.')}</p>
+                                </div>
+                            </div>
+
+                            <div className="field-group">
+                                <label className="field-label">{t('auth.new_password', 'MẬT KHẨU MỚI')}</label>
+                                <Input.Password
+                                    size="large"
+                                    placeholder="••••••••"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="fp-input"
+                                />
+                            </div>
+
+                            <div className="field-group">
+                                <label className="field-label">{t('auth.confirm_password', 'XÁC NHẬN MẬT KHẨU')}</label>
+                                <Input.Password
+                                    size="large"
+                                    placeholder="••••••••"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="fp-input"
+                                />
+                            </div>
+
+                            <Button
+                                type="primary"
+                                loading={loading}
+                                onClick={handleResetPassword}
+                                className="fp-btn-primary"
+                            >
+                                {t('auth.reset_password', 'Đặt lại mật khẩu')} <RightOutlined style={{ fontSize: 12, marginLeft: 4 }} />
+                            </Button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer Link */}
+                <div className="fp-footer">
+                    <span className="fp-back-link" onClick={() => navigate('/login')}>
+                        <ArrowLeftOutlined style={{ marginRight: 8 }} />
+                        {t('auth.back_to_login', 'Quay lại Đăng nhập Mật khẩu')}
+                    </span>
+                </div>
+            </div>
         </div>
     );
 }

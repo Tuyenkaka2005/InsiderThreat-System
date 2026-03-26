@@ -13,6 +13,7 @@ export interface User {
     passwordHash?: string;
     publicKey?: string;
     avatarUrl?: string;
+    faceEmbeddings?: number[];
 }
 
 export interface LogEntry {

@@ -8,6 +8,7 @@ export default defineConfig({
     minify: 'esbuild', // Sử dụng ESBuild để minify và làm rối mã cơ bản
   },
   optimizeDeps: {
+    include: ['@vladmandic/face-api'],
     esbuildOptions: {
       keepNames: true
     }

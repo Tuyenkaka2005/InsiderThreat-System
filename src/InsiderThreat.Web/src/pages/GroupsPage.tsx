@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import LeftSidebar from '../components/LeftSidebar';
 import BottomNavigation from '../components/BottomNavigation';
+import { userService } from '../services/userService';
+import { API_BASE_URL } from '../services/api';
+import type { User } from '../types';
 import './GroupsPage.css';
 
 interface Group {
@@ -58,9 +61,15 @@ export default function GroupsPage() {
         },
     ];
 
-    const [groups] = useState<Group[]>(MOCK_GROUPS);
+    // Hooks for UI state
+    const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
     const [showCreate, setShowCreate] = useState(false);
-    const [form, setForm] = useState({ name: '', description: '', privacy: 'PUBLIC' });
+    const [form, setForm] = useState({ 
+        name: '', description: '', privacy: 'PUBLIC', 
+        startDate: '', endDate: '', members: [] as User[] 
+    });
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [searchUserQuery, setSearchUserQuery] = useState('');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
     useEffect(() => {
@@ -68,6 +77,27 @@ export default function GroupsPage() {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    useEffect(() => {
+        if (showCreate) {
+            userService.getAllUsers().then(setAllUsers).catch(console.error);
+        }
+    }, [showCreate]);
+
+    const filteredUsers = searchUserQuery 
+        ? allUsers.filter(u => 
+            (u.fullName?.toLowerCase().includes(searchUserQuery.toLowerCase()) || 
+             u.username.toLowerCase().includes(searchUserQuery.toLowerCase()) ||
+             u.email?.toLowerCase().includes(searchUserQuery.toLowerCase())) &&
+            !form.members.find(m => m.id === u.id)
+          ).slice(0, 5)
+        : [];
+
+    const getAvatarUrl = (user: User) => {
+        if (!user.avatarUrl) return `https://ui-avatars.com/api/?name=${user.username}`;
+        if (user.avatarUrl.startsWith('http')) return user.avatarUrl;
+        return `${API_BASE_URL}${user.avatarUrl}`;
+    };
 
     return (
         <div className="groupsPage-container">
@@ -124,12 +154,12 @@ export default function GroupsPage() {
                     {showCreate && (
                         <div className="modalBackdrop" onClick={() => setShowCreate(false)}>
                             <div className="modal" onClick={e => e.stopPropagation()}>
-                                <h3 className="modalTitle">{t('groups.modal_title', 'Tạo nhóm mới')}</h3>
+                                <h3 className="modalTitle">{t('groups.modal_title', 'Tạo dự án / nhóm mới')}</h3>
                                 <div className="formRow">
-                                    <label className="formLabel">{t('groups.lbl_group_name', 'Tên nhóm')}</label>
+                                    <label className="formLabel">{t('groups.lbl_group_name', 'Tên dự án / nhóm')}</label>
                                     <input
                                         className="formInput"
-                                        placeholder={t('groups.placeholder_name', "Nhập tên nhóm...")}
+                                        placeholder={t('groups.placeholder_name', "Nhập tên dự án hoặc nhóm...")}
                                         value={form.name}
                                         onChange={e => setForm({ ...form, name: e.target.value })}
                                     />
@@ -138,11 +168,82 @@ export default function GroupsPage() {
                                     <label className="formLabel">{t('groups.lbl_description', 'Mô tả')}</label>
                                     <textarea
                                         className="formTextarea"
-                                        placeholder={t('groups.placeholder_desc', "Mô tả ngắn về nhóm...")}
+                                        placeholder={t('groups.placeholder_desc', "Mô tả ngắn về nội dung dự án...")}
                                         value={form.description}
                                         onChange={e => setForm({ ...form, description: e.target.value })}
                                     />
                                 </div>
+                                
+                                <div className="formRowGroup">
+                                    <div className="formRow">
+                                        <label className="formLabel">Thời gian bắt đầu</label>
+                                        <input
+                                            type="date"
+                                            className="formInput"
+                                            value={form.startDate}
+                                            onChange={e => setForm({ ...form, startDate: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="formRow">
+                                        <label className="formLabel">Thời gian kết thúc</label>
+                                        <input
+                                            type="date"
+                                            className="formInput"
+                                            value={form.endDate}
+                                            onChange={e => setForm({ ...form, endDate: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="formRow">
+                                    <label className="formLabel">Thêm thành viên dự án</label>
+                                    <div className="membersInputWrap" style={{ position: 'relative' }}>
+                                        <input
+                                            className="formInput"
+                                            placeholder="Nhập tên hoặc email tài khoản thực tế..."
+                                            value={searchUserQuery}
+                                            onChange={e => setSearchUserQuery(e.target.value)}
+                                        />
+                                        <button className="addMemberBtn"><span className="material-symbols-outlined">search</span></button>
+                                        
+                                        {/* Dropdown for search results */}
+                                        {filteredUsers.length > 0 && (
+                                            <div className="userSearchResults">
+                                                {filteredUsers.map(user => (
+                                                    <div 
+                                                        key={user.id} 
+                                                        className="userResultItem"
+                                                        onClick={() => {
+                                                            setForm({ ...form, members: [...form.members, user] });
+                                                            setSearchUserQuery('');
+                                                        }}
+                                                    >
+                                                        <img src={getAvatarUrl(user)} alt="Avatar" />
+                                                        <div className="userInfoBlock">
+                                                            <div className="uName">{user.fullName || user.username}</div>
+                                                            <div className="uEmail">{user.email || `@${user.username}`}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="selectedMembers">
+                                        {form.members.map(member => (
+                                            <span key={member.id} className="memberTag">
+                                                <img src={getAvatarUrl(member)} alt="Avatar" />
+                                                {member.fullName || member.username}
+                                                <button 
+                                                    className="removeTag"
+                                                    onClick={() => setForm({ ...form, members: form.members.filter(m => m.id !== member.id) })}
+                                                >
+                                                    ×
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 <div className="formRow">
                                     <label className="formLabel">{t('groups.lbl_privacy', 'Quyền riêng tư')}</label>
                                     <select
@@ -156,7 +257,33 @@ export default function GroupsPage() {
                                 </div>
                                 <div className="modalActions">
                                     <button className="btnCancel" onClick={() => setShowCreate(false)}>{t('groups.btn_cancel', 'Hủy')}</button>
-                                    <button className="btnCreate" onClick={() => setShowCreate(false)}>{t('groups.btn_confirm_create', 'Tạo nhóm')}</button>
+                                    <button 
+                                        className="btnCreate" 
+                                        onClick={() => {
+                                            if (!form.name.trim()) {
+                                                alert('Vui lòng nhập tên dự án/nhóm!');
+                                                return;
+                                            }
+                                            const newGroup: Group = {
+                                                id: Date.now().toString(),
+                                                name: form.name,
+                                                description: form.description || 'Dự án mới',
+                                                members: form.members.length + 1,
+                                                category: 'Dự án mới',
+                                                privacy: form.privacy as 'PUBLIC' | 'PRIVATE',
+                                                coverImage: `https://picsum.photos/seed/${Date.now()}/400/200`
+                                            };
+                                            setGroups([...groups, newGroup]);
+                                            setForm({ 
+                                                name: '', description: '', privacy: 'PUBLIC', 
+                                                startDate: '', endDate: '', members: [] 
+                                            });
+                                            setSearchUserQuery('');
+                                            setShowCreate(false);
+                                        }}
+                                    >
+                                        {t('groups.btn_confirm_create', 'Tạo dự án')}
+                                    </button>
                                 </div>
                             </div>
                         </div>

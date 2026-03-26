@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +25,16 @@ export default function BottomNavigation({ items, activeKey }: BottomNavigationP
     const location = useLocation();
     const { t } = useTranslation();
 
-    const user = authService.getCurrentUser();
+    const [user, setUser] = useState(authService.getCurrentUser());
+
+    useEffect(() => {
+        const handleUserUpdate = (e: any) => {
+            setUser(e.detail);
+        };
+        window.addEventListener('auth-user-updated', handleUserUpdate as EventListener);
+        return () => window.removeEventListener('auth-user-updated', handleUserUpdate as EventListener);
+    }, []);
+
     const isAdmin = user?.role?.toLowerCase().includes('admin') ||
         user?.username?.toLowerCase() === 'admin';
 

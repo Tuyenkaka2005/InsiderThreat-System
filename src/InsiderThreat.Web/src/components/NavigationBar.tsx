@@ -18,7 +18,19 @@ interface NavigationBarProps {
 export default function NavigationBar({ onChatClick }: NavigationBarProps) {
     const navigate = useNavigate();
     const location = useLocation();
-    const user = authService.getCurrentUser();
+    const [user, setUser] = useState(authService.getCurrentUser());
+
+    useEffect(() => {
+        const handleUserUpdate = (e: any) => {
+            setUser(e.detail);
+        };
+        window.addEventListener('auth-user-updated', handleUserUpdate as EventListener);
+        return () => window.removeEventListener('auth-user-updated', handleUserUpdate as EventListener);
+    }, []);
+
+    // Admin detection: check role (case-insensitive) or if username is 'admin'
+    const isAdmin = user?.role?.toLowerCase().includes('admin') ||
+        user?.username?.toLowerCase() === 'admin';
 
     const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -107,26 +119,41 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
                     onClick={() => navigate('/feed')}
                     title="Feed"
                 >
-                    <span className="material-symbols-outlined">home</span>
+                    <div className={styles.actionIcon}>
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+                            <path d="M11.1 2.8a1.5 1.5 0 011.8 0l8.9 6.7a1.5 1.5 0 01.6 1.2V20a2 2 0 01-2 2h-4a1 1 0 01-1-1v-5h-4v5a1 1 0 01-1 1H5a2 2 0 01-2-2v-9.3a1.5 1.5 0 01.6-1.2l8.9-6.7z" />
+                        </svg>
+                    </div>
                 </button>
 
                 {/* Chat Link */}
                 <button
-                    className={styles.iconButton}
+                    className={`${styles.iconButton} ${isActive('/chat') ? styles.active : ''}`}
                     onClick={onChatClick || (() => navigate('/chat'))}
                     title="Chat"
                 >
-                    <span className="material-symbols-outlined">chat</span>
+                    <div className={styles.actionIcon}>
+                        {/* Twin Bubble Messenger SVG */}
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+                            <path d="M15.5 4.5c3.59 0 6.5 2.5 6.5 5.58 0 1.48-.68 2.83-1.8 3.87l.59 2.36a.5.5 0 01-.68.59l-2.43-1.21a7.48 7.48 0 01-2.18.33c-3.59 0-6.5-2.5-6.5-5.58s2.91-5.58 6.5-5.58z" />
+                            <path className={styles.chatBubbleStroke} strokeWidth="2.5" strokeLinejoin="round" d="M9.5 8.5C4.8 8.5 1 11.85 1 16c0 1.9.85 3.63 2.25 4.95l-.65 2.62a.5.5 0 00.67.61l2.88-1.44A8.47 8.47 0 009.5 23.5c4.7 0 8.5-3.35 8.5-7.5S14.2 8.5 9.5 8.5z" />
+                        </svg>
+                        <div className={styles.messageBadge}>2</div>
+                    </div>
                 </button>
 
                 {/* Notifications */}
                 <div style={{ position: 'relative' }} ref={notificationRef}>
                     <button
-                        className={styles.iconButton}
+                        className={`${styles.iconButton} ${showNotifications ? styles.active : ''}`}
                         onClick={() => setShowNotifications(!showNotifications)}
                     >
-                        <span className="material-symbols-outlined">notifications</span>
-                        {unreadCount > 0 && <span className={styles.badge}></span>}
+                        <div className={styles.actionIcon}>
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+                                <path d="M21 19h-1.5v-6.5c0-3.69-2.58-6.79-6-7.4v-.85c0-.97-.78-1.75-1.75-1.75S10 3.28 10 4.25v.85c-3.42.61-6 3.71-6 7.4V19H2.5A1.5 1.5 0 001 20.5 1.5 1.5 0 002.5 22h19a1.5 1.5 0 001.5-1.5A1.5 1.5 0 0021 19zM12 24c1.38 0 2.5-1.12 2.5-2.5h-5c0 1.38 1.12 2.5 2.5 2.5z" />
+                            </svg>
+                            {unreadCount > 0 && <span className={styles.notificationDot}></span>}
+                        </div>
                     </button>
 
                     {showNotifications && (

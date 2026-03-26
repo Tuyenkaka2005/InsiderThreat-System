@@ -295,7 +295,7 @@ export default function FeedPage() {
 
                 {/* Main Feed Content */}
                 <div className="feed-wrapper">
-                    <div className="w-full flex flex-col gap-6">
+                    <div className="feed-container">
                         {/* ── Welcome Banner ── */}
                         <div className="rounded-3xl p-8 md:p-10 text-white relative flex flex-col gap-6 overflow-hidden hero-banner-light dark:hero-banner-dark shadow-[0_12px_40px_rgba(37,99,235,0.25)] dark:shadow-none transition-all duration-500"
                              style={{ background: 'var(--gradient-premium)' /* Fallback for light mode if CSS fails */ }}>

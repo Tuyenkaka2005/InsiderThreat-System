@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Input, Select, message, Popconfirm, Tag, Space, Avatar } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, CameraOutlined, TeamOutlined, WarningOutlined, FileTextOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, CameraOutlined, TeamOutlined, WarningOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import FaceRegistrationModal from '../components/FaceRegistrationModal';
 import LeftSidebar from '../components/LeftSidebar';
 import BottomNavigation from '../components/BottomNavigation';
@@ -181,6 +181,18 @@ function UsersPage() {
             key: 'department',
         },
         {
+            title: 'Face ID',
+            key: 'faceId',
+            render: (_, record) => {
+                const isRegistered = record.faceEmbeddings && record.faceEmbeddings.length > 0;
+                return (
+                    <Tag color={isRegistered ? 'success' : 'default'} icon={isRegistered ? <CheckCircleOutlined /> : <CloseCircleOutlined />}>
+                        {isRegistered ? 'Đã đăng ký' : 'Chưa đăng ký'}
+                    </Tag>
+                );
+            }
+        },
+        {
             title: 'Thao tác',
             key: 'action',
             render: (_, record) => (
@@ -272,6 +284,12 @@ function UsersPage() {
                                 <div className="card-body-row">
                                     <span className="material-symbols-outlined dept-icon">corporate_fare</span>
                                     <span>Phòng ban: {u.department || 'Chưa cập nhật'}</span>
+                                </div>
+                                <div className="card-body-row">
+                                    <span className={`material-symbols-outlined status-icon ${u.faceEmbeddings && u.faceEmbeddings.length > 0 ? 'success' : 'warn'}`}>
+                                        {u.faceEmbeddings && u.faceEmbeddings.length > 0 ? 'verified_user' : 'face'}
+                                    </span>
+                                    <span>Face ID: {u.faceEmbeddings && u.faceEmbeddings.length > 0 ? 'Đã đăng ký' : 'Chưa đăng ký'}</span>
                                 </div>
                                 <div className="card-footer-row">
                                     <div className="action-buttons-wrap">

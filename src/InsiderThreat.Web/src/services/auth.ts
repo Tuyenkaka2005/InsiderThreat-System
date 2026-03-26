@@ -46,6 +46,14 @@ export const authService = {
     getToken(): string | null {
         return localStorage.getItem('token');
     },
+
+    // Sự kiện khi thông tin user thay đổi (để đồng bộ avatar, tên... toàn app)
+    dispatchUserUpdate(user: User): void {
+        localStorage.setItem('user', JSON.stringify(user));
+        const event = new CustomEvent('auth-user-updated', { detail: user });
+        window.dispatchEvent(event);
+    }
 };
 
 export default authService;
+

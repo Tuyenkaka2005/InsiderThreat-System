@@ -15,6 +15,7 @@ import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import StaffPage from './pages/StaffPage';
 import GroupsPage from './pages/GroupsPage';
+import GroupDetailPage from './pages/GroupDetailPage';
 import LibraryPage from './pages/LibraryPage';
 import SocialAttendancePage from './pages/SocialAttendancePage';
 import MeetPage from './pages/MeetPage';
@@ -88,6 +89,7 @@ function App() {
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
             <Route path="/staff" element={<PrivateRoute><StaffPage /></PrivateRoute>} />
             <Route path="/groups" element={<PrivateRoute><GroupsPage /></PrivateRoute>} />
+            <Route path="/groups/:id" element={<PrivateRoute><GroupDetailPage /></PrivateRoute>} />
             <Route path="/library" element={<PrivateRoute><LibraryPage /></PrivateRoute>} />
             <Route path="/attendance" element={<PrivateRoute><SocialAttendancePage /></PrivateRoute>} />
             <Route path="/meet" element={<PrivateRoute><MeetPage /></PrivateRoute>} />

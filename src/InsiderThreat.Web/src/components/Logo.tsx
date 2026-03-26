@@ -49,12 +49,12 @@ export const Logo = ({ className = "", style = {}, showText = true, width = 45, 
       </svg>
       {showText && (
         <span className="font-bold text-lg tracking-wide hidden dark:block" style={{ color: '#3b82f6', letterSpacing: '1px' }}>
-          Midnight Curator
+          InsiderThreat-System
         </span>
       )}
       {showText && (
         <span className="font-bold text-lg tracking-wide block dark:hidden" style={{ color: '#0f172a' }}>
-          Luminous
+          InsiderThreat-System
         </span>
       )}
     </div>

@@ -53,8 +53,7 @@ public class PasswordResetController : ControllerBase
         if (user == null)
         {
             _logger.LogWarning($"Forgot password attempt for non-existent email: {request.Email}");
-            // Don't reveal if email exists or not (security best practice)
-            return Ok(new { message = "Nếu email tồn tại, OTP đã được gửi đến hộp thư của bạn" });
+            return NotFound(new { message = "Email này không nằm trong csdl đang có" });
         }
 
         // Generate 6-digit OTP

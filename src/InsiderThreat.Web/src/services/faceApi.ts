@@ -1,52 +1,55 @@
 import * as faceapi from '@vladmandic/face-api';
+import * as tf from '@tensorflow/tfjs';
 
-// Helper to handle import structure (sometimes inside default)
-const getFaceApi = () => {
-    const api = faceapi as any;
-
-    // Log the structure to help debugging
-    console.log('FaceAPI Import:', api);
-    if (api && typeof api === 'object') {
-        console.log('FaceAPI keys:', Object.keys(api));
-        if (api.default) {
-            console.log('FaceAPI Default Keys:', Object.keys(api.default));
-        }
-        if (api.nets) {
-            console.log('FaceAPI Nets Keys:', Object.keys(api.nets));
-        }
-    }
-
-    if (api.nets) return api;
-    if (api.default && api.default.nets) return api.default;
-
-    console.warn('Could not find faceapi.nets in import!');
-    return api;
-};
+let modelsLoaded = false;
 
 // Load models from public/models directory
 export const loadFaceApiModels = async () => {
+    if (modelsLoaded) return true;
+
     const MODEL_URL = '/models';
-    const api = getFaceApi();
 
-    if (!api || !api.nets) {
-        console.error('❌ FaceAPI nets object is missing. Import failed.');
-        return false;
-    }
-
-    if (!api.nets.ssdMobilenetv1) {
-        console.error('❌ ssdMobilenetv1 is missing from api.nets');
-        if (api.nets) console.log('Available nets:', Object.keys(api.nets));
-        return false;
-    }
+    // In ESM builds, faceapi may be the namespace or have a default export
+    const api = (faceapi as any).default || faceapi;
 
     try {
-        console.log('Loading FaceAPI models from:', MODEL_URL);
+        // ===== BACKEND INITIALIZATION =====
+        // Try WebGL first, then WASM, then fallback to CPU
+        const backends = ['webgl', 'cpu'];
+        let backendReady = false;
+
+        for (const backend of backends) {
+            try {
+                await tf.setBackend(backend);
+                await tf.ready();
+                console.log(`[FaceAPI] ✅ Using TensorFlow.js backend: ${backend}`);
+                backendReady = true;
+                break;
+            } catch (e) {
+                console.warn(`[FaceAPI] ⚠️ Backend "${backend}" failed, trying next...`);
+            }
+        }
+
+        if (!backendReady) {
+            console.error('[FaceAPI] ❌ No TensorFlow.js backend available');
+            return false;
+        }
+
+        // ===== MODEL LOADING =====
+        if (!api?.nets?.ssdMobilenetv1) {
+            console.error('❌ FaceAPI nets.ssdMobilenetv1 is missing.');
+            return false;
+        }
+
+        console.log('[FaceAPI] Loading models from:', MODEL_URL);
 
         await Promise.all([
             api.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
             api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
             api.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
         ]);
+
+        modelsLoaded = true;
         console.log('✅ Face API Models Loaded');
         return true;
     } catch (error) {
@@ -57,8 +60,8 @@ export const loadFaceApiModels = async () => {
 
 // Detect face and extract descriptor
 export const detectFace = async (videoOrImage: HTMLVideoElement | HTMLImageElement) => {
-    const api = getFaceApi();
-    // Detect single face with landmarks and descriptor
+    const api = (faceapi as any).default || faceapi;
+
     const detection = await api.detectSingleFace(videoOrImage)
         .withFaceLandmarks()
         .withFaceDescriptor();

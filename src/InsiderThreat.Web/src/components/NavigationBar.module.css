@@ -99,34 +99,90 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.5rem;
-    color: var(--color-text-muted);
-    background: transparent;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    color: var(--color-text-main);
+    background: var(--color-surface-lighter);
     border: none;
-    border-radius: 0.5rem;
+    border-radius: 50%;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s;
 }
 
 .iconButton:hover {
-    color: var(--color-primary);
-    background: var(--color-primary-light);
+    background: var(--color-dark-surface-lighter);
 }
 
 .iconButton.active {
     color: var(--color-primary);
-    background: var(--color-primary-light);
+    background: rgba(37, 99, 235, 0.1);
 }
 
-.badge {
+.actionIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform-origin: center;
+}
+
+.iconButton:hover .actionIcon {
+    animation: actionBounce 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.iconButton:active .actionIcon {
+    transform: scale(0.85);
+    transition: transform 0.1s;
+}
+
+.chatBubbleStroke {
+    stroke: var(--color-surface-lighter);
+}
+
+.iconButton:hover .chatBubbleStroke {
+    stroke: var(--color-dark-surface-lighter);
+}
+
+.iconButton.active .chatBubbleStroke {
+    stroke: rgba(37, 99, 235, 0.1);
+}
+
+@keyframes actionBounce {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.15); }
+    50% { transform: scale(0.95); }
+    70% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.messageBadge {
     position: absolute;
-    top: 0.25rem;
-    right: 0.25rem;
-    width: 0.5rem;
-    height: 0.5rem;
+    top: -4px;
+    right: -4px;
+    background: #ef4444; /* red-500 */
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 9999px;
+    border: 2px solid var(--color-surface-glass);
+    min-width: 16px;
+    text-align: center;
+    pointer-events: none;
+}
+
+.notificationDot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 10px;
+    height: 10px;
     background: #ef4444;
     border-radius: 50%;
-    border: 2px solid var(--color-surface);
+    border: 2px solid var(--color-surface-glass);
+    pointer-events: none;
 }
 
 .avatarContainer {
