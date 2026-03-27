@@ -46,7 +46,7 @@ public class NotificationsController : ControllerBase
     }
 
     // POST: api/notifications (Admin only)
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
     [HttpPost]
     public async Task<ActionResult<Notification>> CreateNotification([FromBody] Notification notification)
     {

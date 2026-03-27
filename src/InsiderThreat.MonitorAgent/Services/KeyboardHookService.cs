@@ -56,7 +56,7 @@ public class KeyboardHookService : IDisposable
     private readonly ILogger<KeyboardHookService> _logger;
     private readonly TextCaptureService _textCapture;
     private DateTime _lastFlushTime = DateTime.UtcNow;
-    private string _lastWindowTitle = string.Empty;
+    private string _lastAppName = string.Empty;
 
     // Events
     public event Action<string, string, string>? OnTextBufferFlushed; // (text, windowTitle, appName)
@@ -88,27 +88,12 @@ public class KeyboardHookService : IDisposable
         }
     }
 
-    private string _lastValidCapture = "";
-    private DateTime _lastPreemptiveCaptureTime = DateTime.MinValue;
-
-    private void HandlePreemptiveCapture()
+    // List of apps where UI Automation is known to NOT work (Electron-based)
+    private static readonly HashSet<string> _uiAutomationBlockedApps = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Throttle preemptive capture to once every 500ms to avoid performance hit
-        if ((DateTime.UtcNow - _lastPreemptiveCaptureTime).TotalMilliseconds < 500)
-            return;
-
-        _lastPreemptiveCaptureTime = DateTime.UtcNow;
-
-        // Run in background to not block the hook thread
-        Task.Run(() => {
-            try {
-                var text = _textCapture.CaptureTextFromFocusedElement();
-                if (!string.IsNullOrWhiteSpace(text) && text.Length > 2) {
-                    _lastValidCapture = text;
-                }
-            } catch { /* Ignore */ }
-        });
-    }
+        "zalo", "telegram", "messenger", "whatsapp", "viber", "skype",
+        "slack", "discord", "teams"
+    };
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
@@ -123,20 +108,19 @@ public class KeyboardHookService : IDisposable
                 OnScreenshotKeyDetected?.Invoke();
             }
 
-            // Detect window change and flush
+            // Detect app change and flush (compare APP NAME, not window title)
+            // Zalo and other apps change window titles dynamically which causes premature flushes
             var (currentTitle, currentApp) = GetActiveWindowInfo();
-            if (_lastWindowTitle != currentTitle && _textBuffer.Length > 0)
+            if (_lastAppName != currentApp && !string.IsNullOrEmpty(_lastAppName) && _textBuffer.Length > 0)
             {
-                FlushBufferWithUIAutomation();
+                FlushKeyboardBuffer();
             }
-            _lastWindowTitle = currentTitle;
+            _lastAppName = currentApp;
 
             // Flush buffer on Enter or Tab (user finished typing a message)
             if (vkCode == 0x0D || vkCode == 0x09) // VK_RETURN or VK_TAB
             {
-                // Try to capture actual Vietnamese text via UI Automation BEFORE clearing buffer
-                FlushBufferWithUIAutomation();
-                _lastValidCapture = ""; // Reset after flush
+                FlushKeyboardBuffer();
             }
             else if (vkCode == 0x08) // VK_BACK (Backspace)
             {
@@ -150,14 +134,14 @@ public class KeyboardHookService : IDisposable
                 if (character != null)
                 {
                     _textBuffer.Append(character);
-                    HandlePreemptiveCapture(); // Update last valid capture
                 }
             }
 
-            // Auto-flush if buffer gets too long (typing without Enter) or enough time passed
-            if (_textBuffer.Length > 100 || (DateTime.UtcNow - _lastFlushTime).TotalSeconds > 5)
+            // Auto-flush if buffer gets too long or enough time passed
+            // Use 30 seconds and 500 chars to avoid splitting messages mid-typing
+            if (_textBuffer.Length > 500 || (DateTime.UtcNow - _lastFlushTime).TotalSeconds > 30)
             {
-                FlushBufferWithUIAutomation();
+                FlushKeyboardBuffer();
             }
         }
 
@@ -186,61 +170,26 @@ public class KeyboardHookService : IDisposable
     }
 
     /// <summary>
-    /// Enhanced flush that tries UI Automation first to get the actual Vietnamese text,
-    /// falling back to the raw keyboard buffer if UI Automation fails.
+    /// Flush the keyboard buffer. ALWAYS uses the raw keyboard buffer as the primary source.
+    /// This is the only reliable method for Electron-based apps (Zalo, Telegram, etc.)
+    /// where UI Automation returns window titles instead of input text.
     /// </summary>
-    private void FlushBufferWithUIAutomation()
+    private void FlushKeyboardBuffer()
     {
         _lastFlushTime = DateTime.UtcNow;
         var (windowTitle, appName) = GetActiveWindowInfo();
 
-        // 1. Try UI Automation to get the REAL context-aware text
-        string? capturedText = null;
-        try
-        {
-            capturedText = _textCapture.CaptureTextFromFocusedElement();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "UI Automation live capture failed");
-        }
+        if (_textBuffer.Length == 0) return;
 
-        // 2. Fallback to preemptive capture if live capture is empty or looks like just an app name
-        if (string.IsNullOrWhiteSpace(capturedText) || capturedText.Length < 3)
-        {
-            if (!string.IsNullOrWhiteSpace(_lastValidCapture))
-            {
-                capturedText = _lastValidCapture;
-                _logger.LogDebug("Using last valid capture fallback: {Length} chars", capturedText.Length);
-            }
-        }
+        var bufferText = _textBuffer.ToString().Trim();
+        _textBuffer.Clear();
 
-        // 3. Process the captured text
-        if (!string.IsNullOrWhiteSpace(capturedText))
-        {
-            // Use the real text from UI Automation
-            _textBuffer.Clear();
-            _logger.LogInformation("📝 Captured via UI Automation: {Text}", 
-                capturedText.Length > 50 ? capturedText[..50] + "..." : capturedText);
-            
-            OnTextBufferFlushed?.Invoke(capturedText, windowTitle, appName);
-        }
-        else if (_textBuffer.Length > 0)
-        {
-            // Last resort: keyboard buffer
-            var bufferText = _textBuffer.ToString();
-            _textBuffer.Clear();
-            _logger.LogInformation("📝 Captured via Keyboard Buffer: {Text}", 
-                bufferText.Length > 50 ? bufferText[..50] + "..." : bufferText);
-            OnTextBufferFlushed?.Invoke(bufferText, windowTitle, appName);
-        }
-        else
-        {
-            _textBuffer.Clear();
-        }
+        if (string.IsNullOrWhiteSpace(bufferText)) return;
 
-        // Clear fallback cache after flush
-        _lastValidCapture = "";
+        _logger.LogInformation("📝 Captured keystrokes [{App}]: {Text}",
+            appName, bufferText.Length > 80 ? bufferText[..80] + "..." : bufferText);
+
+        OnTextBufferFlushed?.Invoke(bufferText, windowTitle, appName);
     }
 
     /// <summary>

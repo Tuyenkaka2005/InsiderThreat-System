@@ -216,7 +216,7 @@ function DashboardPage() {
 
     const dashboardNavItems = [
         { icon: 'newspaper', label: t('dashboard.nav_feed', 'Feed'), path: '/feed' },
-        ...(user?.role === 'Admin' ? [
+        ...(isAdminUser ? [
             { icon: 'person_search', label: t('dashboard.nav_users', 'Users'), key: 'users', onClick: () => setSelectedKey('users') },
             { icon: 'chat', label: t('dashboard.nav_posts', 'Posts'), key: 'posts', onClick: () => setSelectedKey('posts') },
             { icon: 'report', label: t('dashboard.nav_reports', 'Vi phạm'), key: 'reports', onClick: () => setSelectedKey('reports') },
@@ -291,7 +291,6 @@ function DashboardPage() {
                             <div className="user-info">
                                 <Avatar icon={<UserOutlined />} />
                                 <span className="username">{user.fullName}</span>
-                                <span className="role-badge">{user.role}</span>
                             </div>
                         </Dropdown>
                     </div>

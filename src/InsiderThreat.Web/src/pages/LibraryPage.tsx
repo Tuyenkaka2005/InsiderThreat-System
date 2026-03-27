@@ -285,7 +285,7 @@ const LibraryPage = () => {
                         <p>{t('library.subtitle', 'Quản lý và chia sẻ tài liệu nội bộ')}</p>
                     </div>
 
-                    {!isMobile && user.role?.toLowerCase() === 'admin' && (
+                    {!isMobile && (user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'giám đốc' || user.role?.toLowerCase() === 'giam doc') && (
                         <Button
                             type="primary"
                             size="large"
@@ -327,6 +327,8 @@ const LibraryPage = () => {
                                 
                                 // Quyền tản xuống: Admin, Người tạo file, hoặc những người có trong danh sách AllowedDownloadUserIds
                                 const canDownload = user.role?.toLowerCase() === 'admin' || 
+                                                    user.role?.toLowerCase() === 'giám đốc' || 
+                                                    user.role?.toLowerCase() === 'giam doc' || 
                                                     doc.uploaderId === user.id || 
                                                     (doc.allowedDownloadUserIds && doc.allowedDownloadUserIds.includes(user.id));
 
@@ -363,7 +365,7 @@ const LibraryPage = () => {
                                                     <span className="material-symbols-outlined">download</span>
                                                 </button>
                                             )}
-                                            {user.role?.toLowerCase() === 'admin' && (
+                                            {(user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'giám đốc' || user.role?.toLowerCase() === 'giam doc') && (
                                                 <button className="doc-action-btn" onClick={() => handleOpenEditModal(doc)}>
                                                     <span className="material-symbols-outlined">edit</span>
                                                 </button>
@@ -371,7 +373,7 @@ const LibraryPage = () => {
                                             <button className="doc-action-btn" onClick={() => handlePreview(doc)} title={t('library.tooltip_preview', "Xem trực tiếp")}>
                                                 <span className="material-symbols-outlined">visibility</span>
                                             </button>
-                                            {user.role?.toLowerCase() === 'admin' && (
+                                            {(user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'giám đốc' || user.role?.toLowerCase() === 'giam doc') && (
                                                 <Popconfirm
                                                     title={t('library.delete_title', "Xóa tài liệu")}
                                                     description={t('library.delete_confirm', "Bạn có muốn xóa vĩnh viễn tệp này?")}
@@ -405,7 +407,7 @@ const LibraryPage = () => {
                     </button>
                 )}
 
-                {user.role?.toLowerCase() === 'admin' && (
+                {(user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'giám đốc' || user.role?.toLowerCase() === 'giam doc') && (
                     <button className="floating-upload-btn" onClick={() => setIsUploadModalVisible(true)}>
                         <span className="material-symbols-outlined">upload_file</span>
                     </button>

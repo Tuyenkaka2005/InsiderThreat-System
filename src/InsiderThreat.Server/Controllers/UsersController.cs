@@ -50,7 +50,7 @@ public class UsersController : ControllerBase
     }
 
     // POST: api/users
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
     [HttpPost]
     public async Task<ActionResult<User>> CreateUser(User newUser)
     {
@@ -114,7 +114,7 @@ public class UsersController : ControllerBase
     }
 
     // DELETE: api/users/{id}
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(string id)
     {

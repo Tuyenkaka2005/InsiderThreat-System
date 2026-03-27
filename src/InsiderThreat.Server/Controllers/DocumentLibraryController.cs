@@ -60,7 +60,7 @@ namespace InsiderThreat.Server.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
         public async Task<ActionResult<SharedDocument>> UploadDocument(
             [FromForm] IFormFile file, 
             [FromForm] string? description, 
@@ -154,7 +154,7 @@ namespace InsiderThreat.Server.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
         public async Task<IActionResult> DeleteDocument(string id)
         {
             _logger.LogInformation($"Attempting to delete document with ID: {id}");
@@ -205,7 +205,7 @@ namespace InsiderThreat.Server.Controllers
         }
 
         [HttpPut("{id}/permissions")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
         public async Task<IActionResult> UpdatePermissions(string id, [FromBody] UpdatePermissionsRequest request)
         {
             var doc = await _documents.Find(d => d.Id == id).FirstOrDefaultAsync();

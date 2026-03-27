@@ -114,10 +114,41 @@ public class AuthController : ControllerBase
                 });
             }
 
+            // 2.5. Safety-net: Nếu username là "admin" thì luôn đảm bảo role = "Admin"
+            if (user.Username.ToLower() == "admin" && user.Role != "Admin")
+            {
+                _logger.LogWarning($"Admin user has incorrect role '{user.Role}' in DB. Auto-correcting to 'Admin'.");
+                user.Role = "Admin";
+                // Tự động sửa lại trong DB
+                try
+                {
+                    var update = Builders<User>.Update.Set(u => u.Role, "Admin");
+                    await usersCollection.UpdateOneAsync(u => u.Id == user.Id, update);
+                    _logger.LogInformation("Admin role auto-corrected in database.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to auto-correct admin role in DB");
+                }
+            }
+
             // 3. Tạo JWT Token
             string token = GenerateJwtToken(user);
 
             _logger.LogInformation($"User '{user.Username}' đăng nhập thành công");
+
+            // Normalize role for response (same logic as GenerateJwtToken)
+            string responseRole = (user.Role ?? "User").Trim();
+            responseRole = responseRole.ToLower() switch
+            {
+                "admin" => "Admin",
+                "giám đốc" => "Giám đốc",
+                "giam doc" => "Giám đốc",
+                "director" => "Giám đốc",
+                "quản lý" => "Quản lý",
+                "nhân viên" => "Nhân viên",
+                _ => responseRole
+            };
 
             return Ok(new LoginResponse
             {
@@ -129,7 +160,7 @@ public class AuthController : ControllerBase
                     Id = user.Id ?? "",
                     Username = user.Username,
                     FullName = user.FullName,
-                    Role = user.Role,
+                    Role = responseRole,
                     AvatarUrl = user.AvatarUrl
                 }
             });
@@ -464,9 +495,18 @@ public class AuthController : ControllerBase
         var jwtSettings = _configuration.GetSection("Jwt");
         var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
 
-        // Normalize role to PascalCase (e.g., "admin" -> "Admin")
-        string normalizedRole = char.ToUpper(user.Role[0]) + user.Role.Substring(1).ToLower();
-        if (user.Role.ToLower() == "admin") normalizedRole = "Admin"; // Explicit for safety
+        // Normalize role safely (preserve Vietnamese accented characters, only fix casing for known roles)
+        string role = (user.Role ?? "User").Trim();
+        string normalizedRole = role.ToLower() switch
+        {
+            "admin" => "Admin",
+            "giám đốc" => "Giám đốc",
+            "giam doc" => "Giám đốc",
+            "director" => "Giám đốc",
+            "quản lý" => "Quản lý",
+            "nhân viên" => "Nhân viên",
+            _ => role // Keep original if unknown
+        };
 
         var claims = new[]
         {

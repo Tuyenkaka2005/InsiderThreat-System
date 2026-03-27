@@ -42,14 +42,40 @@ public class TextCaptureService
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IUIAutomation
     {
-        // We only need GetFocusedElement
-        void _OnlyNeededMethods1(); // CompareElements
-        void _OnlyNeededMethods2(); // CompareRuntimeIds
-        void _OnlyNeededMethods3(); // GetRootElement
-        void _OnlyNeededMethods4(); // ElementFromHandle
-        void _OnlyNeededMethods5(); // ElementFromPoint
+        void _Skip1(); // CompareElements
+        void _Skip2(); // CompareRuntimeIds
+        void _Skip3(); // GetRootElement
+        void _Skip4(); // ElementFromHandle
+        void _Skip5(); // ElementFromPoint
         [PreserveSig]
         int GetFocusedElement(out IUIAutomationElement element);
+        void _Skip6(); // GetRootElementBuildCache
+        void _Skip7(); // ElementFromHandleBuildCache
+        void _Skip8(); // ElementFromPointBuildCache
+        void _Skip9(); // GetFocusedElementBuildCache
+        void _Skip10(); // CreateTreeWalker
+        void _Skip11(); // get_ControlViewWalker
+        void _Skip12(); // get_ContentViewWalker
+        [PreserveSig]
+        int get_RawViewWalker(out IUIAutomationTreeWalker walker);
+    }
+
+    [ComImport, Guid("4042c624-339d-438a-9911-9c63c5dd3ae9")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IUIAutomationTreeWalker
+    {
+        [PreserveSig]
+        int GetFirstChildElement(IUIAutomationElement element, out IUIAutomationElement firstChild);
+        [PreserveSig]
+        int GetLastChildElement(IUIAutomationElement element, out IUIAutomationElement lastChild);
+        [PreserveSig]
+        int GetNextSiblingElement(IUIAutomationElement element, out IUIAutomationElement nextSibling);
+        [PreserveSig]
+        int GetPreviousSiblingElement(IUIAutomationElement element, out IUIAutomationElement previousSibling);
+        [PreserveSig]
+        int GetParentElement(IUIAutomationElement element, out IUIAutomationElement parent);
+        void _Skip1(); // NormalizeElement
+        void _Skip2(); // GetCondition
     }
 
     [ComImport, Guid("d22108aa-8ac5-49a5-837b-37bbb3d7591e")]
@@ -116,6 +142,7 @@ public class TextCaptureService
     private const int UIA_NamePropertyId = 30005;
     private const int UIA_ClassNamePropertyId = 30012;
     private const int UIA_ControlTypePropertyId = 30003;
+    private const int UIA_AutomationIdPropertyId = 30011;
     
     // UIA Pattern IDs
     private const int UIA_ValuePatternId = 10002;
@@ -198,17 +225,17 @@ public class TextCaptureService
     /// </summary>
     private string? ExtractTextFromElement(IUIAutomationElement element, int depth)
     {
-        if (depth > 2) return null; // Don't go too deep to avoid performance hit
+        if (depth > 3) return null; // Search up to 3 levels deep
 
         try
         {
-            // Log element info for debugging at depth 0
-            if (depth == 0)
-            {
-                element.GetCurrentPropertyValue(UIA_ClassNamePropertyId, out var className);
-                element.GetCurrentPropertyValue(UIA_ControlTypePropertyId, out var controlType);
-                _logger.LogDebug("Focused element: Class={Class}, Type={Type}", className, controlType);
-            }
+            element.GetCurrentPropertyValue(UIA_ClassNamePropertyId, out var className);
+            element.GetCurrentPropertyValue(UIA_ControlTypePropertyId, out var controlType);
+            element.GetCurrentPropertyValue(UIA_NamePropertyId, out var name);
+            element.GetCurrentPropertyValue(UIA_AutomationIdPropertyId, out var autoId);
+
+            string info = $"[Depth {depth}] Class={className}, Type={controlType}, Name=\"{name}\", ID={autoId}";
+            _logger.LogDebug(info);
 
             // 1. Try TextPattern (for rich editors, browsers, Zalo, etc.)
             int hr = element.GetCurrentPattern(UIA_TextPatternId, out var textPatternObj);
@@ -217,10 +244,10 @@ public class TextCaptureService
                 hr = textPattern.get_DocumentRange(out var range);
                 if (hr == 0 && range != null)
                 {
-                    hr = range.GetText(2000, out var text); // Limit to 2000 chars
+                    hr = range.GetText(2000, out var text);
                     if (hr == 0 && IsValidCapture(text))
                     {
-                        _logger.LogDebug("Captured via TextPattern at depth {Depth} ({Length} chars)", depth, text.Length);
+                        _logger.LogDebug(">>> Captured via TextPattern at depth {Depth}: \"{Text}\"", depth, text.Length > 20 ? text[..20]+"..." : text);
                         return text;
                     }
                 }
@@ -233,7 +260,7 @@ public class TextCaptureService
                 hr = valPattern.get_CurrentValue(out var text);
                 if (hr == 0 && IsValidCapture(text))
                 {
-                    _logger.LogDebug("Captured via ValuePattern at depth {Depth} ({Length} chars)", depth, text.Length);
+                    _logger.LogDebug(">>> Captured via ValuePattern at depth {Depth}: \"{Text}\"", depth, text.Length > 20 ? text[..20]+"..." : text);
                     return text;
                 }
             }
@@ -242,27 +269,40 @@ public class TextCaptureService
             hr = element.GetCurrentPropertyValue(UIA_ValueValuePropertyId, out var value);
             if (hr == 0 && value is string strValue && IsValidCapture(strValue))
             {
-                _logger.LogDebug("Captured via ValueProperty at depth {Depth} ({Length} chars)", depth, strValue.Length);
+                _logger.LogDebug(">>> Captured via ValueProperty at depth {Depth}: \"{Text}\"", depth, strValue.Length > 20 ? strValue[..20]+"..." : strValue);
                 return strValue;
             }
 
-            // 4. Try Name property
-            hr = element.GetCurrentPropertyValue(UIA_NamePropertyId, out var name);
-            if (hr == 0 && name is string strName && IsValidCapture(strName))
+            // 4. Try Name property (last resort, often contains static text)
+            if (depth == 0) // Only trust Name at depth 0 if it looks valid
             {
-                // Name often contains "Zalo" or window titles, we should be careful
-                if (!IsInternalAppName(strName))
+                if (name is string strName && IsValidCapture(strName) && strName.Length > 5)
                 {
-                    _logger.LogDebug("Captured via NameProperty at depth {Depth} ({Length} chars)", depth, strName.Length);
+                    _logger.LogDebug(">>> Captured via NameProperty at depth 0: \"{Text}\"", strName.Length > 20 ? strName[..20]+"..." : strName);
                     return strName;
                 }
             }
 
-            // 5. Recursive check on children if no text found yet
-            // (Skipping for now to avoid complexity of IUIAutomationElementEnumerator definition, 
-            // will implement if needed).
+            // 5. Recursive check on children
+            // Use TreeWalker to find all children
+            _uiAutomation.get_RawViewWalker(out var walker);
+            if (walker != null)
+            {
+                walker.GetFirstChildElement(element, out var child);
+                while (child != null)
+                {
+                    var result = ExtractTextFromElement(child, depth + 1);
+                    if (result != null) return result;
+
+                    walker.GetNextSiblingElement(child, out var next);
+                    child = next;
+                }
+            }
         }
-        catch (COMException) { }
+        catch (Exception ex)
+        {
+             _logger.LogTrace(ex, "Error exploring element at depth {Depth}", depth);
+        }
 
         return null;
     }

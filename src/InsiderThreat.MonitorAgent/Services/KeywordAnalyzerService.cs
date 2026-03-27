@@ -30,17 +30,50 @@ public class KeywordAnalyzerService
         var alerts = new List<KeywordAlert>();
         if (string.IsNullOrWhiteSpace(text)) return alerts;
 
-        var lowerText = text.ToLowerInvariant();
+        // Normalize text: strip Telex/VNI modifiers for matching
+        var normalizedText = NormalizeForMatching(text);
+        _logger.LogDebug("Keyword analysis: Original='{Original}', Normalized='{Normalized}'",
+            text.Length > 50 ? text[..50] : text,
+            normalizedText.Length > 50 ? normalizedText[..50] : normalizedText);
 
         foreach (var rule in _rules)
         {
-            // Use Regex with Unicode support for better Vietnamese matching.
-            // We use (?<!\w) and (?!\w) to ensure word boundaries while being accent-aware.
-            // In .NET, \w matches Unicode word characters (including Vietnamese accents) by default.
-            string regexPattern = $@"(?<!\w){Regex.Escape(rule.Keyword)}(?!\w)";
-            var regex = new Regex(regexPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var normalizedKeyword = NormalizeForMatching(rule.Keyword);
+            
+            // Check both original text and normalized text
+            bool matched = false;
 
-            if (regex.IsMatch(text))
+            // 1. Direct match on original text (works for Vietnamese with accents)
+            string regexPattern = $@"(?<!\w){System.Text.RegularExpressions.Regex.Escape(rule.Keyword)}(?!\w)";
+            var regex = new System.Text.RegularExpressions.Regex(regexPattern, 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase | 
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            if (regex.IsMatch(text)) matched = true;
+
+            // 2. Normalized match (works for Telex raw keystrokes)
+            if (!matched && normalizedKeyword.Length >= 2)
+            {
+                string normRegex = $@"(?<!\w){System.Text.RegularExpressions.Regex.Escape(normalizedKeyword)}(?!\w)";
+                var normRe = new System.Text.RegularExpressions.Regex(normRegex, 
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (normRe.IsMatch(normalizedText)) matched = true;
+            }
+
+            // 3. Simple substring match on normalized text
+            if (!matched && normalizedKeyword.Length >= 3)
+            {
+                if (normalizedText.Contains(normalizedKeyword, StringComparison.OrdinalIgnoreCase))
+                    matched = true;
+            }
+
+            // 4. Direct substring match on original text (ultimate fallback)
+            if (!matched && rule.Keyword.Length >= 2)
+            {
+                if (text.Contains(rule.Keyword, StringComparison.OrdinalIgnoreCase))
+                    matched = true;
+            }
+
+            if (matched)
             {
                 int severity = rule.BaseSeverity;
                 var matchedAmplifiers = new List<string>();
@@ -57,7 +90,9 @@ public class KeywordAnalyzerService
                     {
                         foreach (var amp in rule.AmplifyPatterns)
                         {
-                            if (lowerText.Contains(amp.ToLowerInvariant()))
+                            var normAmp = NormalizeForMatching(amp);
+                            if (normalizedText.Contains(normAmp, StringComparison.OrdinalIgnoreCase) ||
+                                text.Contains(amp, StringComparison.OrdinalIgnoreCase))
                             {
                                 severity += rule.AmplifyBonus;
                                 matchedAmplifiers.Add(amp);
@@ -96,6 +131,46 @@ public class KeywordAnalyzerService
         }
 
         return alerts;
+    }
+
+    /// <summary>
+    /// Normalize text by stripping Telex/VNI tone modifiers for matching.
+    /// Telex: s=sắc, f=huyền, r=hỏi, x=ngã, j=nặng
+    /// Also handles: aa=â, aw=ă, ee=ê, oo=ô, ow=ơ, uw=ư, dd=đ
+    /// </summary>
+    private static string NormalizeForMatching(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+
+        var result = input.ToLowerInvariant();
+
+        // Remove Vietnamese diacritics (convert accented chars to base)
+        result = result
+            .Replace("à", "a").Replace("á", "a").Replace("ả", "a").Replace("ã", "a").Replace("ạ", "a")
+            .Replace("ă", "a").Replace("ắ", "a").Replace("ằ", "a").Replace("ẳ", "a").Replace("ẵ", "a").Replace("ặ", "a")
+            .Replace("â", "a").Replace("ấ", "a").Replace("ầ", "a").Replace("ẩ", "a").Replace("ẫ", "a").Replace("ậ", "a")
+            .Replace("è", "e").Replace("é", "e").Replace("ẻ", "e").Replace("ẽ", "e").Replace("ẹ", "e")
+            .Replace("ê", "e").Replace("ế", "e").Replace("ề", "e").Replace("ể", "e").Replace("ễ", "e").Replace("ệ", "e")
+            .Replace("ì", "i").Replace("í", "i").Replace("ỉ", "i").Replace("ĩ", "i").Replace("ị", "i")
+            .Replace("ò", "o").Replace("ó", "o").Replace("ỏ", "o").Replace("õ", "o").Replace("ọ", "o")
+            .Replace("ô", "o").Replace("ố", "o").Replace("ồ", "o").Replace("ổ", "o").Replace("ỗ", "o").Replace("ộ", "o")
+            .Replace("ơ", "o").Replace("ớ", "o").Replace("ờ", "o").Replace("ở", "o").Replace("ỡ", "o").Replace("ợ", "o")
+            .Replace("ù", "u").Replace("ú", "u").Replace("ủ", "u").Replace("ũ", "u").Replace("ụ", "u")
+            .Replace("ư", "u").Replace("ứ", "u").Replace("ừ", "u").Replace("ử", "u").Replace("ữ", "u").Replace("ự", "u")
+            .Replace("ỳ", "y").Replace("ý", "y").Replace("ỷ", "y").Replace("ỹ", "y").Replace("ỵ", "y")
+            .Replace("đ", "d");
+
+        // Strip Telex tone marks at word boundaries (s, f, r, x, j after vowels)
+        // This handles raw Telex keyboard buffer like "nghir" → "nghi", "viecj" → "viec"
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"([aeiouy])([sfrxj])(?=\s|$|[^a-z])", "$1");
+
+        // Handle doubled chars from Telex: aa→a, ee→e, oo→o, dd→d
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"([aeioud])\1", "$1");
+
+        // Handle aw→a, ow→o, uw→u
+        result = result.Replace("aw", "a").Replace("ow", "o").Replace("uw", "u");
+
+        return result;
     }
 
     /// <summary>
