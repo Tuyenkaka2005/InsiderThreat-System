@@ -13,11 +13,13 @@ namespace InsiderThreat.Server.Controllers
     public class MonitorLogsController : ControllerBase
     {
         private readonly IMongoCollection<MonitorLog> _logs;
+        private readonly IMongoCollection<SharedDocument> _documents;
         private readonly ILogger<MonitorLogsController> _logger;
 
         public MonitorLogsController(IMongoDatabase database, ILogger<MonitorLogsController> logger)
         {
             _logs = database.GetCollection<MonitorLog>("MonitorLogs");
+            _documents = database.GetCollection<SharedDocument>("SharedDocuments");
             _logger = logger;
         }
 
@@ -129,6 +131,20 @@ namespace InsiderThreat.Server.Controllers
 
             try
             {
+                // Escalate severity for Restricted documents
+                foreach (var log in logs)
+                {
+                    if (!string.IsNullOrEmpty(log.DetectedKeyword))
+                    {
+                        var doc = await _documents.Find(d => d.Id == log.DetectedKeyword).FirstOrDefaultAsync();
+                        if (doc?.SecurityLevel == "Restricted")
+                        {
+                            log.SeverityScore = 10;
+                            log.MessageContext = "[TUYỆT MẬT] " + log.MessageContext;
+                        }
+                    }
+                }
+
                 await _logs.InsertManyAsync(logs);
                 _logger.LogInformation($"Successfully received batch of {logs.Count} logs from Agent.");
                 return Ok(new { count = logs.Count });

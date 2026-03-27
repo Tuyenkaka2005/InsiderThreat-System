@@ -69,7 +69,9 @@ namespace InsiderThreat.Server.Controllers
             [FromForm] string? allowedDownloadUserIdsJson,
             [FromForm] bool requireCamera = true,
             [FromForm] bool requireWatermark = true,
-            [FromForm] bool enableAgentMonitoring = true)
+            [FromForm] bool enableAgentMonitoring = true,
+            [FromForm] string? department = "General",
+            [FromForm] string? securityLevel = "Internal")
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
@@ -141,7 +143,9 @@ namespace InsiderThreat.Server.Controllers
                     AllowedDownloadUserIds = allowedDownloadUserIds,
                     RequireCamera = requireCamera,
                     RequireWatermark = requireWatermark,
-                    EnableAgentMonitoring = enableAgentMonitoring
+                    EnableAgentMonitoring = enableAgentMonitoring,
+                    Department = department ?? "General",
+                    SecurityLevel = securityLevel ?? "Internal"
                 };
 
                 await _documents.InsertOneAsync(sharedDoc);
@@ -227,7 +231,9 @@ namespace InsiderThreat.Server.Controllers
                 .Set(d => d.AllowedDownloadUserIds, request.AllowedDownloadUserIds ?? new List<string>())
                 .Set(d => d.RequireCamera, request.RequireCamera)
                 .Set(d => d.RequireWatermark, request.RequireWatermark)
-                .Set(d => d.EnableAgentMonitoring, request.EnableAgentMonitoring);
+                .Set(d => d.EnableAgentMonitoring, request.EnableAgentMonitoring)
+                .Set(d => d.Department, request.Department ?? "General")
+                .Set(d => d.SecurityLevel, request.SecurityLevel ?? "Internal");
 
             var result = await _documents.UpdateOneAsync(d => d.Id == id, update);
 
@@ -258,5 +264,7 @@ namespace InsiderThreat.Server.Controllers
         public bool RequireCamera { get; set; } = true;
         public bool RequireWatermark { get; set; } = true;
         public bool EnableAgentMonitoring { get; set; } = true;
+        public string? Department { get; set; }
+        public string? SecurityLevel { get; set; }
     }
 }
