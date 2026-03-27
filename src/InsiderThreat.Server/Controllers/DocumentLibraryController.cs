@@ -225,15 +225,21 @@ namespace InsiderThreat.Server.Controllers
             if (doc.UploaderId != userId && userRole != "Admin" && userRole != "Giám đốc")
                 return Forbid();
 
+            _logger.LogInformation($"Updating permissions for doc {id}. Dept: {request.Department}, Level: {request.SecurityLevel}");
+
             var update = Builders<SharedDocument>.Update
-                .Set(d => d.MinimumRole, request.MinimumRole ?? "Nhân viên")
-                .Set(d => d.AllowedUserIds, request.AllowedUserIds ?? new List<string>())
-                .Set(d => d.AllowedDownloadUserIds, request.AllowedDownloadUserIds ?? new List<string>())
+                .Set(d => d.MinimumRole, request.MinimumRole ?? doc.MinimumRole)
+                .Set(d => d.AllowedUserIds, request.AllowedUserIds ?? doc.AllowedUserIds)
+                .Set(d => d.AllowedDownloadUserIds, request.AllowedDownloadUserIds ?? doc.AllowedDownloadUserIds)
                 .Set(d => d.RequireCamera, request.RequireCamera)
                 .Set(d => d.RequireWatermark, request.RequireWatermark)
-                .Set(d => d.EnableAgentMonitoring, request.EnableAgentMonitoring)
-                .Set(d => d.Department, request.Department ?? "General")
-                .Set(d => d.SecurityLevel, request.SecurityLevel ?? "Internal");
+                .Set(d => d.EnableAgentMonitoring, request.EnableAgentMonitoring);
+
+            if (!string.IsNullOrEmpty(request.Department))
+                update = update.Set(d => d.Department, request.Department);
+            
+            if (!string.IsNullOrEmpty(request.SecurityLevel))
+                update = update.Set(d => d.SecurityLevel, request.SecurityLevel);
 
             var result = await _documents.UpdateOneAsync(d => d.Id == id, update);
 

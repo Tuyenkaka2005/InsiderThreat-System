@@ -257,7 +257,7 @@ export default function GroupDashboardTab() {
                 open={isEditModalVisible}
                 onCancel={() => setIsEditModalVisible(false)}
                 footer={null}
-                destroyOnClose={true}
+                destroyOnHidden={true}
             >
                 <Form form={form} layout="vertical" onFinish={handleUpdateProject}>
                     <Form.Item name="name" label="Tên dự án" rules={[{ required: true }]}>

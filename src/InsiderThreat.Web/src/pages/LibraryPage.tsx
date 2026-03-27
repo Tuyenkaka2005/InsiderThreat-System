@@ -176,6 +176,7 @@ const LibraryPage = () => {
     };
 
     const handleOpenEditModal = (doc: SharedDocument) => {
+        console.log('Opening edit modal for doc:', doc);
         setEditingDocument(doc);
         setMinRole(doc.minimumRole);
         setSelectedUserIds(doc.allowedUserIds || []);
@@ -183,13 +184,19 @@ const LibraryPage = () => {
         setRequireCamera(doc.requireCamera ?? true);
         setRequireWatermark(doc.requireWatermark ?? true);
         setEnableAgentMonitoring(doc.enableAgentMonitoring ?? true);
-        setDepartment(doc.department ?? 'General');
-        setSecurityLevel(doc.securityLevel ?? 'Internal');
+        setDepartment(doc.department || 'General');
+        setSecurityLevel(doc.securityLevel || 'Internal');
         setIsEditModalVisible(true);
     };
 
     const handleUpdatePermissions = async () => {
         if (!editingDocument) return;
+
+        console.log('Updating permissions with:', {
+            department,
+            securityLevel,
+            minRole
+        });
 
         setLoading(true);
         try {
@@ -200,8 +207,8 @@ const LibraryPage = () => {
                 requireCamera,
                 requireWatermark,
                 enableAgentMonitoring,
-                department,
-                securityLevel
+                department: department,
+                securityLevel: securityLevel
             });
             message.success(t('library.update_success', 'Đã cập nhật cấu hình bảo mật và quyền truy cập'));
             setIsEditModalVisible(false);
@@ -850,7 +857,7 @@ const LibraryPage = () => {
                 width={1000}
                 style={{ top: 20 }}
                 styles={{ body: { height: '80vh', padding: 0 } }}
-                destroyOnClose
+                destroyOnHidden={true}
             >
                 {previewingDocument && (
                     <SecureDocumentViewer 

@@ -184,7 +184,7 @@ function LoginPage() {
                         <p className="subtitle">{t('auth.please_enter_details')}</p>
 
                         {errorMessage && (
-                            <Alert message="Error" description={errorMessage} type="error" showIcon closable onClose={() => setErrorMessage(null)} style={{ marginBottom: 20 }} />
+                            <Alert title="Error" description={errorMessage} type="error" showIcon closable onClose={() => setErrorMessage(null)} style={{ marginBottom: 20 }} />
                         )}
 
                         <Form name="zdak_login" onFinish={onFinish} onValuesChange={handleValuesChange} layout="vertical" className="zdak-form">

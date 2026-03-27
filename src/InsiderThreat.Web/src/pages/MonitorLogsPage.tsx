@@ -395,7 +395,7 @@ const MonitorLogsPage: React.FC = () => {
             title: t('monitor.content', 'Nội dung/Bối cảnh'),
             key: 'content',
             render: (record: MonitorLog) => (
-                <Space direction="vertical" size={2}>
+                <Space orientation="vertical" size={2}>
                     {record.detectedKeyword && (
                         <Text strong type="danger">
                             <KeyOutlined /> {t('monitor.keyword', 'Từ khóa')}: {record.detectedKeyword}
