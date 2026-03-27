@@ -157,7 +157,21 @@ function DashboardPage() {
             case 'usb':
                 return (
                     <div className={`content-wrapper ${isMobile ? 'mobile-usb-content' : ''}`}>
-                        {!isMobile && <Title level={2}>{t('dashboard.usb_title', '🔐 USB Device Management')}</Title>}
+                        {!isMobile && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <Title level={2} style={{ margin: 0 }}>{t('dashboard.usb_title', '🔐 USB Device Management')}</Title>
+                                <Button 
+                                    type="primary" 
+                                    danger 
+                                    size="large"
+                                    icon={<WarningOutlined />} 
+                                    onClick={() => navigate('/monitor-logs')}
+                                    style={{ animation: 'pulse 2s infinite', fontWeight: 'bold' }}
+                                >
+                                    Cảnh báo Rò rỉ Tài liệu (PC Monitor)
+                                </Button>
+                            </div>
+                        )}
                         {isMobile && (
                             <header className="mobile-usb-header">
                                 <div className="mobile-usb-header-left">

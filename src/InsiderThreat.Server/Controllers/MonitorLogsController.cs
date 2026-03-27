@@ -1,7 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using MongoDB.Driver;
 using InsiderThreat.Server.Models;
+using InsiderThreat.Server.Hubs;
+using System.IO.Compression;
+using System.Text.Json;
+using System.Text;
 
 namespace InsiderThreat.Server.Controllers
 {
@@ -18,11 +23,16 @@ namespace InsiderThreat.Server.Controllers
     {
         private readonly IMongoCollection<MonitorLog> _monitorLogs;
         private readonly ILogger<InsiderThreatMonitoringController> _logger;
+        private readonly IHubContext<NotificationHub> _notificationHub;
 
-        public InsiderThreatMonitoringController(IMongoDatabase database, ILogger<InsiderThreatMonitoringController> logger)
+        public InsiderThreatMonitoringController(
+            IMongoDatabase database, 
+            ILogger<InsiderThreatMonitoringController> logger,
+            IHubContext<NotificationHub> notificationHub)
         {
             _monitorLogs = database.GetCollection<MonitorLog>("MonitorLogs");
             _logger = logger;
+            _notificationHub = notificationHub;
         }
 
         /// <summary>
@@ -63,7 +73,7 @@ namespace InsiderThreat.Server.Controllers
                     logs.FirstOrDefault()?.ComputerName ?? "Unknown",
                     logs.FirstOrDefault()?.ComputerUser ?? "Unknown");
 
-                // Log critical alerts
+                // Log and Broadcast critical alerts
                 var criticalLogs = logs.Where(l => l.SeverityScore >= 7).ToList();
                 foreach (var critical in criticalLogs)
                 {
@@ -76,6 +86,22 @@ namespace InsiderThreat.Server.Controllers
                         critical.MessageContext?.Length > 100
                             ? critical.MessageContext[..100] + "..."
                             : critical.MessageContext ?? "N/A");
+
+                    // Broadcast via SignalR specifically for DocumentLeak
+                    if (critical.LogType == "DocumentLeak")
+                    {
+                        var notif = new Notification
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Type = "DocumentLeakAlert", // Custom type for massive popup
+                            Message = $"[CẢNH BÁO RÒ RỈ] Máy {critical.ComputerName} vừa chuyển tài liệu mật ra ngoài! Vị trí chép: {critical.ApplicationName}",
+                            CreatedAt = DateTime.UtcNow,
+                            ActorName = "Hệ thống An ninh",
+                            IsRead = false
+                        };
+                        
+                        await _notificationHub.Clients.All.SendAsync("ReceiveNotification", notif);
+                    }
                 }
 
                 return Ok(new { message = "Logs received", count = logs.Count });
@@ -184,6 +210,56 @@ namespace InsiderThreat.Server.Controllers
             {
                 _logger.LogError(ex, "Error fetching summary");
                 return StatusCode(500, new { message = "Error fetching summary", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Export all logs to a ZIP file and optionally clear the database.
+        /// </summary>
+        [HttpGet("export-archive")]
+        public async Task<IActionResult> ExportArchive([FromQuery] bool clearLogs = false)
+        {
+            try
+            {
+                var logs = await _monitorLogs.Find(Builders<MonitorLog>.Filter.Empty).ToListAsync();
+                if (logs.Count == 0)
+                    return BadRequest(new { message = "No logs to export" });
+
+                var json = JsonSerializer.Serialize(logs, new JsonSerializerOptions { WriteIndented = true });
+                byte[] zipData;
+
+                using (var zipStream = new MemoryStream())
+                {
+                    // No leaveOpen: true here, we WANT the archive to close and finalize the footer
+                    using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, false))
+                    {
+                        var entry = archive.CreateEntry($"monitor_logs_backup_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+                        using (var entryStream = entry.Open())
+                        {
+                            byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+                            await entryStream.WriteAsync(jsonBytes, 0, jsonBytes.Length);
+                            await entryStream.FlushAsync();
+                        }
+                    } // ZipArchive DISPOSED here -> Footers written to zipStream
+
+                    zipData = zipStream.ToArray();
+                }
+
+                _logger.LogInformation("📦 Exported ZIP Archive: {Count} logs, {Size} bytes", logs.Count, zipData.Length);
+
+                if (clearLogs)
+                {
+                    await _monitorLogs.DeleteManyAsync(Builders<MonitorLog>.Filter.Empty);
+                    _logger.LogWarning("🧹 Database cleared after log export by Admin.");
+                }
+
+                var fileName = $"InsiderThreat_Logs_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
+                return File(zipData, "application/zip", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting log archive");
+                return StatusCode(500, new { message = "Error exporting archive", error = ex.Message });
             }
         }
     }

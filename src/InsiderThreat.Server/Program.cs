@@ -119,10 +119,11 @@ builder.Services.AddAuthorization();
 // ==========================================
 
 // ==========================================
-// 6. CẤU HÌNH EMAIL SERVICE
+// 6. CẤU HÌNH SERVICES & EMAIL
 // ==========================================
 builder.Services.AddScoped<InsiderThreat.Server.Services.IEmailService, InsiderThreat.Server.Services.EmailService>();
 builder.Services.AddSingleton<InsiderThreat.Server.Services.IMessageEncryptionService, InsiderThreat.Server.Services.MessageEncryptionService>();
+builder.Services.AddScoped<InsiderThreat.Server.Services.IWatermarkService, InsiderThreat.Server.Services.WatermarkService>();
 // ==========================================
 
 // ==========================================

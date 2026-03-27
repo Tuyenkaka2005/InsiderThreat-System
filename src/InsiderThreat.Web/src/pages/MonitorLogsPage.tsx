@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Tag, Card, Row, Col, Statistic, Select, Input, Space, Button, Typography, Avatar, Badge, App, Breadcrumb } from 'antd';
+import { useTranslation } from 'react-i18next';
+import dayjs from 'dayjs';
+import JSZip from 'jszip';
 import { 
     SecurityScanOutlined, 
     CameraOutlined, 
@@ -13,13 +15,18 @@ import {
     ArrowLeftOutlined,
     ClockCircleOutlined,
     HomeOutlined,
-    GlobalOutlined
+    GlobalOutlined,
+    FileZipOutlined,
+    DeleteOutlined,
+    FileSearchOutlined,
+    InboxOutlined,
+    ExportOutlined
 } from '@ant-design/icons';
+import { Table, Tag, Card, Row, Col, Statistic, Select, Input, Space, Button, Typography, Avatar, Badge, App, Breadcrumb, Modal, Checkbox, Upload } from 'antd';
 import { monitorService } from '../services/monitorService';
 import type { MonitorLog, MonitorSummary } from '../services/monitorService';
-import { useTranslation } from 'react-i18next';
-import dayjs from 'dayjs';
 
+const { Dragger } = Upload;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
@@ -32,6 +39,7 @@ interface MachineInfo {
     criticalAlerts: number;
     keywordAlerts: number;
     screenshotAlerts: number;
+    documentLeakAlerts: number;
     lastActivity: string;
     latestKeyword?: string;
 }
@@ -57,6 +65,12 @@ const MonitorLogsPage: React.FC = () => {
 
     // Machine list search
     const [machineSearch, setMachineSearch] = useState('');
+
+    // Archive view state
+    const [archiveLogs, setArchiveLogs] = useState<MonitorLog[]>([]);
+    const [isArchiveMode, setIsArchiveMode] = useState(false);
+    const [uploadModalVisible, setUploadModalVisible] = useState(false);
+    const [archiveFileName, setArchiveFileName] = useState('');
 
     // Load all logs to build machine list
     const loadOverview = async () => {
@@ -121,6 +135,7 @@ const MonitorLogsPage: React.FC = () => {
                     criticalAlerts: 0,
                     keywordAlerts: 0,
                     screenshotAlerts: 0,
+                    documentLeakAlerts: 0,
                     lastActivity: log.timestamp,
                     latestKeyword: undefined,
                 });
@@ -133,6 +148,10 @@ const MonitorLogsPage: React.FC = () => {
                 if (!m.latestKeyword && log.detectedKeyword) m.latestKeyword = log.detectedKeyword;
             }
             if (log.logType === 'Screenshot') m.screenshotAlerts++;
+            if (log.logType === 'DocumentLeak') {
+                m.documentLeakAlerts++;
+                if (!m.latestKeyword) m.latestKeyword = '[RÒ RỈ TÀI LIỆU]';
+            }
             if (new Date(log.timestamp) > new Date(m.lastActivity)) {
                 m.lastActivity = log.timestamp;
             }
@@ -180,6 +199,117 @@ const MonitorLogsPage: React.FC = () => {
         setDetailTotal(0);
     };
 
+    const handleArchiveLogs = () => {
+        let clearAfterExport = false;
+
+        Modal.confirm({
+            title: 'Nén & Lưu trữ Toàn bộ Nhật ký',
+            icon: <FileZipOutlined style={{ color: '#722ed1' }} />,
+            content: (
+                <div>
+                    <p>Hệ thống sẽ gom toàn bộ logs thành một file nén (.zip) để bạn tải về lưu trữ máy cá nhân.</p>
+                    <Checkbox onChange={(e) => clearAfterExport = e.target.checked}>
+                        <Text type="danger">Xóa log trên Server sau khi nén thành công (Tối ưu bộ nhớ)</Text>
+                    </Checkbox>
+                </div>
+            ),
+            okText: 'Bắt đầu nén',
+            cancelText: 'Hủy',
+            okButtonProps: { style: { backgroundColor: '#722ed1' } },
+            onOk: async () => {
+                const hide = message.loading('Đang xử lý nén dữ liệu...', 0);
+                try {
+                    const response = await monitorService.archiveLogs(clearAfterExport);
+                    
+                    // Create blob link and trigger download
+                    const url = window.URL.createObjectURL(new Blob([response.data]));
+                    const link = document.createElement('a');
+                    link.href = url;
+                    
+                    const fileName = `InsiderThreat_Backup_${dayjs().format('YYYYMMDD_HHmm')}.zip`;
+                    link.setAttribute('download', fileName);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    
+                    message.success(`Đã đóng gói thành công: ${fileName}`);
+                    if (clearAfterExport) {
+                        loadOverview();
+                    }
+                } catch (error: any) {
+                    console.error('Archive failed:', error);
+                    message.error('Lỗi khi nén dữ liệu: ' + (error.response?.data?.message || 'Lỗi server'));
+                } finally {
+                    hide();
+                }
+            }
+        });
+    };
+
+    const handleUploadArchive = async (file: any) => {
+        const hide = message.loading('Đang giải nén dữ liệu lưu trữ...', 0);
+        try {
+            const reader = new FileReader();
+            
+            const zipBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+                reader.onload = () => resolve(reader.result as ArrayBuffer);
+                reader.onerror = () => reject(new Error('Lỗi khi đọc file bằng FileReader'));
+                reader.readAsArrayBuffer(file);
+            });
+
+            console.log(`📂 [DEBUG] ZIP Buffer loaded: ${zipBuffer.byteLength} bytes`);
+
+            // Check Magic Bytes (PK header: 0x50 0x4B 0x03 0x04)
+            const header = new Uint8Array(zipBuffer.slice(0, 4));
+            const isPKHeader = header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x03 && header[3] === 0x04;
+            
+            if (!isPKHeader) {
+                console.error('❌ [DEBUG] Invalid ZIP Header:', header);
+                throw new Error('Tệp tải lên không phải là định dạng ZIP hợp lệ (Thiếu PK Header).');
+            }
+
+            const zip = new JSZip();
+            const contents = await zip.loadAsync(zipBuffer, { 
+                checkCRC32: true,
+                createFolders: false
+            });
+            
+            // Find the JSON file inside the ZIP
+            const jsonFile = Object.values(contents.files).find(f => f.name.endsWith('.json'));
+            if (!jsonFile) {
+                throw new Error('Không tìm thấy tệp dữ liệu .json bên trong file nén!');
+            }
+
+            console.log(`📄 [DEBUG] Found entry: ${jsonFile.name}`);
+
+            const jsonStr = await jsonFile.async('string');
+            const logsData = JSON.parse(jsonStr) as MonitorLog[];
+            
+            setArchiveLogs(logsData);
+            setIsArchiveMode(true);
+            setArchiveFileName(file.name);
+            setUploadModalVisible(false);
+            message.success(`Đã mở thành công bản lưu trữ: ${file.name} (${logsData.length} bản ghi)`);
+        } catch (error: any) {
+            console.error('❌ [DEBUG] Archive Parse Error:', error);
+            message.error({
+                content: (
+                    <div style={{ textAlign: 'left' }}>
+                        <Text strong>Lỗi khi xử lý file nén:</Text>
+                        <br />
+                        <Text type="danger" style={{ fontSize: '12px' }}>{error.message || 'Lỗi không xác định'}</Text>
+                        <br />
+                        <Text type="secondary" style={{ fontSize: '11px' }}>Vui lòng tải về bản log mới nhất từ Server và thử lại.</Text>
+                    </div>
+                ),
+                duration: 6
+            });
+        } finally {
+            hide();
+        }
+        return false; // Prevent auto upload
+    };
+
     // ─── Detail View Columns ──────────────────────────
     const columns = [
         {
@@ -202,6 +332,8 @@ const MonitorLogsPage: React.FC = () => {
                         return <Tag icon={<KeyOutlined />} color="purple">{t('monitor.type_keyword', 'Từ khóa nhạy cảm')}</Tag>;
                     case 'NetworkDisconnect':
                         return <Tag icon={<GlobalOutlined />} color="error">{t('monitor.type_network', 'Mất kết nối')}</Tag>;
+                    case 'DocumentLeak':
+                        return <Tag icon={<WarningOutlined />} color="#f5222d" style={{ animation: 'pulse 2s infinite' }}>RÒ RỈ TÀI LIỆU</Tag>;
                     default:
                         return <Tag>{type}</Tag>;
                 }
@@ -274,6 +406,38 @@ const MonitorLogsPage: React.FC = () => {
                     >
                         {selectedMachine ? 'Quay lại' : 'Trở lại'}
                     </Button>
+                    {!isArchiveMode && (
+                        <>
+                            <Button
+                                icon={<FileSearchOutlined />}
+                                onClick={() => setUploadModalVisible(true)}
+                                style={{ borderColor: '#faad14', color: '#faad14' }}
+                            >
+                                Xem Log từ ZIP (Offline)
+                            </Button>
+                            <Button
+                                icon={<FileZipOutlined />}
+                                onClick={handleArchiveLogs}
+                                style={{ borderColor: '#722ed1', color: '#722ed1' }}
+                            >
+                                Nén & Lưu trữ Log (ZIP)
+                            </Button>
+                        </>
+                    )}
+                    {isArchiveMode && (
+                        <Button
+                            type="primary"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => {
+                                setIsArchiveMode(false);
+                                setArchiveLogs([]);
+                                setArchiveFileName('');
+                            }}
+                        >
+                            Đóng Chế độ xem Lưu trữ
+                        </Button>
+                    )}
                     <Button
                         type="primary" 
                         icon={<SecurityScanOutlined />} 
@@ -282,14 +446,33 @@ const MonitorLogsPage: React.FC = () => {
                     >
                         Agent kiểm soát tại máy tính cá nhân
                     </Button>
-                    <Button icon={<ReloadOutlined />} onClick={selectedMachine ? () => loadDetailLogs(selectedMachine.computerName, selectedMachine.computerUser) : loadOverview} loading={loading}>
-                        {t('common.refresh', 'Làm mới')}
-                    </Button>
+                    {!isArchiveMode && (
+                        <Button icon={<ReloadOutlined />} onClick={selectedMachine ? () => loadDetailLogs(selectedMachine.computerName, selectedMachine.computerUser) : loadOverview} loading={loading}>
+                            {t('common.refresh', 'Làm mới')}
+                        </Button>
+                    )}
                 </Space>
             </div>
 
-            {/* Summary Stats */}
-            <Row gutter={16} style={{ marginBottom: '24px' }}>
+            {/* Archive Notification Bar */}
+            {isArchiveMode && (
+                <Card size="small" style={{ marginBottom: 24, background: '#fff7e6', border: '1px solid #faad14' }}>
+                    <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                        <Space>
+                            <FileZipOutlined style={{ fontSize: 24, color: '#faad14' }} />
+                            <div>
+                                <Title level={4} style={{ margin: 0 }}>Chế độ Xem Lưu trữ (Offline View)</Title>
+                                <Text type="secondary">Đang hiển thị dữ liệu từ tệp: <Text strong color="orange">{archiveFileName}</Text> ({archiveLogs.length} bản ghi)</Text>
+                            </div>
+                        </Space>
+                        <Button icon={<ExportOutlined />} onClick={() => setIsArchiveMode(false)}>Quay lại Dữ liệu Trực tiếp</Button>
+                    </Space>
+                </Card>
+            )}
+
+            {/* Summary Stats (Hide in archive mode to avoid confusion) */}
+            {!isArchiveMode && (
+                <Row gutter={16} style={{ marginBottom: '24px' }}>
                 <Col span={6}>
                     <Card variant="borderless" style={{ background: '#f0f5ff' }}>
                         <Statistic
@@ -331,9 +514,23 @@ const MonitorLogsPage: React.FC = () => {
                     </Card>
                 </Col>
             </Row>
+            )}
+
+            {/* ═══════ ARCHIVE VIEW TABLE ═══════ */}
+            {isArchiveMode && (
+                <Card title="Dữ liệu Nhật ký từ tệp lưu trữ">
+                    <Table
+                        columns={columns}
+                        dataSource={archiveLogs}
+                        rowKey={(record) => `${record.timestamp}-${record.computerName}-${record.logType}-${Math.random()}`}
+                        pagination={{ pageSize: 20 }}
+                        size="small"
+                    />
+                </Card>
+            )}
 
             {/* ═══════ LEVEL 1: Machine List ═══════ */}
-            {!selectedMachine && (
+            {!selectedMachine && !isArchiveMode && (
                 <>
                     {/* Search bar */}
                     <Card style={{ marginBottom: '16px' }} size="small">
@@ -357,7 +554,7 @@ const MonitorLogsPage: React.FC = () => {
 
                     {/* Machine Cards */}
                     <Row gutter={[16, 16]}>
-                        {filteredMachines.map((machine) => {
+                        {filteredMachines.map((machine: MachineInfo) => {
                             const risk = getRiskLevel(machine);
                             return (
                                 <Col xs={24} sm={12} lg={8} xl={6} key={`${machine.computerName}-${machine.computerUser}`}>
@@ -394,24 +591,30 @@ const MonitorLogsPage: React.FC = () => {
                                                 <GlobalOutlined /> {machine.ipAddress}
                                             </Text>
 
-                                            {/* Stats row */}
+                                             {/* Stats row */}
                                             <Row gutter={8} style={{ marginBottom: '8px' }}>
-                                                <Col span={8}>
+                                                <Col span={6}>
                                                     <div style={{ textAlign: 'center', background: '#f5f5f5', borderRadius: '6px', padding: '4px 0' }}>
                                                         <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1d39c4' }}>{machine.totalAlerts}</div>
                                                         <div style={{ fontSize: '10px', color: '#8c8c8c' }}>Tổng</div>
                                                     </div>
                                                 </Col>
-                                                <Col span={8}>
+                                                <Col span={6}>
                                                     <div style={{ textAlign: 'center', background: '#fff1f0', borderRadius: '6px', padding: '4px 0' }}>
                                                         <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#cf1322' }}>{machine.criticalAlerts}</div>
                                                         <div style={{ fontSize: '10px', color: '#8c8c8c' }}>Nguy hiểm</div>
                                                     </div>
                                                 </Col>
-                                                <Col span={8}>
+                                                <Col span={6}>
                                                     <div style={{ textAlign: 'center', background: '#f9f0ff', borderRadius: '6px', padding: '4px 0' }}>
                                                         <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#531dab' }}>{machine.keywordAlerts}</div>
                                                         <div style={{ fontSize: '10px', color: '#8c8c8c' }}>Từ khóa</div>
+                                                    </div>
+                                                </Col>
+                                                <Col span={6}>
+                                                    <div style={{ textAlign: 'center', background: machine.documentLeakAlerts > 0 ? '#ffccc7' : '#fafafa', borderRadius: '6px', padding: '4px 0', border: machine.documentLeakAlerts > 0 ? '1px solid #ff4d4f' : '1px solid transparent' }}>
+                                                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: machine.documentLeakAlerts > 0 ? '#f5222d' : '#d9d9d9' }}>{machine.documentLeakAlerts}</div>
+                                                        <div style={{ fontSize: '10px', color: machine.documentLeakAlerts > 0 ? '#cf1322' : '#8c8c8c' }}>Rò rỉ</div>
                                                     </div>
                                                 </Col>
                                             </Row>
@@ -465,6 +668,7 @@ const MonitorLogsPage: React.FC = () => {
                             <Tag color="red">{selectedMachine.criticalAlerts} nguy hiểm</Tag>
                             <Tag color="purple">{selectedMachine.keywordAlerts} từ khóa</Tag>
                             <Tag color="cyan">{selectedMachine.screenshotAlerts} ảnh chụp</Tag>
+                            {selectedMachine.documentLeakAlerts > 0 && <Tag color="#f5222d">{selectedMachine.documentLeakAlerts} rò rỉ tài liệu</Tag>}
                         </Space>
                     </Card>
 
@@ -483,6 +687,7 @@ const MonitorLogsPage: React.FC = () => {
                                     <Option value="Screenshot">{t('monitor.type_screenshot', 'Chụp màn hình')}</Option>
                                     <Option value="KeywordDetected">{t('monitor.type_keyword', 'Từ khóa nhạy cảm')}</Option>
                                     <Option value="NetworkDisconnect">{t('monitor.type_network', 'Mất kết nối')}</Option>
+                                    <Option value="DocumentLeak">Rò rỉ Tài liệu</Option>
                                 </Select>
                             </div>
                             <div>
@@ -519,6 +724,33 @@ const MonitorLogsPage: React.FC = () => {
                     />
                 </>
             )}
+
+            {/* Upload Modal for Archives */}
+            <Modal
+                title="Mở Nhật ký Lưu trữ (.zip)"
+                open={uploadModalVisible}
+                onCancel={() => setUploadModalVisible(false)}
+                footer={null}
+                width={600}
+            >
+                <div style={{ padding: '20px 0' }}>
+                    <Dragger
+                        name="file"
+                        accept=".zip"
+                        multiple={false}
+                        beforeUpload={handleUploadArchive}
+                        showUploadList={false}
+                    >
+                        <p className="ant-upload-drag-icon">
+                            <InboxOutlined style={{ color: '#faad14' }} />
+                        </p>
+                        <p className="ant-upload-text">Nhấp hoặc kéo thả tệp ZIP lưu trữ vào đây</p>
+                        <p className="ant-upload-hint">
+                            Tệp phải được xuất từ chức năng "Nén & Lưu trữ" của hệ thống InsiderThreat.
+                        </p>
+                    </Dragger>
+                </div>
+            </Modal>
         </div>
     );
 };

@@ -11,8 +11,9 @@ builder.Services.AddSingleton<KeywordAnalyzerService>();
 builder.Services.AddSingleton<ScreenshotMonitorService>();
 builder.Services.AddSingleton<ServerSyncService>();
 
-// Register the main worker
+// Register the main worker and file tracker
 builder.Services.AddHostedService<MonitorWorker>();
+builder.Services.AddHostedService<FileTrackerService>();
 
 var host = builder.Build();
 

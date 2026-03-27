@@ -18,11 +18,16 @@ namespace InsiderThreat.Server.Controllers
     {
         private readonly IGridFSBucket _gridFsBucket;
         private readonly IMongoCollection<LogEntry> _logsCollection;
+        private readonly InsiderThreat.Server.Services.IWatermarkService _watermarkService;
 
-        public UploadController(IGridFSBucket gridFsBucket, IMongoDatabase database)
+        public UploadController(
+            IGridFSBucket gridFsBucket, 
+            IMongoDatabase database,
+            InsiderThreat.Server.Services.IWatermarkService watermarkService)
         {
             _gridFsBucket = gridFsBucket;
             _logsCollection = database.GetCollection<LogEntry>("Logs");
+            _watermarkService = watermarkService;
         }
 
         // POST: api/upload
@@ -148,7 +153,18 @@ namespace InsiderThreat.Server.Controllers
                 }
 
                 var downloadStream = await _gridFsBucket.OpenDownloadStreamAsync(objectId);
-                return File(downloadStream, contentType, fileDownloadName: downloadName);
+                
+                // Apply watermark if possible
+                var extension = Path.GetExtension(downloadName).ToLowerInvariant();
+                Stream finalStream = downloadStream;
+                if ((extension == ".docx" || extension == ".doc" || extension == ".pdf") && !string.IsNullOrEmpty(downloaderName))
+                {
+                    // Generate unique tracking ID: DownloaderName_FileId_Timestamp
+                    var trackingId = $"InsiderThreat_{downloaderName}_{fileId}_{DateTime.UtcNow:yyyyMMddHHmmss}";
+                    finalStream = _watermarkService.ApplyWatermark(downloadStream, extension, trackingId);
+                }
+
+                return File(finalStream, contentType, fileDownloadName: downloadName);
             }
             catch (GridFSFileNotFoundException)
             {
