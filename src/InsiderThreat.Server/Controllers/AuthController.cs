@@ -114,6 +114,23 @@ public class AuthController : ControllerBase
                 });
             }
 
+            // 2.2. Kiểm tra xem có bắt buộc đổi mật khẩu không
+            if (user.RequiresPasswordChange)
+            {
+                return Ok(new LoginResponse
+                {
+                    Success = false,
+                    Message = "CHANGE_PASSWORD_REQUIRED",
+                    User = new UserInfo
+                    {
+                        Id = user.Id ?? "",
+                        Username = user.Username,
+                        FullName = user.FullName,
+                        Role = user.Role
+                    }
+                });
+            }
+
             // 2.5. Safety-net: Nếu username là "admin" thì luôn đảm bảo role = "Admin"
             if (user.Username.ToLower() == "admin" && user.Role != "Admin")
             {
@@ -346,6 +363,49 @@ public class AuthController : ControllerBase
         await usersCollection.UpdateOneAsync(u => u.Id == userId, update);
 
         return Ok(new { Success = true, Message = "Đổi mật khẩu thành công" });
+    }
+
+    public class ChangeFirstPasswordRequest
+    {
+        public string Username { get; set; } = string.Empty;
+        public string OldPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
+    [HttpPost("change-first-password")]
+    public async Task<IActionResult> ChangeFirstPassword([FromBody] ChangeFirstPasswordRequest request)
+    {
+        var usersCollection = _database.GetCollection<User>("Users");
+        var user = await usersCollection.Find(u => u.Username == request.Username).FirstOrDefaultAsync();
+
+        if (user == null) return NotFound(new { message = "Người dùng không tồn tại" });
+
+        // Kiểm tra mật khẩu cũ
+        if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
+        {
+            return BadRequest(new { message = "Mật khẩu cũ không chính xác" });
+        }
+
+        // 🛡️ KIỂM TRA ĐỘ MẠNH MẬT KHẨU (REGEX)
+        // Yêu cầu: Chữ cái đầu viết hoa, ít nhất 1 số, 1 ký tự đặc biệt, dài ít nhất 8 ký tự
+        var passwordRegex = new System.Text.RegularExpressions.Regex(@"^[A-Z](?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{7,}$");
+        
+        if (!passwordRegex.IsMatch(request.NewPassword))
+        {
+            return BadRequest(new { 
+                message = "Mật khẩu không đạt chuẩn bảo mật: Chữ cái đầu phải viết hoa, bao gồm ít nhất một chữ số, một ký tự đặc biệt và dài tối thiểu 8 ký tự." 
+            });
+        }
+
+        // Cập nhật mật khẩu mới và tắt cờ RequiresPasswordChange
+        var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        var update = Builders<User>.Update
+            .Set(u => u.PasswordHash, newHash)
+            .Set(u => u.RequiresPasswordChange, false);
+
+        await usersCollection.UpdateOneAsync(u => u.Id == user.Id, update);
+
+        return Ok(new { success = true, message = "Đổi mật khẩu thành công! Bây giờ bạn có thể đăng nhập." });
     }
 
     // =============================================

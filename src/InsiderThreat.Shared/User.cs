@@ -38,6 +38,9 @@ namespace InsiderThreat.Shared
         // Ràng buộc đăng nhập với thiết bị phần cứng cụ thể
         public string? RegisteredMachineId { get; set; }
 
+        // Bắt buộc đổi mật khẩu trong lần đăng nhập đầu tiên
+        public bool RequiresPasswordChange { get; set; } = true;
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }
