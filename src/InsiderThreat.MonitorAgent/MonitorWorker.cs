@@ -53,6 +53,7 @@ public class MonitorWorker : BackgroundService
     private readonly ClipboardMonitor _clipboardMonitor;
     private readonly LocalDatabaseService _localDb;
     private readonly ServerSyncService _serverSync;
+    private readonly ProcessMonitorService _processMonitor;
     private readonly IConfiguration _config;
 
     // Machine identification
@@ -68,6 +69,7 @@ public class MonitorWorker : BackgroundService
         ClipboardMonitor clipboardMonitor,
         LocalDatabaseService localDb,
         ServerSyncService serverSync,
+        ProcessMonitorService processMonitor,
         IConfiguration config)
     {
         _logger = logger;
@@ -77,6 +79,7 @@ public class MonitorWorker : BackgroundService
         _clipboardMonitor = clipboardMonitor;
         _localDb = localDb;
         _serverSync = serverSync;
+        _processMonitor = processMonitor;
         _config = config;
 
         // Gather machine info once at startup
@@ -124,6 +127,8 @@ public class MonitorWorker : BackgroundService
         
         var lastSyncTime = DateTime.UtcNow;
         var lastPurgeTime = DateTime.UtcNow;
+        var lastProcessScanTime = DateTime.UtcNow;
+        var processCheckInterval = int.Parse(_config["AgentConfig:ProcessCheckIntervalSeconds"] ?? "60");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -151,6 +156,16 @@ public class MonitorWorker : BackgroundService
                 {
                     lastPurgeTime = DateTime.UtcNow;
                     _serverSync.PurgeOldLogs();
+                }
+
+                // 4. Check for suspicious processes (virtual cameras, deepfake tools)
+                if ((DateTime.UtcNow - lastProcessScanTime).TotalSeconds >= processCheckInterval)
+                {
+                    lastProcessScanTime = DateTime.UtcNow;
+                    if (_processMonitor.IsBrowserRunning())
+                    {
+                        _processMonitor.PerformFaceIDGuardScan(_computerUser, _computerName, _ipAddress);
+                    }
                 }
 
                 await Task.Delay(clipboardCheckInterval, stoppingToken);

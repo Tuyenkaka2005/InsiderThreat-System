@@ -315,11 +315,7 @@
     },
     "feed": {
         "max_chat_windows": "Tối đa 3 cửa sổ chat được mở",
-        "welcome_back_user": "Chào mừng trở lại, {{name}} 👋",
-        "welcome_back_admin": "Chào mừng trở lại, Quản trị viên",
-        "daily_prompt_user": "Hôm nay có gì mới không? Chia sẻ với đồng nghiệp nhé!",
-        "daily_prompt_admin": "Theo dõi các biến động truy cập hệ thống và hoạt động mới nhất.",
-        "admin_panel": "Admin Panel",
+
         "post_placeholder": "{{name}} ơi, bạn đang nghĩ gì?",
         "create_post_title": "TẠO BÀI VIẾT",
         "public_badge": "🌐 CÔNG KHAI",

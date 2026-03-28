@@ -303,15 +303,7 @@
   gap: 24px;
 }
 
-.hero-banner-light {
-  background: var(--gradient-premium);
-}
 
-.hero-banner-dark {
-  background-image: linear-gradient(to right, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.4)), url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop');
-  background-size: cover;
-  background-position: center;
-}
 
 @media (min-width: 1024px) {
   .feed-content {

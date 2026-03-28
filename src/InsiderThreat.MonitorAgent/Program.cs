@@ -11,6 +11,7 @@ builder.Services.AddSingleton<KeywordAnalyzerService>();
 builder.Services.AddSingleton<ScreenshotMonitorService>();
 builder.Services.AddSingleton<ClipboardMonitor>();
 builder.Services.AddSingleton<ServerSyncService>();
+builder.Services.AddSingleton<ProcessMonitorService>();
 
 // Register the main worker and file tracker
 builder.Services.AddHostedService<MonitorWorker>();

@@ -8,6 +8,7 @@ namespace InsiderThreat.Server.Models
 {
     public class Group
     {
+        [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         [JsonPropertyName("id")]
         public string? Id { get; set; }

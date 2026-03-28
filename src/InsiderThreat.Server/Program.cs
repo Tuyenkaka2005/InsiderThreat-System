@@ -194,18 +194,22 @@ app.UseAuthorization();
 // ==========================================
 app.MapGet("/test-db", (IMongoDatabase db) =>
 {
-    // Lấy thử danh sách Users (dùng BsonDocument để không cần tạo Class User ngay bây giờ)
+    // Lấy thử danh sách Users
     var users = db.GetCollection<BsonDocument>("Users").Find(_ => true).ToList();
+    var userList = users.ConvertAll(bson => BsonTypeMapper.MapToDotNetValue(bson));
 
-    // Chuyển kết quả sang dạng chuỗi JSON dễ đọc
-    var result = users.ConvertAll(bson => BsonTypeMapper.MapToDotNetValue(bson));
+    // Lấy thử danh sách Groups
+    var groups = db.GetCollection<BsonDocument>("Groups").Find(_ => true).ToList();
+    var groupList = groups.ConvertAll(bson => BsonTypeMapper.MapToDotNetValue(bson));
 
     return Results.Ok(new
     {
         Message = "✅ KẾT NỐI MONGODB THÀNH CÔNG!",
         ServerTime = DateTime.Now,
         UserCount = users.Count,
-        Data = result
+        GroupCount = groups.Count,
+        Users = userList,
+        Groups = groupList
     });
 })
 .WithName("TestDatabaseConnection")

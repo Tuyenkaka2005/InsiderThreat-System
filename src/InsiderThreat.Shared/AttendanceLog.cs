@@ -13,5 +13,10 @@ namespace InsiderThreat.Shared
         public string UserName { get; set; } = string.Empty;
         public DateTime CheckInTime { get; set; } = DateTime.Now;
         public string Method { get; set; } = "FaceID"; // "FaceID", "Password"
+
+        // Security audit fields
+        public double MatchConfidence { get; set; } // Euclidean distance (lower = better match)
+        public string IpAddress { get; set; } = string.Empty;
+        public bool LivenessVerified { get; set; } // true if passed liveness challenge
     }
 }

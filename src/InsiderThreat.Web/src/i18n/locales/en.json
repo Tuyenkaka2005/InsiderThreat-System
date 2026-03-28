@@ -315,11 +315,7 @@
     },
     "feed": {
         "max_chat_windows": "Maximum 3 chat windows allowed",
-        "welcome_back_user": "Welcome back, {{name}} 👋",
-        "welcome_back_admin": "Welcome back, Administrator",
-        "daily_prompt_user": "What's new today? Share with your colleagues!",
-        "daily_prompt_admin": "Monitor system access logs and latest activities.",
-        "admin_panel": "Admin Panel",
+
         "post_placeholder": "What's on your mind, {{name}}?",
         "create_post_title": "CREATE POST",
         "public_badge": "🌐 PUBLIC",

@@ -6,6 +6,7 @@ namespace InsiderThreat.Shared
 {
     public class User
     {
+        [BsonId]
         [BsonRepresentation(BsonType.ObjectId)] // Tự động chuyển ObjectId sang string
         [JsonPropertyName("id")]
         public string? Id { get; set; }
