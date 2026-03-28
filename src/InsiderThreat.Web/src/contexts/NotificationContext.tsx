@@ -49,6 +49,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const token = localStorage.getItem('token');
         if (!token) return;
 
+        // 🛡️ YÊU CẦU QUYỀN THÔNG BÁO TRÌNH DUYỆT
+        if ("Notification" in window && Notification.permission === "default") {
+            Notification.requestPermission();
+        }
+
         // Load lịch sử thông báo ban đầu
         refreshNotifications();
 
@@ -59,6 +64,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         handlerRef.current = (notification: Notification) => {
             setNotifications(prev => [notification, ...prev]);
             setToastQueue(prev => [...prev, notification]);
+
+            // 🚀 BẮN THÔNG BÁO HỆ THỐNG (Hiện lên điện thoại/máy tính)
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(notification.title || "Cảnh báo InsiderThreat", {
+                    body: notification.message,
+                    icon: "/favicon.ico"
+                });
+            }
         };
         signalRService.onNotification(handlerRef.current);
 
