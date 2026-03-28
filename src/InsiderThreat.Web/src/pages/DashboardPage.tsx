@@ -17,6 +17,7 @@ import { authService } from '../services/auth';
 import { attendanceService } from '../services/attendanceService';
 import { confirmLogout } from '../utils/logoutUtils';
 import UsbNotification from '../components/UsbNotification';
+import UsbAnalyticsChart from '../components/UsbAnalyticsChart';
 import BlockedDevicesTable from '../components/BlockedDevicesTable';
 import WhitelistTable from '../components/WhitelistTable';
 import RecentLogsTable from '../components/RecentLogsTable';
@@ -186,6 +187,10 @@ function DashboardPage() {
                                 <Avatar size={40} src="https://i.pravatar.cc/150?u=admin" />
                             </header>
                         )}
+
+                        {/* 📊 BIỂU ĐỒ PHÂN TÍCH USB */}
+                        <UsbAnalyticsChart />
+
                         <Tabs
                             items={tabItems}
                             defaultActiveKey="alerts"

@@ -10,22 +10,22 @@ namespace InsiderThreat.Server.Controllers
     [Route("api/[controller]")]
     public class DevicesController : ControllerBase
     {
-        private readonly IMongoCollection<DeviceModel> _devices;
+        private readonly IMongoCollection<Device> _devices;
 
         public DevicesController(IMongoDatabase database)
         {
-            _devices = database.GetCollection<DeviceModel>("Devices");
+            _devices = database.GetCollection<Device>("Devices");
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<DeviceModel>>> GetDevices()
+        public async Task<ActionResult<IEnumerable<Device>>> GetDevices()
         {
             var devices = await _devices.Find(_ => true).ToListAsync();
             return Ok(devices);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<DeviceModel>> GetDevice(string id)
+        public async Task<ActionResult<Device>> GetDevice(string id)
         {
             var device = await _devices.Find(d => d.Id == id).FirstOrDefaultAsync();
             if (device == null) return NotFound();
@@ -33,24 +33,19 @@ namespace InsiderThreat.Server.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<DeviceModel>> RegisterDevice([FromBody] DeviceModel device)
+        public async Task<ActionResult<Device>> RegisterDevice([FromBody] Device device)
         {
-            device.CreatedAt = DateTime.UtcNow;
-            device.LastSeen = DateTime.UtcNow;
+            device.CreatedAt = DateTime.Now;
             await _devices.InsertOneAsync(device);
             return CreatedAtAction(nameof(GetDevice), new { id = device.Id }, device);
         }
 
-        [HttpPatch("{id}/heartbeat")]
-        public async Task<IActionResult> UpdateHeartbeat(string id)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteDevice(string id)
         {
-            var update = Builders<DeviceModel>.Update
-                .Set(d => d.LastSeen, DateTime.UtcNow)
-                .Set(d => d.IsActive, true);
-            
-            var result = await _devices.UpdateOneAsync(d => d.Id == id, update);
-            if (result.MatchedCount == 0) return NotFound();
-            return NoContent();
+            var result = await _devices.DeleteOneAsync(d => d.Id == id);
+            if (result.DeletedCount == 0) return NotFound();
+            return Ok(new { message = "Device removed from whitelist" });
         }
     }
 }

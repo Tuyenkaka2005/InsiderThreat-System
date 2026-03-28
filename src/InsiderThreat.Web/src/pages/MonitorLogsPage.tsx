@@ -79,6 +79,7 @@ const MonitorLogsPage: React.FC = () => {
     const [isArchiveMode, setIsArchiveMode] = useState(false);
     const [uploadModalVisible, setUploadModalVisible] = useState(false);
     const [archiveFileName, setArchiveFileName] = useState('');
+    const [selectedArchiveMachine, setSelectedArchiveMachine] = useState<MachineInfo | null>(null);
 
     // Load all logs to build machine list
     const loadOverview = async () => {
@@ -163,6 +164,28 @@ const MonitorLogsPage: React.FC = () => {
         return { trend, types, topMachines };
     }, [allLogs]);
 
+    // 📊 PHÂN TÍCH DỮ LIỆU BIỂU ĐỒ CHI TIẾT (Cho máy đang chọn)
+    const detailChartData = useMemo(() => {
+        if (!detailLogs || detailLogs.length === 0) return { trend: [], types: [] };
+
+        const hourlyMap = new Map();
+        const typeMap = new Map();
+
+        detailLogs.forEach(log => {
+            const hour = dayjs(log.timestamp).format('HH:00');
+            hourlyMap.set(hour, (hourlyMap.get(hour) || 0) + 1);
+            typeMap.set(log.logType, (typeMap.get(log.logType) || 0) + 1);
+        });
+
+        const trend = Array.from(hourlyMap.entries())
+            .map(([time, count]) => ({ time, count }))
+            .sort((a, b) => a.time.localeCompare(b.time));
+
+        const types = Array.from(typeMap.entries()).map(([name, value]) => ({ name, value }));
+
+        return { trend, types };
+    }, [detailLogs]);
+
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#f5222d'];
 
     // Build machine list from all logs
@@ -239,21 +262,65 @@ const MonitorLogsPage: React.FC = () => {
 
     const handleBack = () => {
         setSelectedMachine(null);
+        setSelectedArchiveMachine(null);
         setDetailLogs([]);
         setDetailTotal(0);
     };
 
+    // 📂 PHÂN TÍCH MÁY TÍNH TRONG FILE ZIP (Offline Analysis)
+    const archiveMachines = useMemo(() => {
+        if (!isArchiveMode || archiveLogs.length === 0) return [];
+        const map = new Map<string, MachineInfo>();
+        
+        archiveLogs.forEach(log => {
+            const key = `${log.computerName}||${log.computerUser}`;
+            if (!map.has(key)) {
+                map.set(key, {
+                    computerName: log.computerName,
+                    computerUser: log.computerUser || 'Unknown',
+                    ipAddress: log.ipAddress || 'Offline',
+                    totalAlerts: 0,
+                    criticalAlerts: 0,
+                    keywordAlerts: 0,
+                    screenshotAlerts: 0,
+                    documentLeakAlerts: 0,
+                    lastActivity: log.timestamp,
+                });
+            }
+            const m = map.get(key)!;
+            m.totalAlerts++;
+            if (log.severityScore >= 7) m.criticalAlerts++;
+            if (log.logType === 'KeywordDetected') m.keywordAlerts++;
+            if (log.logType === 'Screenshot') m.screenshotAlerts++;
+            if (new Date(log.timestamp) > new Date(m.lastActivity)) m.lastActivity = log.timestamp;
+        });
+        
+        return Array.from(map.values()).sort((a, b) => b.totalAlerts - a.totalAlerts);
+    }, [archiveLogs, isArchiveMode]);
+
+    // Lọc log của máy đang chọn trong Archive
+    const filteredArchiveLogs = useMemo(() => {
+        if (!selectedArchiveMachine) return [];
+        return archiveLogs.filter(l => 
+            l.computerName === selectedArchiveMachine.computerName && 
+            l.computerUser === selectedArchiveMachine.computerUser
+        );
+    }, [archiveLogs, selectedArchiveMachine]);
+
     const handleArchiveLogs = () => {
         let clearAfterExport = false;
+        const targetDesc = selectedMachine 
+            ? `máy [${selectedMachine.computerName}] - người dùng [${selectedMachine.computerUser}]`
+            : "toàn bộ máy tính";
 
         Modal.confirm({
-            title: 'Nén & Lưu trữ Toàn bộ Nhật ký',
+            title: `Nén & Lưu trữ Nhật ký - ${selectedMachine ? "Máy cục bộ" : "Toàn bộ"}`,
             icon: <FileZipOutlined style={{ color: '#722ed1' }} />,
             content: (
                 <div>
-                    <p>Hệ thống sẽ gom toàn bộ logs thành một file nén (.zip) để bạn tải về lưu trữ máy cá nhân.</p>
+                    <p>Hệ thống sẽ gom logs của <strong>{targetDesc}</strong> thành một file nén (.zip) để bạn tải về.</p>
                     <Checkbox onChange={(e) => clearAfterExport = e.target.checked}>
-                        <Text type="danger">Xóa log trên Server sau khi nén thành công (Tối ưu bộ nhớ)</Text>
+                        <Text type="danger">Xóa log tương ứng trên Server sau khi nén thành công</Text>
                     </Checkbox>
                 </div>
             ),
@@ -263,15 +330,22 @@ const MonitorLogsPage: React.FC = () => {
                 onOk: async () => {
                 const hide = message.loading('Đang xử lý nén dữ liệu...', 0);
                 try {
-                    const blobData = await monitorService.archiveLogs(clearAfterExport);
+                    const blobData = await monitorService.archiveLogs({
+                        computerName: selectedMachine?.computerName,
+                        computerUser: selectedMachine?.computerUser,
+                        clearLogs: clearAfterExport
+                    });
                     
-                    // Create blob link and trigger download
-                    // blobData is already a Blob because of responseType: 'blob' and res.data in api.ts
                     const url = window.URL.createObjectURL(blobData);
                     const link = document.createElement('a');
                     link.href = url;
                     
-                    const fileName = `InsiderThreat_Backup_${dayjs().format('YYYYMMDD_HHmm')}.zip`;
+                    // Tên file tải về
+                    const timeStr = dayjs().format('YYYYMMDD_HHmm');
+                    const fileName = selectedMachine 
+                        ? `Log_${selectedMachine.computerName}_${selectedMachine.computerUser}_${timeStr}.zip`
+                        : `InsiderThreat_FullBackup_${timeStr}.zip`;
+
                     link.setAttribute('download', fileName);
                     document.body.appendChild(link);
                     link.click();
@@ -281,6 +355,7 @@ const MonitorLogsPage: React.FC = () => {
                     message.success(`Đã đóng gói thành công: ${fileName}`);
                     if (clearAfterExport) {
                         loadOverview();
+                        if (selectedMachine) handleBack();
                     }
                 } catch (error: any) {
                     console.error('Archive failed:', error);
@@ -354,27 +429,38 @@ const MonitorLogsPage: React.FC = () => {
             console.log(`📄 [DEBUG] Found entry: ${jsonFile.name}`);
 
             const jsonStr = await jsonFile.async('string');
-            let logsData: MonitorLog[] = [];
+            let rawData: any[] = [];
             
             try {
-                logsData = JSON.parse(jsonStr);
-                if (!Array.isArray(logsData)) {
-                    // Try to see if it's wrapped in an object like { data: [...] }
-                    if ((logsData as any).data && Array.isArray((logsData as any).data)) {
-                        logsData = (logsData as any).data;
-                    } else {
-                        throw new Error('Định dạng JSON không hợp lệ (Không phải là một danh sách logs).');
-                    }
-                }
+                const parsed = JSON.parse(jsonStr);
+                rawData = Array.isArray(parsed) ? parsed : (parsed.data || []);
             } catch (e: any) {
                 throw new Error(`Lỗi khi giải mã JSON bên trong file nén: ${e.message}`);
             }
+
+            // 🛡️ CHUẨN HÓA DỮ LIỆU (Normalize PascalCase to camelCase)
+            const normalizedLogs: MonitorLog[] = rawData.map((item: any) => ({
+                id: item.id || item.Id,
+                logType: item.logType || item.LogType || 'Unknown',
+                severity: item.severity || item.Severity || 'Info',
+                severityScore: item.severityScore !== undefined ? item.severityScore : (item.SeverityScore || 0),
+                message: item.message || item.Message || '',
+                computerName: item.computerName || item.ComputerName || 'Unknown',
+                ipAddress: item.ipAddress || item.IpAddress || '',
+                actionTaken: item.actionTaken || item.ActionTaken || '',
+                detectedKeyword: item.detectedKeyword || item.DetectedKeyword,
+                messageContext: item.messageContext || item.MessageContext,
+                applicationName: item.applicationName || item.ApplicationName,
+                windowTitle: item.windowTitle || item.WindowTitle,
+                computerUser: item.computerUser || item.ComputerUser,
+                timestamp: item.timestamp || item.Timestamp || new Date().toISOString()
+            }));
             
-            setArchiveLogs(logsData);
+            setArchiveLogs(normalizedLogs);
             setIsArchiveMode(true);
             setArchiveFileName(actualFile.name);
             setUploadModalVisible(false);
-            message.success(`Đã mở thành công bản lưu trữ: ${actualFile.name} (${logsData.length} bản ghi)`);
+            message.success(`Đã mở thành công bản lưu trữ: ${actualFile.name} (${normalizedLogs.length} bản ghi)`);
         } catch (error: any) {
             console.error('❌ [DEBUG] Archive Parse Error:', error);
             message.error({
@@ -675,16 +761,60 @@ const MonitorLogsPage: React.FC = () => {
             </Row>
             )}
 
-            {/* ═══════ ARCHIVE VIEW TABLE ═══════ */}            {isArchiveMode && (
-                <Card title="Dữ liệu Nhật ký từ tệp lưu trữ">
-                    <Table
-                        columns={columns}
-                        dataSource={archiveLogs}
-                        rowKey={(record) => `${record.timestamp}-${record.computerName}-${record.logType}-${Math.random()}`}
-                        pagination={{ pageSize: 20 }}
-                        size="small"
-                    />
-                </Card>
+            {/* ═══════ ARCHIVE VIEW (CHẾ ĐỘ XEM NGOẠI TUYẾN) ═══════ */}
+            {isArchiveMode && (
+                <>
+                    {/* Quay lại danh sách máy trong Archive */}
+                    {selectedArchiveMachine && (
+                        <div style={{ marginBottom: 16 }}>
+                            <Button size="small" icon={<ArrowLeftOutlined />} onClick={() => setSelectedArchiveMachine(null)}>
+                                Quay lại danh sách máy trong file nén
+                            </Button>
+                        </div>
+                    )}
+
+                    {!selectedArchiveMachine ? (
+                        <Card title={`Danh sách máy tính tìm thấy trong tệp [${archiveFileName}]`}>
+                            <Row gutter={[16, 16]}>
+                                {archiveMachines.map(m => (
+                                    <Col xs={24} sm={12} lg={8} key={m.computerName + m.computerUser}>
+                                        <Card 
+                                            hoverable 
+                                            size="small" 
+                                            onClick={() => setSelectedArchiveMachine(m)}
+                                            style={{ borderLeft: '4px solid #faad14', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Space>
+                                                    <Avatar icon={<DesktopOutlined />} style={{ backgroundColor: '#faad14' }} />
+                                                    <div>
+                                                        <Text strong>{m.computerName}</Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: 12 }}>{m.computerUser}</Text>
+                                                    </div>
+                                                </Space>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <Badge count={m.totalAlerts} overflowCount={999} color="#faad14" />
+                                                    <div style={{ fontSize: 10, color: '#8c8c8c' }}>logs</div>
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    </Col>
+                                ))}
+                            </Row>
+                        </Card>
+                    ) : (
+                        <Card title={<Space><DesktopOutlined /> Nhật ký chi tiết: {selectedArchiveMachine.computerName} ({selectedArchiveMachine.computerUser})</Space>} bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                            <Table
+                                columns={columns}
+                                dataSource={filteredArchiveLogs}
+                                rowKey={(record) => `${record.timestamp}-${Math.random()}`}
+                                pagination={{ pageSize: 20 }}
+                                size="small"
+                            />
+                        </Card>
+                    )}
+                </>
             )}
 
             {/* ═══════ LEVEL 1: Machine List ═══════ */}
@@ -829,6 +959,50 @@ const MonitorLogsPage: React.FC = () => {
                             {selectedMachine.documentLeakAlerts > 0 && <Tag color="#f5222d">{selectedMachine.documentLeakAlerts} rò rỉ tài liệu</Tag>}
                         </Space>
                     </Card>
+
+                    {/* 📈 MACHINE-SPECIFIC ANALYTICS */}
+                    {detailLogs.length > 0 && (
+                        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                            <Col xs={24} lg={16}>
+                                <Card title={<Space><LineChartOutlined /> Xu hướng hoạt động của máy</Space>} size="small" bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                                    <div style={{ width: '100%', height: 200 }}>
+                                        <ResponsiveContainer>
+                                            <AreaChart data={detailChartData.trend}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                                <XAxis dataKey="time" axisLine={false} tickLine={false} style={{ fontSize: '10px' }} />
+                                                <YAxis axisLine={false} tickLine={false} style={{ fontSize: '10px' }} />
+                                                <Tooltip />
+                                                <Area type="monotone" dataKey="count" stroke="#1890ff" fill="#e6f7ff" name="Số sự kiện" />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </Card>
+                            </Col>
+                            <Col xs={24} lg={8}>
+                                <Card title={<Space><PieChartOutlined /> Phân bổ vi phạm</Space>} size="small" bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                                    <div style={{ width: '100%', height: 200 }}>
+                                        <ResponsiveContainer>
+                                            <PieChart>
+                                                <Pie
+                                                    data={detailChartData.types}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={40}
+                                                    outerRadius={60}
+                                                    dataKey="value"
+                                                >
+                                                    {detailChartData.types.map((entry, index) => (
+                                                        <Cell key={`cell-detail-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </Card>
+                            </Col>
+                        </Row>
+                    )}
 
                     {/* Filters */}
                     <Card style={{ marginBottom: '16px' }} size="small">

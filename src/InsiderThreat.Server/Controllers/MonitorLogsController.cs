@@ -89,32 +89,56 @@ namespace InsiderThreat.Server.Controllers
         }
 
         [HttpGet("export-archive")]
-        public async Task<IActionResult> ExportArchive([FromQuery] bool clearLogs = false)
+        public async Task<IActionResult> ExportArchive(
+            [FromQuery] string? computerName, 
+            [FromQuery] string? computerUser,
+            [FromQuery] bool clearLogs = false)
         {
             try
             {
-                var allLogs = await _logs.Find(_ => true).SortByDescending(l => l.Timestamp).ToListAsync();
-                var json = JsonSerializer.Serialize(allLogs, new JsonSerializerOptions { WriteIndented = true });
+                var filterBuilder = Builders<MonitorLog>.Filter;
+                var filter = filterBuilder.Empty;
+
+                if (!string.IsNullOrEmpty(computerName))
+                    filter &= filterBuilder.Eq(l => l.ComputerName, computerName);
+                
+                if (!string.IsNullOrEmpty(computerUser) && computerUser != "Unknown")
+                    filter &= filterBuilder.Eq(l => l.ComputerUser, computerUser);
+
+                var logsToExport = await _logs.Find(filter).SortByDescending(l => l.Timestamp).ToListAsync();
+                var json = JsonSerializer.Serialize(logsToExport, new JsonSerializerOptions { WriteIndented = true });
 
                 using var ms = new MemoryStream();
                 using (var archive = new ZipArchive(ms, ZipArchiveMode.Create, true))
                 {
-                    var entry = archive.CreateEntry($"monitor_logs_backup_{DateTime.Now:yyyyMMdd_HHmm}.json");
+                    string innerFileName = "all_machines_logs.json";
+                    if (!string.IsNullOrEmpty(computerName))
+                    {
+                        innerFileName = $"logs_{computerName}_{computerUser ?? "unknown"}_{DateTime.Now:yyyyMMdd}.json";
+                    }
+
+                    var entry = archive.CreateEntry(innerFileName);
                     using var entryStream = entry.Open();
                     using var writer = new StreamWriter(entryStream);
                     await writer.WriteAsync(json);
                 }
 
                 ms.Position = 0;
-                var fileName = $"InsiderThreat_Logs_{DateTime.Now:yyyyMMdd_HHmm}.zip";
-
-                if (clearLogs && allLogs.Count > 0)
+                
+                // Đặt tên file ZIP rõ ràng
+                string zipName = "InsiderThreat_All_Logs.zip";
+                if (!string.IsNullOrEmpty(computerName))
                 {
-                    await _logs.DeleteManyAsync(_ => true);
-                    _logger.LogInformation($"Cleared {allLogs.Count} logs after successful export.");
+                    zipName = $"Log_{computerName}_{computerUser ?? "user"}_{DateTime.Now:yyyyMMdd_HHmm}.zip";
                 }
 
-                return File(ms.ToArray(), "application/zip", fileName);
+                if (clearLogs && logsToExport.Count > 0)
+                {
+                    await _logs.DeleteManyAsync(filter);
+                    _logger.LogInformation($"Cleared {logsToExport.Count} logs for {computerName} after successful export.");
+                }
+
+                return File(ms.ToArray(), "application/zip", zipName);
             }
             catch (Exception ex)
             {

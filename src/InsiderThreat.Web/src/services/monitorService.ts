@@ -49,9 +49,9 @@ export const monitorService = {
         return await api.get<MonitorSummary>('/api/threat-monitor/summary');
     },
 
-    archiveLogs: async (clearLogs: boolean = false) => {
+    archiveLogs: async (params: { computerName?: string, computerUser?: string, clearLogs?: boolean } = {}) => {
         return await api.get<any>('/api/threat-monitor/export-archive', { 
-            params: { clearLogs },
+            params,
             responseType: 'blob' 
         });
     }

@@ -15,56 +15,56 @@ namespace InsiderThreat.Server.Models
         [JsonPropertyName("id")]
         public string? Id { get; set; }
 
-        /// <summary>Type: "Screenshot", "KeywordDetected", "NetworkDisconnect"</summary>
         [BsonElement("logType")]
+        [JsonPropertyName("logType")]
         public string LogType { get; set; } = string.Empty;
 
-        /// <summary>Severity string: "Critical", "High", "Medium", "Low", "Info"</summary>
         [BsonElement("severity")]
+        [JsonPropertyName("severity")]
         public string Severity { get; set; } = "Info";
 
-        /// <summary>Numeric severity score 1-10</summary>
         [BsonElement("severityScore")]
+        [JsonPropertyName("severityScore")]
         public int SeverityScore { get; set; }
 
-        /// <summary>Full log message description</summary>
         [BsonElement("message")]
+        [JsonPropertyName("message")]
         public string Message { get; set; } = string.Empty;
 
-        /// <summary>Machine hostname</summary>
         [BsonElement("computerName")]
+        [JsonPropertyName("computerName")]
         public string ComputerName { get; set; } = string.Empty;
 
-        /// <summary>Machine IP address</summary>
         [BsonElement("ipAddress")]
+        [JsonPropertyName("ipAddress")]
         public string IpAddress { get; set; } = string.Empty;
 
-        /// <summary>Action taken or risk assessment</summary>
         [BsonElement("actionTaken")]
+        [JsonPropertyName("actionTaken")]
         public string ActionTaken { get; set; } = string.Empty;
 
-        /// <summary>The detected sensitive keyword</summary>
         [BsonElement("detectedKeyword")]
+        [JsonPropertyName("detectedKeyword")]
         public string? DetectedKeyword { get; set; }
 
-        /// <summary>The message context containing the keyword</summary>
         [BsonElement("messageContext")]
+        [JsonPropertyName("messageContext")]
         public string? MessageContext { get; set; }
 
-        /// <summary>Application where the event occurred</summary>
         [BsonElement("applicationName")]
+        [JsonPropertyName("applicationName")]
         public string? ApplicationName { get; set; }
 
-        /// <summary>Window title at the time of detection</summary>
         [BsonElement("windowTitle")]
+        [JsonPropertyName("windowTitle")]
         public string? WindowTitle { get; set; }
 
-        /// <summary>Windows username on the monitored machine</summary>
         [BsonElement("computerUser")]
+        [JsonPropertyName("computerUser")]
         public string? ComputerUser { get; set; }
 
-        /// <summary>Timestamp of the event</summary>
         [BsonElement("timestamp")]
+        [JsonPropertyName("timestamp")]
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
 }
