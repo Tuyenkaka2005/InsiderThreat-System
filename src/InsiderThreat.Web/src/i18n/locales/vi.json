@@ -616,7 +616,10 @@
             "status_in_progress": "Đang làm",
             "status_review": "Xem xét",
             "status_waiting": "Chờ duyệt",
-            "status_done": "Hoàn thành"
+            "status_done": "Hoàn thành",
+            "action_reply": "Trả lời",
+            "action_like": "Thích",
+            "action_delete": "Xóa"
         },
         "timeline": {
             "title": "Lộ trình & Lập kế hoạch dự án",

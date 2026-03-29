@@ -60,6 +60,7 @@
     border-radius: 16px;
     padding: 20px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    position: relative; /* For centered text in donut */
 }
 
 .panel-header {
@@ -165,3 +166,29 @@
 :global(.dark) .status-pill.in-review { background: rgba(180, 83, 9, 0.2); }
 :global(.dark) .status-pill.waiting-approval { background: rgba(194, 65, 12, 0.2); }
 :global(.dark) .status-pill.done { background: rgba(4, 120, 87, 0.2); }
+
+/* Charts Row */
+.charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.donut-center-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -10%); /* Adjust for panel padding/header */
+    text-align: center;
+    pointer-events: none;
+}
+
+.chart-container {
+    position: relative;
+}
+
+@media (max-width: 768px) {
+    .charts-row {
+        grid-template-columns: 1fr;
+    }
+}

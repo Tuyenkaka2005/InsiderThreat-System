@@ -616,7 +616,10 @@
             "status_in_progress": "On Progress",
             "status_review": "In Review",
             "status_waiting": "Waiting Approval",
-            "status_done": "Done"
+            "status_done": "Done",
+            "action_reply": "Reply",
+            "action_like": "Like",
+            "action_delete": "Delete"
         },
         "timeline": {
             "title": "Project Roadmap & Planning",

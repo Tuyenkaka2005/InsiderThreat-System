@@ -6,6 +6,18 @@ using System.Collections.Generic;
 
 namespace InsiderThreat.Server.Models
 {
+    public class ProjectMilestone
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+        
+        [JsonPropertyName("date")]
+        public DateTime Date { get; set; }
+        
+        [JsonPropertyName("isDone")]
+        public bool IsDone { get; set; } = false;
+    }
+
     public class Group
     {
         [BsonId]
@@ -48,6 +60,9 @@ namespace InsiderThreat.Server.Models
 
         [BsonElement("sharedDocumentIds")]
         public List<string> SharedDocumentIds { get; set; } = new List<string>();
+
+        [BsonElement("milestones")]
+        public List<ProjectMilestone> Milestones { get; set; } = new List<ProjectMilestone>();
 
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

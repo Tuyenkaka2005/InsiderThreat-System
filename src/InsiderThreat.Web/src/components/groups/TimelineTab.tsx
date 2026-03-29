@@ -4,10 +4,12 @@ import { useParams } from 'react-router-dom';
 import { Spin, message, Tooltip, Empty, Tag, Button, Modal, Form, DatePicker, Input, Space } from 'antd';
 import { 
     CalendarOutlined, FilterOutlined, SendOutlined, 
-    MoreOutlined, CheckCircleOutlined, RightOutlined, DownOutlined 
+    MoreOutlined, CheckCircleOutlined, RightOutlined, DownOutlined,
+    FlagOutlined, PlusCircleOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { api } from '../../services/api';
+import { signalRService } from '../../services/signalRService';
 import './TimelineTab.css';
 
 interface Task {
@@ -21,11 +23,18 @@ interface Task {
     progress: number;
 }
 
+interface Milestone {
+    name: string;
+    date: string;
+    isDone: boolean;
+}
+
 interface GroupInfo {
     id: string;
     name: string;
     projectStartDate?: string;
     projectEndDate?: string;
+    milestones: Milestone[];
 }
 
 export default function TimelineTab() {
@@ -36,8 +45,10 @@ export default function TimelineTab() {
     const [loading, setLoading] = useState(true);
     const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>({});
     const [isScheduleModalVisible, setIsScheduleModalVisible] = useState(false);
+    const [isMilestoneModalVisible, setIsMilestoneModalVisible] = useState(false);
     const [filterText, setFilterText] = useState('');
     const [scheduleForm] = Form.useForm();
+    const [milestoneForm] = Form.useForm();
 
     const fetchData = async () => {
         setLoading(true);
@@ -65,6 +76,25 @@ export default function TimelineTab() {
         if (groupId) fetchData();
     }, [groupId]);
 
+    // === Real-time sync: join project group & listen for changes ===
+    useEffect(() => {
+        if (!groupId) return;
+        const hub = signalRService.getConnection();
+        if (!hub) return;
+
+        hub.invoke('JoinProjectGroup', groupId).catch(console.error);
+
+        const handleChange = (payload: any) => {
+            if (payload?.groupId === groupId) fetchData();
+        };
+        hub.on('ProjectDataChanged', handleChange);
+
+        return () => {
+            hub.invoke('LeaveProjectGroup', groupId).catch(console.error);
+            hub.off('ProjectDataChanged', handleChange);
+        };
+    }, [groupId]);
+
     const togglePhase = (phase: string) => {
         setExpandedPhases(prev => ({ ...prev, [phase]: !prev[phase] }));
     };
@@ -83,6 +113,29 @@ export default function TimelineTab() {
         }
     };
 
+    const handleAddMilestone = async (values: any) => {
+        try {
+            const currentMilestones = group?.milestones || [];
+            const newMilestone: Milestone = {
+                name: values.name,
+                date: values.date.toISOString(),
+                isDone: false
+            };
+            
+            await api.patch(`/api/groups/${groupId}`, {
+                ...group,
+                milestones: [...currentMilestones, newMilestone]
+            });
+            
+            message.success(t('project_detail.timeline.milestone_success', { defaultValue: 'Đã thêm cột mốc dự án' }));
+            setIsMilestoneModalVisible(false);
+            milestoneForm.resetFields();
+            fetchData();
+        } catch (err) {
+            message.error(t('project_detail.timeline.milestone_fail', { defaultValue: 'Lỗi khi thêm cột mốc' }));
+        }
+    };
+
     const handleExport = () => {
         message.loading(t('project_detail.timeline.exporting', { defaultValue: 'Đang chuẩn bị dữ liệu xuất bản...' }), 1.5).then(() => {
             message.success(t('project_detail.timeline.export_success', { defaultValue: 'Đã xuất bản lộ trình dự án (PDF/CSV)' }));
@@ -91,10 +144,10 @@ export default function TimelineTab() {
 
     // Calculate project duration for scaling
     const timelineScale = useMemo(() => {
-        // Find min/max across all tasks if project dates are missing
         let start = group?.projectStartDate ? dayjs(group.projectStartDate) : null;
         let end = group?.projectEndDate ? dayjs(group.projectEndDate) : null;
 
+        // If project dates are not defined, or we need to find the range from tasks
         if (!start || !end) {
             tasks.forEach(t => {
                 const dates = [t.startDate, t.deadline, t.createdAt].filter(Boolean).map(d => dayjs(d));
@@ -103,25 +156,31 @@ export default function TimelineTab() {
                     if (!end || d.isAfter(end)) end = d;
                 });
             });
-
-            // Default fallback if no tasks
-            if (!start) start = dayjs().startOf('month');
-            if (!end) end = start.add(1, 'month');
-
-            // Add padding (1 week)
-            start = start.subtract(1, 'week');
-            end = end.add(1, 'week');
+            
+            if (!start) start = dayjs().startOf('week');
+            if (!end) end = start.add(2, 'week');
         }
 
-        return { start, end, totalDays: Math.max(1, end.diff(start, 'day')) };
+        start = start.startOf('day');
+        end = end.endOf('day');
+
+        // Total columns if daily: end - start + 1
+        return { start, end, totalDays: Math.max(1, end.diff(start, 'day') + 1) };
     }, [group, tasks]);
 
-    const weeksLabels = useMemo(() => {
+    const timeLabels = useMemo(() => {
         const labels = [];
         let current = timelineScale.start;
-        while (current.isBefore(timelineScale.end)) {
-            labels.push(current.format('MMM DD'));
-            current = current.add(1, 'week');
+        const totalDays = timelineScale.totalDays;
+        
+        // If the project is short (< 14 days), show every day. Otherwise, show every week.
+        const step = totalDays < 14 ? 1 : 7;
+        const format = totalDays < 14 ? 'DD MMM' : 'MMM DD';
+
+        // Limit range if needed to exactly match totalDays slots
+        while (labels.length < timelineScale.totalDays && current.isBefore(timelineScale.end.add(1, 'hour'))) {
+            labels.push(current.format(format));
+            current = current.add(step, 'day');
         }
         return labels;
     }, [timelineScale]);
@@ -145,8 +204,8 @@ export default function TimelineTab() {
         const taskEnd = dayjs(task.deadline || task.startDate || task.createdAt);
         
         const startOffset = taskStart.diff(timelineScale.start, 'day');
-        let duration = taskEnd.diff(taskStart, 'day');
-        if (duration <= 0) duration = 1; // Minimum 1 day width
+        let duration = taskEnd.diff(taskStart, 'day') + 1; // Inclusive duration
+        if (duration <= 0) duration = 1; 
         
         const leftPercent = (startOffset / timelineScale.totalDays) * 100;
         const widthPercent = (duration / timelineScale.totalDays) * 100;
@@ -190,6 +249,7 @@ export default function TimelineTab() {
                         value={filterText}
                         onChange={e => setFilterText(e.target.value)}
                     />
+                    <Button icon={<FlagOutlined />} onClick={() => setIsMilestoneModalVisible(true)}>{t('project_detail.timeline.btn_milestone', { defaultValue: 'Thêm cột mốc' })}</Button>
                     <Button icon={<SendOutlined />} onClick={handleExport}>{t('project_detail.timeline.btn_export', { defaultValue: 'Xuất bản' })}</Button>
                     <Button type="primary" icon={<CalendarOutlined />} onClick={() => setIsScheduleModalVisible(true)}>{t('project_detail.timeline.btn_schedule', { defaultValue: 'Lập lịch' })}</Button>
                 </div>
@@ -219,12 +279,27 @@ export default function TimelineTab() {
                     {/* Right Panel: Gantt View */}
                     <div className="tl-gantt-panel">
                         <div className="tl-time-header">
-                            {weeksLabels.map(label => (
+                            {timeLabels.map(label => (
                                 <div key={label} className="tl-time-col">{label}</div>
                             ))}
                         </div>
 
                         <div className="tl-gantt-content">
+                            {/* Milestone vertical lines Overlay */}
+                            {group?.milestones?.map((m, i) => {
+                                const mDate = dayjs(m.date);
+                                if (mDate.isBefore(timelineScale.start) || mDate.isAfter(timelineScale.end)) return null;
+                                const offset = mDate.diff(timelineScale.start, 'day');
+                                const left = (offset / timelineScale.totalDays) * 100;
+                                return (
+                                    <div key={i} className="tl-milestone-line" style={{ left: `${left}%` }}>
+                                        <div className="line-label">
+                                            <FlagOutlined /> <span>{m.name}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
                             {Object.entries(tasksByPhase).map(([phase, phaseTasks]) => (
                                 <div key={phase + '-gantt'} className="tl-phase-track">
                                     <div className="tl-phase-empty-row" />
@@ -255,20 +330,21 @@ export default function TimelineTab() {
             <div className="tl-milestones-footer">
                 <h3 className="footer-title">{t('project_detail.timeline.milestones_title', { defaultValue: 'Cột mốc quan trọng' })}</h3>
                 <div className="milestone-grid">
-                    {[
-                        { name: t('project_detail.timeline.milestone_kickoff', { defaultValue: 'Khởi động dự án' }), date: timelineScale.start.format('DD MMM'), done: true },
-                        { name: t('project_detail.timeline.milestone_design', { defaultValue: 'Thiết kế hệ thống' }), date: timelineScale.start.add(2, 'week').format('DD MMM'), done: tasks.some(t => t.status === 'Done') },
-                        { name: t('project_detail.timeline.milestone_beta', { defaultValue: 'Triển khai Beta' }), date: timelineScale.end.subtract(2, 'week').format('DD MMM'), done: false },
-                        { name: t('project_detail.timeline.milestone_finish', { defaultValue: 'Hoàn thành' }), date: timelineScale.end.format('DD MMM'), done: false },
-                    ].map((m, i) => (
-                        <div key={i} className={`milestone-card ${m.done ? 'is-done' : ''}`}>
-                            <CheckCircleOutlined className="m-icon" />
-                            <div className="m-info">
-                                <div className="m-name">{m.name}</div>
-                                <div className="m-date">{m.date}</div>
+                    {group?.milestones && group.milestones.length > 0 ? (
+                        group.milestones.map((m, i) => (
+                            <div key={i} className={`milestone-card ${m.isDone ? 'is-done' : ''}`}>
+                                <CheckCircleOutlined className="m-icon" />
+                                <div className="m-info">
+                                    <div className="m-name">{m.name}</div>
+                                    <div className="m-date">{dayjs(m.date).format('DD MMM')}</div>
+                                </div>
                             </div>
+                        ))
+                    ) : (
+                        <div className="empty-milestones" onClick={() => setIsMilestoneModalVisible(true)}>
+                             <PlusCircleOutlined /> <span>{t('project_detail.timeline.no_milestones', { defaultValue: 'Chưa có cột mốc nào. Thêm ngay!' })}</span>
                         </div>
-                    ))}
+                    )}
                 </div>
             </div>
 
@@ -292,6 +368,23 @@ export default function TimelineTab() {
                     <p>{t('project_detail.timeline.schedule_desc', { defaultValue: 'Chọn khoảng thời gian tổng thể của dự án để căn chỉnh biểu đồ Gantt.' })}</p>
                     <Form.Item name="range" label={t('project_detail.timeline.project_range', { defaultValue: 'Thời gian dự án' })} rules={[{ required: true, message: t('attendance.placeholder_network') }]}>
                         <DatePicker.RangePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            <Modal
+                title={t('project_detail.timeline.milestone_modal_title', { defaultValue: 'Thêm Cột mốc Dự án' })}
+                open={isMilestoneModalVisible}
+                onCancel={() => setIsMilestoneModalVisible(false)}
+                onOk={() => milestoneForm.submit()}
+                okText={t('project_detail.task_drawer.save')}
+            >
+                <Form form={milestoneForm} layout="vertical" onFinish={handleAddMilestone}>
+                    <Form.Item name="name" label={t('project_detail.timeline.milestone_name', { defaultValue: 'Tên cột mốc' })} rules={[{ required: true }]}>
+                        <Input placeholder="ví dụ: Hoàn thành thiết kế UI" />
+                    </Form.Item>
+                    <Form.Item name="date" label={t('project_detail.timeline.milestone_date', { defaultValue: 'Ngày diễn ra' })} rules={[{ required: true }]}>
+                        <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
                     </Form.Item>
                 </Form>
             </Modal>

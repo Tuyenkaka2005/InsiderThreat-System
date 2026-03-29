@@ -17,6 +17,9 @@ namespace InsiderThreat.Server.Models
         [BsonElement("userId")]
         public string UserId { get; set; } = string.Empty;
 
+        [BsonElement("parentId")]
+        public string? ParentId { get; set; }
+
         [BsonElement("content")]
         public string Content { get; set; } = string.Empty;
 

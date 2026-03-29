@@ -70,22 +70,6 @@ export default function GroupDetailPage() {
     return (
         <div className="groupDetail-container">
             {/* DEBUG MARKER */}
-            <div style={{ 
-                position: 'fixed', 
-                top: 0, 
-                left: '50%', 
-                transform: 'translateX(-50%)', 
-                zIndex: 9999, 
-                background: '#2563eb', 
-                color: 'white', 
-                padding: '4px 12px', 
-                borderRadius: '0 0 8px 8px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
-            }}>
-                🚀 SYNCHRO CONCEPT v2.0 ACTIVE
-            </div>
             {!isMobile && <LeftSidebar defaultCollapsed={true} />}
             
             <div className="groupDetail-main-wrapper">

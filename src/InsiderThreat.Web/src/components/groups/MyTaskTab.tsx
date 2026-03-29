@@ -9,7 +9,9 @@ import {
 } from '@ant-design/icons';
 import type { DropResult } from '@hello-pangea/dnd';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import dayjs from 'dayjs';
 import { api } from '../../services/api';
+import { signalRService } from '../../services/signalRService';
 import CreateTaskModal from './CreateTaskModal';
 import TaskDetailDrawer from './TaskDetailDrawer';
 import './MyTaskTab.css';
@@ -53,6 +55,7 @@ export default function MyTaskTab() {
     const { t } = useTranslation();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
+    const [group, setGroup] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
     const [showCreateTask, setShowCreateTask] = useState(false);
@@ -67,12 +70,14 @@ export default function MyTaskTab() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [tasksRes, membersRes] = await Promise.all([
+            const [tasksRes, membersRes, groupRes] = await Promise.all([
                 api.get<Task[]>(`/api/groups/${groupId}/tasks`),
-                api.get<Member[]>(`/api/groups/${groupId}/members-details`)
+                api.get<Member[]>(`/api/groups/${groupId}/members-details`),
+                api.get<any>(`/api/groups/${groupId}`)
             ]);
             setTasks(tasksRes);
             setMembers(membersRes);
+            setGroup(groupRes);
         } catch (err) {
             message.error(t('project_detail.mytasks.load_fail', { defaultValue: 'Không thể tải danh sách công việc' }));
         } finally {
@@ -82,6 +87,30 @@ export default function MyTaskTab() {
 
     useEffect(() => {
         if (groupId) fetchData();
+    }, [groupId]);
+
+    // === Real-time sync: join project group & listen for changes ===
+    useEffect(() => {
+        if (!groupId) return;
+
+        const hub = signalRService.getConnection();
+        if (!hub) return;
+
+        // Join the project-specific SignalR group
+        hub.invoke('JoinProjectGroup', groupId).catch(console.error);
+
+        // Khi có thành viên khác tạo/sửa/xóa task → tải lại dữ liệu
+        const handleProjectChange = (payload: any) => {
+            if (payload?.groupId === groupId) {
+                fetchData();
+            }
+        };
+        hub.on('ProjectDataChanged', handleProjectChange);
+
+        return () => {
+            hub.invoke('LeaveProjectGroup', groupId).catch(console.error);
+            hub.off('ProjectDataChanged', handleProjectChange);
+        };
     }, [groupId]);
 
     const onDragEnd = async (result: DropResult) => {
@@ -130,6 +159,38 @@ export default function MyTaskTab() {
             }
         });
     };
+
+    const timelineData = useMemo(() => {
+        // Use group start date if available, otherwise fallback to today
+        let start = group?.projectStartDate ? dayjs(group.projectStartDate) : dayjs().subtract(2, 'day');
+        
+        // Normalize to beginning of day
+        start = start.startOf('day');
+
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+            days.push(start.add(i, 'day'));
+        }
+
+        // Map tasks to bubbles (only tasks within this 7-day range)
+        const bubbles = tasks.filter(t => t.deadline).map(t => {
+            const d = dayjs(t.deadline);
+            if (d.isBefore(start) || d.isAfter(start.add(7, 'day'))) return null;
+            
+            const offset = d.diff(start, 'hour');
+            const left = (offset / (7 * 24)) * 100;
+            
+            return {
+                id: t.id,
+                title: t.title,
+                date: d.format('DD MMM'),
+                left: `${left}%`,
+                status: t.status
+            };
+        }).filter(Boolean);
+
+        return { days, bubbles };
+    }, [tasks]);
 
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => 
@@ -195,35 +256,44 @@ export default function MyTaskTab() {
                 </div>
                 <div className="timeline-container">
                     <div className="timeline-row days">
-                        <span>11 Feb</span>
-                        <span>12 Feb</span>
-                        <span>13 Feb</span>
-                        <span>14 Feb</span>
-                        <span>15 Feb</span>
-                        <span>16 Feb</span>
+                        {timelineData.days.map(d => (
+                            <span key={d.toString()} className={d.isSame(dayjs(), 'day') ? 'today-label' : ''}>
+                                {d.format('DD MMM')}
+                            </span>
+                        ))}
                     </div>
                     
                     <div className="timeline-row grid-lines">
-                        <div className="grid-col" />
-                        <div className="grid-col active-col" />
-                        <div className="grid-col" />
-                        <div className="grid-col" />
-                        <div className="grid-col" />
+                        {timelineData.days.map((d, i) => (
+                            <div key={i} className={`grid-col ${d.isSame(dayjs(), 'day') ? 'active-col' : ''}`} />
+                        ))}
                     </div>
-
+                    
                     <div className="timeline-bubbles">
-                        <div className="t-bubble gray" style={{ left: '5%', width: '15%', top: 10 }}>
-                            <span className="t-date">11 Feb</span> Submit Final Screens
-                        </div>
-                        <div className="t-bubble gray" style={{ left: '5%', width: '15%', top: 40 }}>
-                            <span className="t-date">11 Feb</span> Client Feedback
-                        </div>
-                        <div className="t-bubble black" style={{ left: '20%', width: '18%', top: 70 }}>
-                            <span className="t-date">12 Feb</span> Client Feedback Meeting
-                        </div>
-                        <div className="t-bubble gray disabled" style={{ left: '60%', width: '18%', top: 50 }}>
-                            <span className="t-date">15 Feb</span> Finalize UI Screens
-                        </div>
+                        {timelineData.bubbles.map((b: any, i: number) => (
+                            <div 
+                                key={b.id} 
+                                className={`t-bubble ${b.status === 'Done' ? 'gray' : 'black'}`} 
+                                style={{ 
+                                    left: b.left, 
+                                    width: '18%', 
+                                    top: 10 + (i % 3) * 30, // Stack bubbles vertically
+                                    zIndex: 10
+                                }}
+                                onClick={() => {
+                                    const task = tasks.find(t => t.id === b.id);
+                                    if (task) {
+                                        setSelectedTask(task);
+                                        setShowDrawer(true);
+                                    }
+                                }}
+                            >
+                                <span className="t-date">{b.date}</span> {b.title}
+                            </div>
+                        ))}
+                        {timelineData.bubbles.length === 0 && (
+                            <div style={{textAlign: 'center', padding: '20px', color: '#8b949e'}}>{t('project_detail.mytasks.no_task_in_range', { defaultValue: 'Cảnh báo: Không có Task nào trong dải tuần này' })}</div>
+                        )}
                     </div>
                 </div>
             </div>

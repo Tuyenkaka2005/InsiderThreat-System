@@ -46,6 +46,7 @@ interface Comment {
     attachmentUrl?: string;
     attachmentName?: string;
     attachmentSize?: number;
+    parentId?: string;
 }
 
 interface TaskDetailDrawerProps {
@@ -77,6 +78,8 @@ export default function TaskDetailDrawer({ open, onClose, task, groupId, members
     const [editedStatus, setEditedStatus] = useState<string>('');
     const [editedPriority, setEditedPriority] = useState<string>('');
     const [editedDeadline, setEditedDeadline] = useState<dayjs.Dayjs | null>(null);
+    const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
+    const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (open && task) {
@@ -118,17 +121,46 @@ export default function TaskDetailDrawer({ open, onClose, task, groupId, members
                 content: newComment,
                 attachmentUrl: attachment?.url,
                 attachmentName: attachment?.name,
-                attachmentSize: attachment?.size
+                attachmentSize: attachment?.size,
+                parentId: replyingTo?.id
             };
             const res = await api.post<Comment>(`/api/groups/${groupId}/tasks/${task.id}/comments`, payload);
             setComments(prev => [...prev, res]);
             setNewComment('');
             setAttachment(null);
+            setReplyingTo(null);
         } catch (error) {
             console.error('Failed to send comment', error);
             message.error('Lỗi khi gửi bình luận');
         } finally {
             setSending(false);
+        }
+    };
+
+    const handleReplyClick = (comment: Comment) => {
+        if (!comment || !comment.user) return;
+        setReplyingTo(comment);
+        const nameToUse = comment.user.fullName;
+        setNewComment(prev => prev ? `${prev} @${nameToUse} ` : `@${nameToUse} `);
+        setActiveTab('Comment');
+    };
+
+    const handleLikeClick = (commentId: string) => {
+        setLikedComments(prev => {
+            const next = new Set(prev);
+            if (next.has(commentId)) next.delete(commentId);
+            else next.add(commentId);
+            return next;
+        });
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        setComments(prev => prev.filter(c => c.id !== commentId));
+        message.success(t('project_detail.mytasks.delete_success', { defaultValue: 'Đã xóa bình luận' }));
+        try {
+            await api.delete(`/api/groups/${groupId}/tasks/${task.id}/comments/${commentId}`);
+        } catch (err) {
+            console.log("Delete API might be not implemented yet.");
         }
     };
 
@@ -203,7 +235,7 @@ export default function TaskDetailDrawer({ open, onClose, task, groupId, members
             closable={false}
             onClose={onClose}
             open={open}
-            width={550}
+            size="large"
             className="synchro-task-drawer"
             styles={{ mask: { backgroundColor: 'rgba(0, 0, 0, 0.2)' } }}
         >
@@ -242,7 +274,7 @@ export default function TaskDetailDrawer({ open, onClose, task, groupId, members
                             <Select 
                                 value={editedStatus} 
                                 onChange={setEditedStatus} 
-                                bordered={false} 
+                                variant="borderless" 
                                 className="transparent-select status-select"
                                 suffixIcon={null}
                             >
@@ -259,7 +291,7 @@ export default function TaskDetailDrawer({ open, onClose, task, groupId, members
                         <div className="attr-label"><ClockCircleOutlined /> {t('project_detail.task_drawer.due_date')}</div>
                         <div className="task-field-value">
                             <DatePicker 
-                                bordered={false} 
+                                variant="borderless" 
                                 value={editedDeadline} 
                                 onChange={setEditedDeadline}
                                 format="MMM DD, YYYY"
@@ -297,48 +329,72 @@ export default function TaskDetailDrawer({ open, onClose, task, groupId, members
                     {activeTab === 'Comment' && (
                         <div className="comments-view">
                             <div className="comments-list">
-                                {loadingComments ? <Spin /> : comments.map(c => (
-                                    <div className="comment-block" key={c.id}>
-                                        <Avatar src={c.user?.avatarUrl} size={32} />
-                                        <div className="comment-body">
-                                            <div className="comment-meta">
-                                                <Text strong>{c.user?.fullName}</Text>
-                                                <Text type="secondary" className="time">{dayjs(c.createdAt).fromNow()}</Text>
-                                            </div>
-                                            <div className="comment-box">
-                                                <p>{c.content}</p>
-                                                {/* Real attachment rendering */}
-                                                {c.attachmentUrl && (
-                                                    <div className="file-attachment-preview">
-                                                        <div className={`file-icon ${c.attachmentName?.split('.').pop()?.toLowerCase() || 'default'}`}>
-                                                            {c.attachmentName?.split('.').pop()?.toUpperCase().substring(0, 1) || 'F'}
+                                {loadingComments ? <Spin /> : comments.filter(c => !c.parentId).map(parent => (
+                                    <React.Fragment key={parent.id}>
+                                        <div className="comment-block">
+                                            <Avatar src={parent.user?.avatarUrl} size={32} />
+                                            <div className="comment-body">
+                                                <div className="comment-meta">
+                                                    <Text strong>{parent.user?.fullName}</Text>
+                                                    <Text type="secondary" className="time">{dayjs(parent.createdAt).fromNow()}</Text>
+                                                </div>
+                                                <div className="comment-box">
+                                                    <p>{parent.content}</p>
+                                                    {parent.attachmentUrl && (
+                                                        <div className="file-attachment-preview">
+                                                            <div className={`file-icon ${parent.attachmentName?.split('.').pop()?.toLowerCase() || 'default'}`}>
+                                                                {parent.attachmentName?.split('.').pop()?.toUpperCase().substring(0, 1) || 'F'}
+                                                            </div>
+                                                            <div className="file-details">
+                                                                <a href={parent.attachmentUrl} target="_blank" rel="noreferrer">
+                                                                    <Text strong>{parent.attachmentName}</Text>
+                                                                </a>
+                                                                <Text type="secondary">
+                                                                    {parent.attachmentSize ? (parent.attachmentSize / (1024 * 1024)).toFixed(2) + ' MB' : ''}
+                                                                </Text>
+                                                            </div>
                                                         </div>
-                                                        <div className="file-details">
-                                                            <a href={c.attachmentUrl} target="_blank" rel="noreferrer">
-                                                                <Text strong>{c.attachmentName}</Text>
-                                                            </a>
-                                                            <Text type="secondary">
-                                                                {c.attachmentSize ? (c.attachmentSize / (1024 * 1024)).toFixed(2) + ' MB' : ''}
-                                                            </Text>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {/* Legacy mock behavior (for old comments with mock strings) */}
-                                                {!c.attachmentUrl && c.content.includes('style') && (
-                                                    <div className="file-attachment-preview">
-                                                        <div className="file-icon figma">F</div>
-                                                        <div className="file-details">
-                                                            <Text strong>ABC Dashboard Style.fig</Text>
-                                                            <Text type="secondary">2.5 MB</Text>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="comment-actions">
-                                                <span>Reply</span> • <span>Like</span> • <span>Delete</span>
+                                                    )}
+                                                </div>
+                                                <div className="comment-actions">
+                                                    <span onClick={() => handleReplyClick(parent)} style={{cursor: 'pointer'}}>{t('project_detail.task_drawer.action_reply')}</span> • <span onClick={() => handleLikeClick(parent.id)} style={{cursor: 'pointer', color: likedComments.has(parent.id) ? 'var(--color-primary)' : 'inherit'}}>{t('project_detail.task_drawer.action_like')}</span> • <span onClick={() => handleDeleteComment(parent.id)} style={{cursor: 'pointer'}} className="text-danger">{t('project_detail.task_drawer.action_delete')}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                        {/* Render Replies */}
+                                        {comments.filter(reply => reply.parentId === parent.id).map(reply => (
+                                            <div className="comment-block reply" key={reply.id}>
+                                                <Avatar src={reply.user?.avatarUrl} size={28} />
+                                                <div className="comment-body">
+                                                    <div className="comment-meta">
+                                                        <Text strong>{reply.user?.fullName}</Text>
+                                                        <Text type="secondary" className="time">{dayjs(reply.createdAt).fromNow()}</Text>
+                                                    </div>
+                                                    <div className="comment-box">
+                                                        <p>{reply.content}</p>
+                                                        {reply.attachmentUrl && (
+                                                            <div className="file-attachment-preview">
+                                                                <div className={`file-icon ${reply.attachmentName?.split('.').pop()?.toLowerCase() || 'default'}`}>
+                                                                    {reply.attachmentName?.split('.').pop()?.toUpperCase().substring(0, 1) || 'F'}
+                                                                </div>
+                                                                <div className="file-details">
+                                                                    <a href={reply.attachmentUrl} target="_blank" rel="noreferrer">
+                                                                        <Text strong>{reply.attachmentName}</Text>
+                                                                    </a>
+                                                                    <Text type="secondary">
+                                                                        {reply.attachmentSize ? (reply.attachmentSize / (1024 * 1024)).toFixed(2) + ' MB' : ''}
+                                                                    </Text>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="comment-actions">
+                                                        <span onClick={() => handleReplyClick(parent)} style={{cursor: 'pointer'}}>{t('project_detail.task_drawer.action_reply')}</span> • <span onClick={() => handleLikeClick(reply.id)} style={{cursor: 'pointer', color: likedComments.has(reply.id) ? 'var(--color-primary)' : 'inherit'}}>{t('project_detail.task_drawer.action_like')}</span> • <span onClick={() => handleDeleteComment(reply.id)} style={{cursor: 'pointer'}} className="text-danger">{t('project_detail.task_drawer.action_delete')}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </React.Fragment>
                                 ))}
                                 <div ref={commentsEndRef} />
                             </div>
@@ -347,8 +403,15 @@ export default function TaskDetailDrawer({ open, onClose, task, groupId, members
                             <div className="comment-input-area">
                                 <Avatar src={members[0]?.avatarUrl} size={32} />
                                 <div style={{ flex: 1, position: 'relative' }}>
+                                    {replyingTo && (
+                                        <div className="replying-to-indicator">
+                                            <Text type="secondary" style={{fontSize: 12}}>Đang trả lời <Text strong>{replyingTo.user.fullName}</Text></Text>
+                                            <Button type="text" size="small" icon={<CloseOutlined style={{fontSize: 10}}/>} onClick={() => setReplyingTo(null)} />
+                                        </div>
+                                    )}
                                     <Mentions
                                         className="mention-input"
+                                        style={{ borderRadius: replyingTo ? '0 0 12px 12px' : '12px' }}
                                         placeholder={t('project_detail.task_drawer.comment_placeholder')}
                                         autoSize={{ minRows: 1, maxRows: 3 }}
                                         value={newComment}

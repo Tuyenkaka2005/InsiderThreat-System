@@ -11,6 +11,8 @@ import { api } from '../services/api';
 import { userService } from '../services/userService';
 import type { User } from '../types';
 import SynchroHeader from '../components/SynchroHeader';
+import ProjectSidebar from '../components/groups/ProjectSidebar';
+import { HistoryOutlined, ThunderboltFilled } from '@ant-design/icons';
 import './ProjectDetailPage.css';
 
 const TABS = [
@@ -31,6 +33,7 @@ export default function ProjectDetailPage() {
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [searchUserQuery, setSearchUserQuery] = useState('');
+    const [showSidebar, setShowSidebar] = useState(false);
 
     const fetchMembers = async () => {
         try {
@@ -116,22 +119,6 @@ export default function ProjectDetailPage() {
     return (
         <div className="groupDetail-container">
             {/* DEBUG MARKER */}
-            <div style={{ 
-                position: 'fixed', 
-                top: 0, 
-                left: '50%', 
-                transform: 'translateX(-50%)', 
-                zIndex: 9999, 
-                background: '#2563eb', 
-                color: 'white', 
-                padding: '4px 12px', 
-                borderRadius: '0 0 8px 8px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
-            }}>
-                🚀 SYNCHRO CONCEPT v2.0 ACTIVE
-            </div>
             {!isMobile && <LeftSidebar defaultCollapsed={true} />}
             
             <div className="groupDetail-main-wrapper">
@@ -181,12 +168,21 @@ export default function ProjectDetailPage() {
                                         <span className="material-symbols-outlined">delete</span>
                                     </button>
                                 )}
+                                <button className="proj-action-btn" onClick={() => setShowSidebar(true)}>
+                                    <ThunderboltFilled style={{ color: '#f59e0b' }} />
+                                </button>
                                 <button className="proj-action-btn">
                                     <span className="material-symbols-outlined">more_horiz</span>
                                 </button>
                             </div>
                         </div>
                     </div>
+
+                    <ProjectSidebar 
+                        open={showSidebar} 
+                        onClose={() => setShowSidebar(false)} 
+                        projectName={groupName} 
+                    />
 
                     {/* Main Content Area */}
                     <div className="groupDetail-body">

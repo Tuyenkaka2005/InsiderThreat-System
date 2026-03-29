@@ -201,6 +201,32 @@
 .comment-block {
     display: flex;
     gap: 12px;
+    position: relative;
+}
+
+.comment-block.reply {
+    margin-left: 48px;
+}
+
+/* Vertical connector line for replies */
+.comment-block.reply::before {
+    content: '';
+    position: absolute;
+    left: -28px;
+    top: -20px;
+    bottom: 50%;
+    width: 2px;
+    background-color: var(--color-border);
+}
+
+.comment-block.reply::after {
+    content: '';
+    position: absolute;
+    left: -28px;
+    top: 50%;
+    width: 20px;
+    height: 2px;
+    background-color: var(--color-border);
 }
 
 .comment-body {
@@ -307,6 +333,18 @@
     color: var(--color-text-main);
     border: 1px solid var(--color-border);
     width: 100%;
+}
+
+.replying-to-indicator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-bottom: none;
+    padding: 4px 12px;
+    border-radius: 12px 12px 0 0;
+    font-size: 12px;
 }
 
 .pending-attachment {

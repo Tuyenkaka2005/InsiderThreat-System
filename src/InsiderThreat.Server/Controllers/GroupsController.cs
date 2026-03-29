@@ -26,6 +26,7 @@ namespace InsiderThreat.Server.Controllers
         private readonly IGridFSBucket _gridFS;
         private readonly ILogger<GroupsController> _logger;
         private readonly IMongoDatabase _database;
+        private readonly IMongoCollection<ProjectActivity> _activities;
 
         public GroupsController(IMongoDatabase database, IGridFSBucket gridFS, ILogger<GroupsController> logger, IHubContext<InsiderThreat.Server.Hubs.NotificationHub> hubContext)
         {
@@ -39,6 +40,7 @@ namespace InsiderThreat.Server.Controllers
             _gridFS = gridFS;
             _logger = logger;
             _hubContext = hubContext;
+            _activities = database.GetCollection<ProjectActivity>("ProjectActivities");
         }
 
         private async Task CreateAndPushNotification(string targetUserId, string message, string type, string? relatedId = null, string? link = null)
@@ -61,6 +63,48 @@ namespace InsiderThreat.Server.Controllers
 
             await _notifications.InsertOneAsync(notification);
             await _hubContext.Clients.Group($"user_{targetUserId}").SendAsync("NewNotification", notification);
+        }
+
+        private async Task LogActivity(string groupId, string type, string action, string targetName)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return;
+
+            var activity = new ProjectActivity
+            {
+                GroupId = groupId,
+                UserId = userId,
+                Type = type,
+                Action = action,
+                TargetName = targetName,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _activities.InsertOneAsync(activity);
+        }
+
+        [HttpGet("{id}/activities")]
+        public async Task<IActionResult> GetActivities(string id)
+        {
+            var users = await _users.Find(_ => true).Project(u => new { u.Id, u.FullName, u.AvatarUrl }).ToListAsync();
+            var activities = await _activities.Find(a => a.GroupId == id)
+                .SortByDescending(a => a.CreatedAt)
+                .Limit(50)
+                .ToListAsync();
+
+            var result = activities.Select(a => {
+                var u = users.FirstOrDefault(user => user.Id == a.UserId);
+                return new {
+                    a.Id,
+                    a.Type,
+                    a.Action,
+                    a.TargetName,
+                    a.CreatedAt,
+                    User = u
+                };
+            });
+
+            return Ok(result);
         }
 
         // GET: api/Groups
@@ -151,6 +195,7 @@ namespace InsiderThreat.Server.Controllers
                 .Set(g => g.Description, request.Description)
                 .Set(g => g.ProjectStartDate, request.ProjectStartDate)
                 .Set(g => g.ProjectEndDate, request.ProjectEndDate)
+                .Set(g => g.Milestones, request.Milestones)
                 .Set(g => g.UpdatedAt, DateTime.UtcNow);
 
             await _groups.UpdateOneAsync(g => g.Id == id, update);
@@ -205,6 +250,10 @@ namespace InsiderThreat.Server.Controllers
                 }
 
                 await _tasks.InsertOneAsync(task);
+                await LogActivity(id, "task", "created task", task.Title);
+
+                // Broadcast real-time update to all project members
+                await _hubContext.Clients.Group($"project_{id}").SendAsync("ProjectDataChanged", new { groupId = id, action = "task_created", taskId = task.Id });
 
                 // Notify assignee
                 if (!string.IsNullOrEmpty(task.AssignedTo))
@@ -267,6 +316,10 @@ namespace InsiderThreat.Server.Controllers
                 }
 
                 await _tasks.UpdateOneAsync(filter, update);
+                await LogActivity(id, "status", $"updated status of '{task.Title}' to", taskUpdate.Status);
+
+                // Broadcast real-time update to all project members
+                await _hubContext.Clients.Group($"project_{id}").SendAsync("ProjectDataChanged", new { groupId = id, action = "task_updated", taskId });
 
                 // Notifications for Assignee
                 if (!string.IsNullOrEmpty(taskUpdate.AssignedTo))
@@ -330,6 +383,9 @@ namespace InsiderThreat.Server.Controllers
                 var result = await _tasks.DeleteOneAsync(filter);
                 if (result.DeletedCount == 0) return NotFound();
 
+                // Broadcast real-time update to all project members
+                await _hubContext.Clients.Group($"project_{id}").SendAsync("ProjectDataChanged", new { groupId = id, action = "task_deleted", taskId });
+
                 return Ok(new { message = "Task deleted successfully" });
             }
             catch (Exception ex)
@@ -356,6 +412,7 @@ namespace InsiderThreat.Server.Controllers
                     c.AttachmentUrl,
                     c.AttachmentName,
                     c.AttachmentSize,
+                    c.ParentId,
                     c.CreatedAt,
                     User = new {
                         Id = u?.Id,
@@ -381,12 +438,15 @@ namespace InsiderThreat.Server.Controllers
                 Content = req.Content,
                 AttachmentUrl = req.AttachmentUrl,
                 AttachmentName = req.AttachmentName,
-                AttachmentSize = req.AttachmentSize
+                AttachmentSize = req.AttachmentSize,
+                ParentId = req.ParentId
             };
             await _taskComments.InsertOneAsync(comment);
 
-            // Notify task assignee
+            // Fetch task first to use its title in log/notification
             var task = await _tasks.Find(t => t.Id == taskId).FirstOrDefaultAsync();
+            await LogActivity(id, "comment", "commented on task:", task?.Title ?? taskId);
+
             if (task != null && !string.IsNullOrEmpty(task.AssignedTo) && task.AssignedTo != userId)
             {
                 var uActor = await _users.Find(x => x.Id == userId).FirstOrDefaultAsync();
@@ -496,6 +556,7 @@ namespace InsiderThreat.Server.Controllers
             file.UploadedAt = DateTime.UtcNow;
             var filesCollection = _database.GetCollection<ProjectFileRecord>("ProjectFiles");
             await filesCollection.InsertOneAsync(file);
+            await LogActivity(id, "file", "uploaded file:", file.FileName);
             return Ok(file);
         }
 
@@ -504,6 +565,8 @@ namespace InsiderThreat.Server.Controllers
         {
             var update = Builders<Group>.Update.AddToSet(g => g.MemberIds, request.UserId);
             await _groups.UpdateOneAsync(g => g.Id == id, update);
+            var u = await _users.Find(x => x.Id == request.UserId).FirstOrDefaultAsync();
+            await LogActivity(id, "member", "added member:", u?.FullName ?? request.UserId);
             return Ok(new { message = "Added" });
         }
     }
@@ -527,6 +590,7 @@ namespace InsiderThreat.Server.Controllers
         public string? AttachmentUrl { get; set; }
         public string? AttachmentName { get; set; }
         public long? AttachmentSize { get; set; }
+        public string? ParentId { get; set; }
     }
 
     public class CreateGroupRequest
@@ -539,6 +603,7 @@ namespace InsiderThreat.Server.Controllers
         public bool IsProject { get; set; }
         public DateTime? ProjectStartDate { get; set; }
         public DateTime? ProjectEndDate { get; set; }
+        public List<ProjectMilestone>? Milestones { get; set; }
     }
 
     public class UpdateGroupRequest
@@ -547,6 +612,7 @@ namespace InsiderThreat.Server.Controllers
         public string? Description { get; set; }
         public DateTime? ProjectStartDate { get; set; }
         public DateTime? ProjectEndDate { get; set; }
+        public List<ProjectMilestone>? Milestones { get; set; }
     }
 
     public class AddMemberRequest

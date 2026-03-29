@@ -76,4 +76,17 @@ public class NotificationHub : Hub
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"group_{groupId}");
         _logger.LogInformation($"Client {Context.ConnectionId} left chat group {groupId}");
     }
+
+    // --- Project Sync Methods ---
+    public async Task JoinProjectGroup(string projectId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"project_{projectId}");
+        _logger.LogInformation($"Client {Context.ConnectionId} joined project group {projectId}");
+    }
+
+    public async Task LeaveProjectGroup(string projectId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"project_{projectId}");
+        _logger.LogInformation($"Client {Context.ConnectionId} left project group {projectId}");
+    }
 }

@@ -5,7 +5,12 @@ import { App, Modal, Form, Input, Select, DatePicker, Button, Avatar, Progress, 
 import { EditOutlined, TeamOutlined, PlusOutlined, DeleteOutlined, EllipsisOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { 
+    BarChart, Bar, 
+    PieChart, Pie, Cell,
+    RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+    XAxis, Tooltip, ResponsiveContainer, CartesianGrid 
+} from 'recharts';
 import { api } from '../../services/api';
 import { authService } from '../../services/auth';
 import TaskDetailDrawer from './TaskDetailDrawer';
@@ -42,6 +47,8 @@ interface GroupInfo {
     name: string;
     description: string;
     adminIds?: string[];
+    projectStartDate?: string;
+    projectEndDate?: string;
 }
 
 interface GroupDashboardTabProps {
@@ -134,16 +141,68 @@ export default function GroupDashboardTab({ onInviteClick }: GroupDashboardTabPr
         };
     }, [tasks, currentUser]);
 
-    // Roadmap Mock Data (Could calculate dynamically from tasks)
-    const roadmapData = [
-        { label: 'Mon', value: 12 },
-        { label: 'Tue', value: 18 },
-        { label: 'Wed', value: 25 },
-        { label: 'Thu', value: 10 },
-        { label: 'Fri', value: 30 },
-        { label: 'Sat', value: 5 },
-        { label: 'Sun', value: 2 }
-    ];
+    // Status Distribution Data
+    const statusData = useMemo(() => {
+        const counts = {
+            'Todo': 0,
+            'InProgress': 0,
+            'InReview': 0,
+            'WaitingApproval': 0,
+            'Done': 0
+        };
+        tasks.forEach(t => {
+            if (counts[t.status] !== undefined) counts[t.status]++;
+        });
+
+        return [
+            { name: t('project_detail.mytasks.todo'), value: counts['Todo'], color: '#9ca3af' },
+            { name: t('project_detail.mytasks.in_progress'), value: counts['InProgress'], color: '#3b82f6' },
+            { name: t('project_detail.mytasks.in_review'), value: counts['InReview'], color: '#f59e0b' },
+            { name: t('project_detail.mytasks.waiting_approval'), value: counts['WaitingApproval'], color: '#f97316' },
+            { name: t('project_detail.mytasks.done'), value: counts['Done'], color: '#10b981' }
+        ].filter(d => d.value > 0);
+    }, [tasks, t]);
+
+    // Team Productivity (Radar) Data
+    const productivityData = useMemo(() => {
+        return members.slice(0, 5).map(m => {
+            const userTasks = tasks.filter(t => t.assignedTo === m.id);
+            const done = userTasks.filter(t => t.status === 'Done').length;
+            const open = userTasks.length - done;
+            
+            return {
+                subject: m.fullName.split(' ')[0],
+                Done: done,
+                Active: open,
+                fullMark: Math.max(userTasks.length, 5)
+            };
+        });
+    }, [members, tasks]);
+
+    // Roadmap Dynamic Data
+    const roadmapData = useMemo(() => {
+        const today = dayjs();
+        const start = group?.projectStartDate ? dayjs(group.projectStartDate) : today.subtract(3, 'day');
+        
+        const daysInRange = [];
+        for (let i = 0; i < 7; i++) {
+            daysInRange.push(start.add(i, 'day'));
+        }
+
+        return daysInRange.map(d => {
+            const count = tasks.filter(t => {
+                if (!t.deadline) return false;
+                return dayjs(t.deadline).isSame(d, 'day');
+            }).length;
+
+            return {
+                label: d.format('DD/MM'),
+                fullLabel: d.format('dddd, DD MMM'),
+                value: count,
+                isToday: d.isSame(today, 'day')
+            };
+        });
+    }, [tasks, group]);
 
     if (loading) return <div className="loading-state">{t('library.loading')}</div>;
 
@@ -203,12 +262,60 @@ export default function GroupDashboardTab({ onInviteClick }: GroupDashboardTabPr
                                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
                                     <Tooltip cursor={{ fill: '#f9fafb' }} />
                                     <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                        {roadmapData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={index === 2 ? '#111827' : '#e5e7eb'} />
+                                        {roadmapData.map((entry: any, index: number) => (
+                                            <Cell key={`cell-${index}`} fill={entry.isToday ? '#2563eb' : '#e5e7eb'} />
                                         ))}
                                     </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    <div className="charts-row">
+                        <div className="chart-panel status-donut">
+                            <div className="panel-header">
+                                <Title level={5} style={{ margin: 0 }}>Phân bổ Trạng thái</Title>
+                            </div>
+                            <div className="chart-container" style={{ height: 200 }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={statusData}
+                                            innerRadius={60}
+                                            outerRadius={80}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {statusData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="donut-center-text">
+                                    <Title level={4} style={{ margin: 0 }}>{tasks.length}</Title>
+                                    <Text type="secondary" style={{ fontSize: 10 }}>NHIỆM VỤ</Text>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="chart-panel team-radar">
+                            <div className="panel-header">
+                                <Title level={5} style={{ margin: 0 }}>Cân bằng Đội ngũ</Title>
+                            </div>
+                            <div className="chart-container" style={{ height: 200 }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={productivityData}>
+                                        <PolarGrid stroke="#e5e7eb" />
+                                        <PolarAngleAxis dataKey="subject" tick={{ fill: '#9ca3af', fontSize: 10 }} />
+                                        <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={{fontSize: 8}} />
+                                        <Radar name="Hoàn thành" dataKey="Done" stroke="#10b981" fill="#10b981" fillOpacity={0.6} />
+                                        <Radar name="Đang mở" dataKey="Active" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                                        <Tooltip />
+                                    </RadarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     </div>
 

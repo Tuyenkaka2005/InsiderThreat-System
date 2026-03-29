@@ -233,3 +233,53 @@
     font-size: 12px;
     color: var(--color-text-muted);
 }
+
+/* -- Milestone Lines Overlay -- */
+.tl-milestone-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 2px dashed #ff4d4f;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.tl-milestone-line .line-label {
+    position: absolute;
+    top: 5px;
+    left: 4px;
+    background: #ff4d4f;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 800;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 6px rgba(255, 77, 79, 0.3);
+}
+
+.empty-milestones {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--color-surface-lighter);
+    border: 2px dashed var(--color-border);
+    border-radius: 12px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    gap: 8px;
+}
+
+.empty-milestones:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-primary-light);
+}
