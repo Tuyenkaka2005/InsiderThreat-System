@@ -1,0 +1,80 @@
+.sidebar {
+    padding: 16px 8px 8px;
+    height: calc(100vh - 72px);
+    overflow-y: auto;
+    position: sticky;
+    top: 72px;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.actions {
+    display: flex;
+    gap: 4px;
+}
+
+.iconBtn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.iconBtn:hover {
+    background-color: var(--bg-hover);
+}
+
+.contactList {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.contact {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.contact:hover {
+    background-color: var(--bg-hover);
+}
+
+.contactInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.department {
+    font-size: 12px;
+    color: var(--text-secondary);
+}

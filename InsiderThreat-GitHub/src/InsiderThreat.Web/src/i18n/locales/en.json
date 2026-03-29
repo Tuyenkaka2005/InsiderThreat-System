@@ -1,0 +1,212 @@
+{
+    "landing": {
+        "hero": {
+            "title": "Protect Your Business from Insider Threats",
+            "subtitle": "Enterprise-grade platform to detect, monitor, and prevent internal security risks from employees and partners",
+            "cta_primary": "Start Free Trial",
+            "cta_secondary": "Schedule Demo"
+        },
+        "problem": {
+            "title": "The Insider Threat Challenge",
+            "description": "60% of data breaches originate from internal actors. Traditional security measures focus on external threats, leaving businesses vulnerable to their greatest risk: trusted insiders.",
+            "stats": [
+                {
+                    "value": "60%",
+                    "label": "Breaches from insiders"
+                },
+                {
+                    "value": "$15M",
+                    "label": "Average cost per incident"
+                },
+                {
+                    "value": "85 days",
+                    "label": "Average detection time"
+                }
+            ]
+        },
+        "features": {
+            "title": "Comprehensive Protection Suite",
+            "subtitle": "Advanced monitoring and collaboration tools designed for modern teams",
+            "items": [
+                {
+                    "title": "USB & Device Monitoring",
+                    "description": "Real-time tracking of all connected devices with automated threat detection and blocking"
+                },
+                {
+                    "title": "Face Recognition",
+                    "description": "Biometric authentication to ensure only authorized personnel access sensitive systems"
+                },
+                {
+                    "title": "Document Tracking",
+                    "description": "Monitor document access, modifications, and sharing with complete audit trails"
+                },
+                {
+                    "title": "Secure Messaging",
+                    "description": "End-to-end encrypted communication channels for confidential internal discussions"
+                },
+                {
+                    "title": "Video Conferencing",
+                    "description": "Secure video meetings with screen sharing and recording capabilities"
+                },
+                {
+                    "title": "Social Feed",
+                    "description": "Internal news and collaboration platform with rich media support and engagement features"
+                }
+            ]
+        },
+        "howItWorks": {
+            "title": "How It Works",
+            "steps": [
+                {
+                    "title": "Deploy",
+                    "description": "Quick 15-minute setup with zero infrastructure changes"
+                },
+                {
+                    "title": "Monitor",
+                    "description": "AI-powered analytics detect anomalous behavior patterns"
+                },
+                {
+                    "title": "Alert",
+                    "description": "Real-time notifications for suspicious activities"
+                },
+                {
+                    "title": "Respond",
+                    "description": "Automated and manual response workflows"
+                }
+            ]
+        },
+        "benefits": {
+            "title": "Why Choose InsiderThreat?",
+            "items": [
+                {
+                    "title": "99.9% Threat Detection",
+                    "description": "Industry-leading accuracy powered by advanced machine learning"
+                },
+                {
+                    "title": "70% Faster Response",
+                    "description": "Automated workflows reduce incident response time dramatically"
+                },
+                {
+                    "title": "Compliance Ready",
+                    "description": "Meet GDPR, SOC 2, ISO 27001 requirements out of the box"
+                },
+                {
+                    "title": "Zero Trust Architecture",
+                    "description": "Continuous verification with no implicit trust"
+                },
+                {
+                    "title": "Seamless Integration",
+                    "description": "Works with existing tools and infrastructure"
+                },
+                {
+                    "title": "24/7 Support",
+                    "description": "Expert security team available around the clock"
+                }
+            ]
+        },
+        "testimonials": {
+            "title": "Trusted by Leading Organizations",
+            "items": [
+                {
+                    "name": "Sarah Chen",
+                    "role": "CISO, TechCorp Global",
+                    "quote": "InsiderThreat reduced our security incidents by 85% in the first quarter. The ROI was immediate and measurable."
+                },
+                {
+                    "name": "Michael Rodriguez",
+                    "role": "VP Security, FinanceHub",
+                    "quote": "Finally, a solution that addresses the human element of security. The encrypted messaging is a game-changer."
+                },
+                {
+                    "name": "Dr. Anh Nguyen",
+                    "role": "CTO, DataSecure Vietnam",
+                    "quote": "Comprehensive, powerful, and surprisingly easy to use. Our team adopted it within days."
+                }
+            ]
+        },
+        "pricing": {
+            "title": "Choose Your Plan",
+            "subtitle": "Flexible pricing for organizations of all sizes",
+            "plans": [
+                {
+                    "name": "Starter",
+                    "price": "Free",
+                    "description": "Perfect for small teams",
+                    "features": [
+                        "Up to 10 users",
+                        "Basic monitoring",
+                        "7-day data retention",
+                        "Email support",
+                        "Secure messaging"
+                    ]
+                },
+                {
+                    "name": "Professional",
+                    "price": "$49",
+                    "period": "per user/month",
+                    "description": "For growing businesses",
+                    "features": [
+                        "Up to 100 users",
+                        "Advanced analytics",
+                        "30-day data retention",
+                        "Priority support",
+                        "Video conferencing",
+                        "Social feed",
+                        "API access"
+                    ],
+                    "popular": true
+                },
+                {
+                    "name": "Enterprise",
+                    "price": "Custom",
+                    "description": "For large organizations",
+                    "features": [
+                        "Unlimited users",
+                        "Custom integrations",
+                        "Unlimited retention",
+                        "Dedicated support",
+                        "SLA guarantees",
+                        "On-premise deployment",
+                        "White-label options"
+                    ]
+                }
+            ]
+        },
+        "cta": {
+            "title": "Ready to Secure Your Organization?",
+            "subtitle": "Join thousands of companies protecting their assets with InsiderThreat",
+            "button": "Get Started Now"
+        },
+        "footer": {
+            "company": "InsiderThreat Security Solutions",
+            "tagline": "Protecting businesses from internal threats",
+            "links": {
+                "product": "Product",
+                "solutions": "Solutions",
+                "pricing": "Pricing",
+                "docs": "Documentation",
+                "about": "About Us",
+                "blog": "Blog",
+                "careers": "Careers",
+                "contact": "Contact"
+            },
+            "legal": {
+                "privacy": "Privacy Policy",
+                "terms": "Terms of Service",
+                "security": "Security"
+            },
+            "social": {
+                "linkedin": "LinkedIn",
+                "twitter": "Twitter",
+                "github": "GitHub"
+            },
+            "copyright": "© 2026 InsiderThreat. All rights reserved."
+        }
+    },
+    "common": {
+        "learnMore": "Learn More",
+        "getStarted": "Get Started",
+        "contactUs": "Contact Us",
+        "language": "Language"
+    }
+}

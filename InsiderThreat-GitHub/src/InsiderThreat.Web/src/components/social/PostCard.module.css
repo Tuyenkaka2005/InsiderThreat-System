@@ -1,0 +1,147 @@
+.card {
+    background-color: var(--card-bg);
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px var(--card-shadow);
+}
+
+.card :global(.ant-card-body) {
+    padding: 12px 16px 4px;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.userInfo {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+}
+
+.info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.dot {
+    margin: 0 2px;
+}
+
+.moreBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.moreBtn:hover {
+    background-color: var(--bg-hover);
+}
+
+/* Content */
+.content {
+    font-size: 15px;
+    line-height: 1.3333;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    word-wrap: break-word;
+}
+
+/* Stats */
+.stats {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 15px;
+    color: var(--text-secondary);
+}
+
+.likes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.likeIcon {
+    font-size: 18px;
+}
+
+.interactions {
+    display: flex;
+    gap: 8px;
+}
+
+.interactions span {
+    cursor: pointer;
+}
+
+.interactions span:hover {
+    text-decoration: underline;
+}
+
+.divider {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 4px 0 8px;
+}
+
+/* Actions */
+.actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.action:hover {
+    background-color: var(--bg-hover);
+}
+
+.action:active {
+    transform: scale(0.98);
+}
+
+.action.liked {
+    color: var(--primary-blue);
+}

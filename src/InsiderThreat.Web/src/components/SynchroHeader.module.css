@@ -1,0 +1,129 @@
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 72px;
+    padding: 0 32px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    font-family: 'Inter', sans-serif;
+}
+
+.breadcrumbWrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.breadcrumbItem {
+    color: var(--color-text-muted);
+}
+
+.breadcrumbItem.active {
+    background: var(--color-bg);
+    color: var(--color-text-main);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.separator {
+    color: var(--color-text-muted);
+    font-size: 10px;
+    opacity: 0.5;
+}
+
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.searchWrapper {
+    display: flex;
+    align-items: center;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    width: 250px;
+    transition: width 0.3s;
+}
+
+.searchWrapper:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary-light);
+    width: 300px;
+}
+
+.searchIcon {
+    color: var(--color-text-muted);
+    font-size: 16px;
+    margin-right: 8px;
+}
+
+.searchInput {
+    border: none;
+    outline: none;
+    background: transparent;
+    width: 100%;
+    color: var(--color-text-main);
+    font-size: 14px;
+}
+
+.searchInput::placeholder {
+    color: var(--color-text-muted);
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+}
+
+.actionBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    background: transparent;
+}
+
+.actionBtn:hover {
+    background: var(--color-bg);
+    color: var(--color-text-main);
+    border-color: var(--color-text-muted);
+}
+
+.divider {
+    width: 1px;
+    height: 24px;
+    background: var(--color-border);
+}
+
+.membersSection {
+    display: flex;
+    align-items: center;
+}
+
+.avatarGroup {
+    margin-right: 8px;
+}
+
+.inviteBtn {
+    background: var(--color-text-main);
+    color: var(--color-surface);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    min-width: 80px;
+}
+
+.inviteBtn:hover {
+    opacity: 0.9;
+}

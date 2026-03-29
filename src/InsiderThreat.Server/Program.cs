@@ -1,5 +1,5 @@
 using MongoDB.Driver;
-using MongoDB.Bson; // Thêm cái này để làm việc với dữ liệu linh động
+using MongoDB.Bson;
 using InsiderThreat.Shared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -8,73 +8,63 @@ using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Cấu hình giới hạn upload file (200MB) và ép cổng WebHost
-builder.WebHost.UseUrls("http://127.0.0.1:5038");
+// ─── CẤU HÌNH WEB HOST & KESTREL (Nâng giới hạn 500MB) ──────────────────────
+builder.WebHost.UseUrls("http://*:5038");
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 209715200; // 200MB
+    options.Limits.MaxRequestBodySize = 524288000; // 500MB
 });
 
-// ==========================================
-// 1. CẤU HÌNH MONGODB (Đã sửa chuẩn)
-// ==========================================
+// ─── 1. CẤU HÌNH MONGODB & GRIDFS ──────────────────────────────────────────
 var mongoSettings = builder.Configuration.GetSection("InsiderThreatDatabase");
 
-// Đăng ký MongoClient (Singleton)
 builder.Services.AddSingleton<IMongoClient>(s =>
 {
-    var connStr = mongoSettings.GetValue<string>("ConnectionString") ?? "mongodb://admin:admin123@192.168.203.142:27017/?authSource=admin";
+    var connStr = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING") 
+                  ?? mongoSettings.GetValue<string>("ConnectionString") 
+                  ?? "mongodb://admin:admin123@192.168.203.142:27017/?authSource=admin";
+    
     return new MongoClient(connStr);
 });
 
-// Đăng ký IMongoDatabase (Scoped)
 builder.Services.AddScoped<IMongoDatabase>(s =>
 {
     var dbName = mongoSettings.GetValue<string>("DatabaseName") ?? "InsiderThreatDB";
     return s.GetRequiredService<IMongoClient>().GetDatabase(dbName);
 });
 
-// Đăng ký GridFSBucket để lưu trữ file/ảnh trong MongoDB
 builder.Services.AddScoped<MongoDB.Driver.GridFS.IGridFSBucket>(s =>
 {
     var db = s.GetRequiredService<IMongoDatabase>();
     return new MongoDB.Driver.GridFS.GridFSBucket(db);
 });
-// ==========================================
 
-// ==========================================
-// 3. CẤU HÌNH CORS (Cho Web Frontend)
-// ==========================================
+// ─── 2. CẤU HÌNH FORM OPTIONS (Hỗ trợ File lớn) ─────────────────────────────
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 524288000; // 500MB
+    options.ValueLengthLimit = 524288000;
+    options.MemoryBufferThreshold = 524288000;
+});
+
+// ─── 3. CẤU HÌNH CORS ──────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowWebApp", policy =>
     {
         policy.WithOrigins(
-            // === Development ===
             "http://localhost:5173", "http://localhost:3000",
             "http://127.0.0.1:5173", "http://127.0.0.1:3000",
-            "http://localhost:5174", "http://127.0.0.1:5174",
-            "http://localhost:5175", "http://127.0.0.1:5175",
-            "http://localhost:5176", "http://127.0.0.1:5176",
-            "http://localhost:5177", "http://127.0.0.1:5177",
-            // === Production Server ===
-            "http://tauri.localhost",
-            "https://tauri.localhost",
-            "tauri://localhost",
-            "http://150.95.104.244",
-            "https://150.95.104.244",
-            "https://tuyen-thda.io.vn",
-            "https://www.tuyen-thda.io.vn")
+            "http://tauri.localhost", "https://tauri.localhost", "tauri://localhost",
+            "http://150.95.104.244", "https://150.95.104.244",
+            "https://tuyen-thda.io.vn", "https://www.tuyen-thda.io.vn")
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials(); // Cho phép gửi Cookie/JWT
+              .AllowCredentials();
     });
 });
-// ==========================================
 
-// ==========================================
-// 4. CẤU HÌNH JWT AUTHENTICATION
-// ==========================================
+// ─── 4. CẤU HÌNH JWT AUTHENTICATION ────────────────────────────────────────
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var rawKey = jwtSettings["Key"] ?? "InsiderThreatSystem_SuperSecretKey_2024_DoNotShare_ThisMustBe32CharsLong!";
 var key = Encoding.UTF8.GetBytes(rawKey);
@@ -94,11 +84,12 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(key)
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+        NameClaimType = System.Security.Claims.ClaimTypes.Name
     };
 
-    // SignalR WebSocket không gửi được header → token đến qua query string
-    options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
@@ -114,39 +105,21 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
-// ==========================================
 
-// ==========================================
-// 6. CẤU HÌNH EMAIL SERVICE
-// ==========================================
+// ─── 5. ĐĂNG KÝ SERVICES ───────────────────────────────────────────────────
 builder.Services.AddScoped<InsiderThreat.Server.Services.IEmailService, InsiderThreat.Server.Services.EmailService>();
 builder.Services.AddSingleton<InsiderThreat.Server.Services.IMessageEncryptionService, InsiderThreat.Server.Services.MessageEncryptionService>();
-// ==========================================
+builder.Services.AddScoped<InsiderThreat.Server.Services.IWatermarkService, InsiderThreat.Server.Services.WatermarkService>();
+builder.Services.AddSingleton<InsiderThreat.Server.Services.FileEncryptionService>();
 
-// ==========================================
-// 7. CẤU HÌNH SIGNALR
-// ==========================================
 builder.Services.AddSignalR();
-// ==========================================
-
-// ==========================================
-
-builder.Services.Configure<FormOptions>(options =>
-{
-    options.MultipartBodyLengthLimit = 209715200; // 200MB
-    options.ValueLengthLimit = 209715200;
-    options.MemoryBufferThreshold = 209715200;
-});
-
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// ==========================================
-// SEED ADMIN ACCOUNT
-// ==========================================
+// ─── 6. SEED ADMIN DATA ─────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
@@ -161,56 +134,38 @@ using (var scope = app.Services.CreateScope())
             FullName = "Administrator",
             Role = "Admin",
             Email = "admin@insiderthreat.local",
+            RequiresPasswordChange = false,
             CreatedAt = DateTime.Now
         };
         await usersCollection.InsertOneAsync(admin);
-        Console.WriteLine(">>> Admin account created: admin / admin123");
     }
 }
-// ==========================================
 
-// Configure the HTTP request pipeline.
+// ─── 7. PIPELINE ────────────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// app.UseHttpsRedirection(); // Tắt HTTPS để tránh lỗi kết nối LAN nếu chưa cấu hình SSL
-
-// Bật CORS
 app.UseCors("AllowWebApp");
-
-// Bật Authentication & Authorization
-app.UseStaticFiles(); // Cho phép serve file từ wwwroot
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ==========================================
-// 2. API TEST KẾT NỐI DATABASE (QUAN TRỌNG)
-// ==========================================
+// Test API
 app.MapGet("/test-db", (IMongoDatabase db) =>
 {
-    // Lấy thử danh sách Users (dùng BsonDocument để không cần tạo Class User ngay bây giờ)
-    var users = db.GetCollection<BsonDocument>("Users").Find(_ => true).ToList();
-
-    // Chuyển kết quả sang dạng chuỗi JSON dễ đọc
-    var result = users.ConvertAll(bson => BsonTypeMapper.MapToDotNetValue(bson));
-
-    return Results.Ok(new
-    {
-        Message = "✅ KẾT NỐI MONGODB THÀNH CÔNG!",
-        ServerTime = DateTime.Now,
-        UserCount = users.Count,
-        Data = result
+    var users = db.GetCollection<BsonDocument>("Users").Find(_ => true).Limit(5).ToList();
+    var groups = db.GetCollection<BsonDocument>("Groups").Find(_ => true).Limit(5).ToList();
+    return Results.Ok(new { 
+        Message = "✅ Database Connected", 
+        UserCount = users.Count, 
+        GroupCount = groups.Count 
     });
-})
-.WithName("TestDatabaseConnection")
-.WithOpenApi();
+});
 
-// ==========================================
-
-// Map SignalR Hub
+// Hubs
 app.MapHub<InsiderThreat.Server.Hubs.SystemHub>("/hubs/system");
 app.MapHub<InsiderThreat.Server.Hubs.ChatHub>("/hubs/chat");
 app.MapHub<InsiderThreat.Server.Hubs.NotificationHub>("/hubs/notifications");

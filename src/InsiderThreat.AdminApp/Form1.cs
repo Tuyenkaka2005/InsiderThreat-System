@@ -24,6 +24,11 @@ namespace InsiderThreat.AdminApp
         public Form1()
         {
             InitializeComponent();
+
+            // 🛡️ BẢO MẬT: Chống quay màn hình và truy cập từ xa (UltraView/TeamViewer)
+            // Cửa sổ ứng dụng sẽ hiện màu đen trong các bản chụp hoặc quay phim.
+            NativeMethods.SetWindowDisplayAffinity(this.Handle, NativeMethods.WDA_MONITOR);
+
             LoadConfiguration();
             SetupCustomGrid();
         }

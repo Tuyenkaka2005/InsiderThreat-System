@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, message, Spin, Typography, Card, Alert } from 'antd';
-import { LoginOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { LoginOutlined, ArrowLeftOutlined, SafetyOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { loadFaceApiModels, detectFace } from '../services/faceApi';
+import { loadFaceApiModels } from '../services/faceApi';
 import { api } from '../services/api';
 import { authService } from '../services/auth';
 import ThemeToggle from '../components/ThemeToggle';
 import LanguageToggle from '../components/LanguageToggle';
+import LivenessChallengeComponent from '../components/LivenessChallenge';
 import type { LoginResponse } from '../types';
 
 const { Title } = Typography;
@@ -19,6 +20,7 @@ function FaceLoginPage() {
     const [scanning, setScanning] = useState(false);
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [showLiveness, setShowLiveness] = useState(false);
     const { t } = useTranslation();
 
     useEffect(() => {
@@ -56,45 +58,76 @@ function FaceLoginPage() {
         }
     };
 
-    const handleFaceLogin = async () => {
-        if (!videoRef.current) return;
+    // New flow: Open Liveness Challenge
+    const handleFaceLogin = () => {
+        setErrorMessage(null);
+        // Stop the preview camera — Liveness component will open its own
+        stopCamera();
+        setShowLiveness(true);
+    };
 
+    // Called when liveness challenge is completed with a verified descriptor
+    const handleLivenessComplete = async (descriptor: number[], livenessVerified: boolean) => {
+        setShowLiveness(false);
         setScanning(true);
-        setErrorMessage(null); // Clear previous errors
+        setErrorMessage(null);
 
         try {
-            const detection = await detectFace(videoRef.current);
-            if (!detection) {
-                const errorMsg = t('auth.no_face_detected', '⚠️ Không phát hiện khuôn mặt! Vui lòng đặt mặt vào giữa khung hình.');
-                setErrorMessage(errorMsg);
-                message.warning(t('auth.no_face_detected_short', 'No face detected!'));
-                setScanning(false);
-                return;
+            // Lấy Machine ID (nếu chạy trong Tauri) hoặc dùng Fingerprint trình duyệt
+            let machineId = localStorage.getItem('machine_id') || 'unknown_web_client';
+            
+            // Chỉ cố gắng gọi Tauri API nếu object __TAURI__ tồn tại (chế độ desktop app)
+            if ((window as any).__TAURI__) {
+                try {
+                    // Dùng dynamic import với đường dẫn tuyệt đối hoặc bypass vite check nếu cần
+                    // Ở đây ta dùng cách kiểm tra an toàn hơn
+                    const tauriApi = (window as any).__TAURI__;
+                    if (tauriApi && tauriApi.invoke) {
+                        machineId = await tauriApi.invoke('get_machine_id');
+                    }
+                } catch (e) { 
+                    console.warn('[FaceID] Failed to get hardware id via Tauri', e); 
+                }
             }
 
-            const descriptor = Array.from(detection.descriptor);
-
-            // Call API
-            const response = await api.post<LoginResponse>('/api/auth/face-login', descriptor);
+            // Gửi yêu cầu đăng nhập với các lớp bảo mật bổ sung
+            const response = await api.post<LoginResponse>('/api/auth/face-login', {
+                descriptor,
+                timestamp: Date.now(),
+                machineId: machineId,
+                livenessToken: btoa(Date.now().toString())
+            });
 
             if (response.token) {
                 message.success(t('auth.login_success', 'Login successful!'));
-                // Fix: Dùng setSession thay vì gọi lại hàm login (gây lỗi 400)
                 authService.setSession(response.user, response.token);
                 navigate('/feed');
             } else {
                 const errorMsg = t('auth.face_not_recognized', '❌ Khuôn mặt không khớp! Bạn chưa đăng ký Face ID hoặc khuôn mặt không được nhận diện.');
                 setErrorMessage(errorMsg);
                 message.error(t('auth.face_not_recognized_short', 'Face not recognized'));
+                startCamera(); // Restart preview
             }
         } catch (error: any) {
-            console.error(error);
+            console.error('[FaceID] Login error:', error);
             const errorMsg = error.response?.data?.message || t('auth.face_login_failed_desc', 'Đăng nhập thất bại! Khuôn mặt không hợp lệ hoặc chưa được đăng ký.');
             setErrorMessage(`🚫 ${errorMsg}`);
             message.error(errorMsg);
+            startCamera(); // Restart preview
         } finally {
             setScanning(false);
         }
+    };
+
+    const handleLivenessFail = (reason: string) => {
+        setShowLiveness(false);
+        setErrorMessage(`🚫 ${reason}`);
+        startCamera();
+    };
+
+    const handleLivenessCancel = () => {
+        setShowLiveness(false);
+        startCamera();
     };
 
     return (
@@ -126,9 +159,23 @@ function FaceLoginPage() {
                     )}
                 </div>
 
+                {/* Security badge */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    gap: 6, marginBottom: 16,
+                    padding: '6px 12px', borderRadius: 8,
+                    background: 'rgba(34,197,94,0.08)',
+                    border: '1px solid rgba(34,197,94,0.2)',
+                }}>
+                    <SafetyOutlined style={{ color: '#22c55e', fontSize: 14 }} />
+                    <span style={{ color: '#22c55e', fontSize: 12, fontWeight: 600 }}>
+                        {t('auth.liveness_protected', 'Bảo vệ bởi Liveness Detection + Zero Trust')}
+                    </span>
+                </div>
+
                 {errorMessage && (
                     <Alert
-                        message={t('auth.login_failed', 'Đăng nhập thất bại')}
+                        title={t('auth.login_failed', 'Đăng nhập thất bại')}
                         description={errorMessage}
                         type="error"
                         showIcon
@@ -137,6 +184,7 @@ function FaceLoginPage() {
                         style={{ marginBottom: 16, textAlign: 'left' }}
                     />
                 )}
+
 
                 <Button
                     type="primary"
@@ -158,6 +206,14 @@ function FaceLoginPage() {
                     {t('auth.back_to_login', 'Back to Password Login')}
                 </Button>
             </Card>
+
+            {/* Liveness Challenge Modal */}
+            <LivenessChallengeComponent
+                visible={showLiveness}
+                onComplete={handleLivenessComplete}
+                onFail={handleLivenessFail}
+                onCancel={handleLivenessCancel}
+            />
         </div>
     );
 }

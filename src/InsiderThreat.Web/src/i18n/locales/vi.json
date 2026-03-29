@@ -286,7 +286,7 @@
     },
     "dashboard": {
         "logged_out": "Đã đăng xuất!",
-        "menu_feed": "Feed",
+        "menu_feed": "Bảng tin",
         "menu_usb": "Quản lý USB",
         "menu_documents": "Nhật ký Tài liệu",
         "menu_attendance": "Chấm công",
@@ -302,7 +302,7 @@
         "usb_title": "🔐 Quản lý Thiết bị USB",
         "usb_sec": "Bảo mật USB",
         "admin_label": "Quản trị viên InsiderThreat",
-        "nav_feed": "Feed",
+        "nav_feed": "Bảng tin",
         "nav_users": "Nhân sự",
         "nav_posts": "Bài viết",
         "nav_reports": "Vi phạm",
@@ -315,11 +315,7 @@
     },
     "feed": {
         "max_chat_windows": "Tối đa 3 cửa sổ chat được mở",
-        "welcome_back_user": "Chào mừng trở lại, {{name}} 👋",
-        "welcome_back_admin": "Chào mừng trở lại, Quản trị viên",
-        "daily_prompt_user": "Hôm nay có gì mới không? Chia sẻ với đồng nghiệp nhé!",
-        "daily_prompt_admin": "Theo dõi các biến động truy cập hệ thống và hoạt động mới nhất.",
-        "admin_panel": "Admin Panel",
+
         "post_placeholder": "{{name}} ơi, bạn đang nghĩ gì?",
         "create_post_title": "TẠO BÀI VIẾT",
         "public_badge": "🌐 CÔNG KHAI",
@@ -472,7 +468,10 @@
         "privacy_public": "Công khai",
         "privacy_private": "Riêng tư",
         "btn_cancel": "Hủy",
-        "btn_confirm_create": "Tạo nhóm"
+        "btn_confirm_create": "Tạo nhóm",
+        "btn_delete": "Xóa dự án",
+        "confirm_delete_title": "Xóa dự án",
+        "confirm_delete_msg": "Bạn có chắc chắn muốn xóa dự án '{{name}}' không? Hành động này không thể hoàn tác."
     },
     "staff": {
         "dept_tech": "Kỹ thuật",
@@ -552,5 +551,160 @@
         "tooltip_stop_share": "Dừng chia sẻ",
         "tooltip_share_screen": "Chia sẻ màn hình",
         "tooltip_leave": "Rời phòng"
+    },
+    "project_detail": {
+        "tabs": {
+            "dashboard": "Tổng quan",
+            "mytasks": "Công việc của tôi",
+            "timeline": "Lộ trình",
+            "files": "Tài liệu"
+        },
+        "breadcrumbs": {
+            "workspace": "Không gian làm việc",
+            "projects": "Dự án"
+        },
+        "header": {
+            "subtitle": "Quản lý và theo dõi tiến độ dự án",
+            "sprint": "Giai đoạn: Digital Rebrand",
+            "btn_delete": "Xóa dự án"
+        },
+        "stats": {
+            "health": "Điểm sức khỏe",
+            "total": "Tổng số Task",
+            "progress": "Đang thực hiện",
+            "completed": "Đã hoàn thành",
+            "sub_health": "Sức khỏe dự án",
+            "sub_total": "Task đã tạo",
+            "sub_progress": "Đang hoạt động",
+            "sub_completed": "Task xong"
+        },
+        "dashboard": {
+            "overview": "Tổng quan",
+            "overview_subtitle": "Theo dõi tiến độ dự án của bạn tại đây.",
+            "total_projects": "Tổng số dự án",
+            "active_tasks": "Công việc đang mở",
+            "assigned_to_me": "Giao cho tôi",
+            "completed": "Đã xong",
+            "roadmap": "Lộ trình",
+            "recent_activity": "Hoạt động công việc gần đây",
+            "today_tasks": "Các dự án hôm nay",
+            "see_all": "Xem tất cả",
+            "create_task": "Tạo công việc",
+            "new_task_modal": "Tạo công việc mới",
+            "task_title": "Tiêu đề công việc",
+            "description": "Mô tả",
+            "assign_to": "Giao cho",
+            "priority": "Độ ưu tiên",
+            "start_date": "Ngày bắt đầu",
+            "due_date": "Hạn chót",
+            "btn_cancel": "Hủy"
+        },
+        "task_drawer": {
+            "assignee": "Người thực hiện",
+            "tags": "Nhãn",
+            "status": "Trạng thái",
+            "due_date": "Hạn chót",
+            "priority": "Ưu tiên",
+            "description_tab": "Mô tả",
+            "comment_tab": "Bình luận",
+            "setting_tab": "Cài đặt",
+            "comment_placeholder": "Thêm bình luận... (Gõ @ để nhắc tên)",
+            "collaborators": "Người tham gia",
+            "cancel": "Hủy",
+            "save": "Lưu",
+            "status_todo": "Cần làm",
+            "status_in_progress": "Đang làm",
+            "status_review": "Xem xét",
+            "status_waiting": "Chờ duyệt",
+            "status_done": "Hoàn thành",
+            "action_reply": "Trả lời",
+            "action_like": "Thích",
+            "action_delete": "Xóa"
+        },
+        "timeline": {
+            "title": "Lộ trình & Lập kế hoạch dự án",
+            "subtitle": "Kế hoạch chiến lược cho dự án",
+            "daily": "Ngày",
+            "weekly": "Tuần",
+            "monthly": "Tháng",
+            "load_fail": "Lỗi khi tải lộ trình",
+            "update_success": "Cập nhật lộ trình thành công",
+            "update_fail": "Cập nhật thất bại",
+            "exporting": "Đang xuất...",
+            "export_success": "Đã xuất lộ trình ra PDF",
+            "btn_export": "Xuất bản",
+            "btn_schedule": "Lập lịch",
+            "col_tasks": "QUY TRÌNH DỰ ÁN",
+            "milestones_title": "Cột mốc dự án",
+            "milestone_kickoff": "Khởi động dự án",
+            "milestone_design": "Thiết kế hệ thống",
+            "milestone_beta": "Triển khai Beta",
+            "milestone_finish": "Hoàn thành dự án",
+            "schedule_modal_title": "Cấu hình Lộ trình",
+            "schedule_desc": "Xác định thời gian bắt đầu và kết thúc của dự án để căn chỉnh biểu đồ Gantt.",
+            "project_range": "Tổng thời gian"
+        },
+        "team": {
+            "title": "Đội ngũ dự án",
+            "invite": "Mời",
+            "manage": "Quản lý truy cập"
+        },
+        "charts": {
+            "distribution": "Phân bổ công việc",
+            "done": "Đã xong",
+            "in_progress": "Đang làm",
+            "remaining": "Còn lại",
+            "velocity": "Tốc độ trung bình",
+            "mood": "Trạng thái nhóm",
+            "optimal": "Tối ưu"
+        },
+        "focus": {
+            "title": "Chế độ tập trung",
+            "critical": "Đường găng (Critical Path)",
+            "overdue": "Quá hạn",
+            "milestones": "Chỉ mốc quan trọng"
+        },
+        "mytasks": {
+            "narrative": "DIỄN GIẢI DỰ ÁN",
+            "search": "Tìm kiếm công việc...",
+            "board": "Bảng",
+            "list": "Danh sách",
+            "filters": "Bộ lọc",
+            "add_new": "Thêm mới",
+            "add_task": "Thêm công việc",
+            "board_title": "Quy trình dự án",
+            "load_fail": "Lỗi khi tải công việc",
+            "move_success": "Đã chuyển sang {{status}}",
+            "update_status_fail": "Lỗi khi cập nhật trạng thái",
+            "delete_confirm_title": "Xóa nhiệm vụ?",
+            "delete_confirm_msg": "Hành động này không thể hoàn tác.",
+            "btn_delete": "Xóa",
+            "delete_success": "Đã xóa nhiệm vụ",
+            "delete_fail": "Lỗi khi xóa nhiệm vụ",
+            "calendar_title": "Lịch công việc",
+            "all_tasks_label": "Tất cả công việc",
+            "progress_tooltip": "Tiến độ",
+            "col_task": "Công việc",
+            "no_task_found": "Không tìm thấy công việc",
+            "add_success": "Đã tạo nhiệm vụ",
+            "status_todo": "Cần làm",
+            "status_in_progress": "Đang làm",
+            "status_review": "Xem xét",
+            "status_waiting": "Chờ duyệt",
+            "status_done": "Hoàn thành"
+        },
+        "files": {
+            "resource_library": "TÀI LIỆU DỰ ÁN",
+            "project_assets": "Kho lưu trữ tệp",
+            "search": "Tìm tài liệu...",
+            "upload": "Tải tệp lên",
+            "drop_zone": "Nhấp hoặc kéo tệp vào đây để tải lên",
+            "storage_usage": "Hạn mức lưu trữ dự án",
+            "used": "Đã dùng",
+            "total": "trên",
+            "license": "Giấy phép hoạt động",
+            "load_fail": "Lỗi khi tải tệp tin",
+            "upgrade_storage": "Mua thêm dung lượng"
+        }
     }
 }

@@ -58,6 +58,60 @@ function ToastItem({ notification, onDismiss, onNavigate }: {
     const icon = ICONS[notification.type] || '🔔';
     const colorClass = COLORS[notification.type] || 'border-l-slate-400';
 
+    if (notification.type === 'DocumentLeakAlert') {
+        const playSiren = () => {
+            const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = context.createOscillator();
+            const gainNode = context.createGain();
+            
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(600, context.currentTime);
+            oscillator.frequency.linearRampToValueAtTime(800, context.currentTime + 0.3);
+            oscillator.frequency.linearRampToValueAtTime(600, context.currentTime + 0.6);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(context.destination);
+            
+            gainNode.gain.setValueAtTime(0.5, context.currentTime);
+            oscillator.start();
+            oscillator.stop(context.currentTime + 1.5); // Play for 1.5 seconds
+        };
+
+        useEffect(() => {
+            if (visible) playSiren();
+            // Start flashing interval
+            const interval = setInterval(playSiren, 2000);
+            return () => clearInterval(interval);
+        }, [visible]);
+
+        return (
+            <div className={`fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 pointer-events-auto transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}>
+                <div className="bg-red-600 w-full max-w-2xl rounded-2xl p-8 shadow-[0_0_100px_rgba(220,38,38,0.7)] text-center animate-pulse border-4 border-red-400 relative">
+                    <div className="text-8xl mb-4">🚨</div>
+                    <h1 className="text-4xl font-extrabold text-white mb-2 uppercase tracking-wide">Cảnh báo An ninh Nghiêm trọng</h1>
+                    <h2 className="text-2xl font-bold text-red-200 mb-6 uppercase tracking-wider">Phát hiện Hành vi Rò rỉ Tài liệu Mật</h2>
+                    <div className="bg-black/50 p-6 rounded-xl mb-8">
+                        <p className="text-xl text-white font-mono leading-relaxed">{notification.message}</p>
+                    </div>
+                    <div className="flex gap-4 justify-center">
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); setVisible(false); setTimeout(onDismiss, 300); }}
+                            className="px-8 py-3 bg-red-900/50 hover:bg-red-800 text-red-100 rounded-xl font-bold text-lg transition-colors border border-red-500/30"
+                        >
+                            Đã Rõ, Bỏ qua
+                        </button>
+                        <button 
+                            onClick={() => { onNavigate(); setTimeout(onDismiss, 300); }}
+                            className="px-8 py-3 bg-white hover:bg-red-50 text-red-700 rounded-xl font-bold text-lg transition-all shadow-[0_0_20px_rgba(255,255,255,0.4)]"
+                        >
+                            Đến Trang Quản lý &gt;
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             className={`pointer-events-auto flex items-start gap-3 w-80 bg-white border border-slate-200 border-l-4 ${colorClass} 

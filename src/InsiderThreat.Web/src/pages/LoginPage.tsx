@@ -8,11 +8,15 @@ import ThemeToggle from '../components/ThemeToggle';
 import LanguageToggle from '../components/LanguageToggle';
 import { useTheme } from '../context/ThemeContext';
 import Logo from '../components/Logo';
+import ChangePasswordModal from '../components/ChangePasswordModal';
+import { message } from 'antd';
 import './LoginPage.css';
 
 function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [showChangePassword, setShowChangePassword] = useState(false);
+    const [loginValues, setLoginValues] = useState({ username: '', password: '' });
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [isFocused, setIsFocused] = useState(false);
     const navigate = useNavigate();
@@ -32,8 +36,18 @@ function LoginPage() {
     const onFinish = async (values: any) => {
         setLoading(true);
         setErrorMessage(null);
+        setLoginValues({ username: values.username, password: values.password });
+
         try {
             const response = await authService.login(values.username, values.password);
+            
+            // 🛡️ Kiểm tra xem có bắt buộc đổi mật khẩu không
+            if (response.message === 'CHANGE_PASSWORD_REQUIRED') {
+                setShowChangePassword(true);
+                setLoading(false);
+                return;
+            }
+
             const role = response.user.role?.trim().toLowerCase();
             if (role === 'admin') {
                 navigate('/dashboard');
@@ -77,6 +91,18 @@ function LoginPage() {
 
     return (
         <div className="zdak-login-page">
+            {/* 🛡️ Modal đổi mật khẩu bắt buộc */}
+            <ChangePasswordModal 
+                visible={showChangePassword}
+                username={loginValues.username}
+                oldPassword={loginValues.password}
+                onSuccess={() => {
+                    setShowChangePassword(false);
+                    message.success('Đã cập nhật mật khẩu! Vui lòng đăng nhập lại.');
+                }}
+                onCancel={() => setShowChangePassword(false)}
+            />
+
             {/* Toggles */}
             <div className="login-controls">
                 <LanguageToggle />
@@ -184,7 +210,7 @@ function LoginPage() {
                         <p className="subtitle">{t('auth.please_enter_details')}</p>
 
                         {errorMessage && (
-                            <Alert message="Error" description={errorMessage} type="error" showIcon closable onClose={() => setErrorMessage(null)} style={{ marginBottom: 20 }} />
+                            <Alert title="Error" description={errorMessage} type="error" showIcon closable onClose={() => setErrorMessage(null)} style={{ marginBottom: 20 }} />
                         )}
 
                         <Form name="zdak_login" onFinish={onFinish} onValuesChange={handleValuesChange} layout="vertical" className="zdak-form">

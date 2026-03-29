@@ -3,11 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Driver.GridFS;
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using InsiderThreat.Shared;
 
 namespace InsiderThreat.Server.Controllers
 {
@@ -16,31 +11,31 @@ namespace InsiderThreat.Server.Controllers
     [Route("api/[controller]")]
     public class UploadController : ControllerBase
     {
-        private readonly IGridFSBucket _gridFsBucket;
-        private readonly IMongoCollection<LogEntry> _logsCollection;
+        private readonly IGridFSBucket _gridFS;
+        private readonly ILogger<UploadController> _logger;
 
-        public UploadController(IGridFSBucket gridFsBucket, IMongoDatabase database)
+        public UploadController(IGridFSBucket gridFS, ILogger<UploadController> logger)
         {
-            _gridFsBucket = gridFsBucket;
-            _logsCollection = database.GetCollection<LogEntry>("Logs");
+            _gridFS = gridFS;
+            _logger = logger;
         }
 
         // POST: api/upload
-        // Upload file vào MongoDB GridFS
         [HttpPost]
-        public async Task<IActionResult> Upload(IFormFile file)
+        [DisableRequestSizeLimit] // Cho phép upload file cực lớn
+        public async Task<IActionResult> UploadFile(IFormFile file)
         {
             if (file == null || file.Length == 0)
-                return BadRequest(new { message = "No file uploaded" });
-
-            // Kiểm tra loại file (chấp nhận ảnh, video và một số file thông dụng)
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".mov", ".avi", ".mkv", ".webm", ".pdf", ".doc", ".docx", ".txt", ".zip", ".rar", ".pptx", ".ppt", ".csv", ".7z" };
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(extension))
-                return BadRequest(new { message = "Invalid file type. Currently supported image, video, document, and archive formats." });
+            {
+                return BadRequest("No file uploaded");
+            }
 
             try
             {
+                _logger.LogInformation($"Uploading file: {file.FileName}, Size: {file.Length} bytes");
+
+                // Đọc file và upload vào GridFS
+                using var stream = file.OpenReadStream();
                 var options = new GridFSUploadOptions
                 {
                     Metadata = new BsonDocument
@@ -51,112 +46,54 @@ namespace InsiderThreat.Server.Controllers
                     }
                 };
 
-                using var stream = file.OpenReadStream();
-                var fileId = await _gridFsBucket.UploadFromStreamAsync(file.FileName, stream, options);
-
-                var fileIdStr = fileId.ToString();
-                var url = $"/api/upload/{fileIdStr}";
+                var fileId = await _gridFS.UploadFromStreamAsync(file.FileName, stream, options);
+                
+                // Trả về URL để truy cập file sau này
+                // Ví dụ: /api/upload/{id}
+                var fileUrl = $"/api/upload/{fileId}";
 
                 return Ok(new
                 {
-                    url,
+                    fileId = fileId.ToString(),
+                    url = fileUrl,
                     fileName = file.FileName,
-                    originalName = file.FileName,
-                    fileId = fileIdStr,
-                    size = file.Length,
-                    type = file.ContentType
+                    contentType = file.ContentType,
+                    size = file.Length
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+                _logger.LogError(ex, "Error uploading file");
+                return StatusCode(500, new { message = "Upload failed", error = ex.Message });
             }
         }
 
-        // GET: api/upload/{fileId}
-        // Trả về nội dung file để hiển thị (ảnh, v.v.)
-        [HttpGet("{fileId}")]
-        [AllowAnonymous] // Cho phép truy cập ảnh mà không cần auth (cần thiết cho <img> tag)
-        public async Task<IActionResult> GetFile(string fileId)
+        // GET: api/upload/{id}
+        [HttpGet("{id}")]
+        [AllowAnonymous] // Cho phép xem ảnh/video mà không cần token (hoặc có thể thêm Authorize nếu cần mật)
+        public async Task<IActionResult> GetFile(string id)
         {
             try
             {
-                if (!ObjectId.TryParse(fileId, out var objectId))
-                    return BadRequest(new { message = "Invalid file ID" });
-
-                // Lấy thông tin file (metadata)
-                var filter = Builders<GridFSFileInfo>.Filter.Eq("_id", objectId);
-                var cursor = await _gridFsBucket.FindAsync(filter);
-                var fileInfo = await cursor.FirstOrDefaultAsync();
-
-                if (fileInfo == null)
-                    return NotFound(new { message = "File not found" });
-
-                var contentType = fileInfo.Metadata?.GetValue("contentType", new BsonString("application/octet-stream")).AsString
-                                  ?? "application/octet-stream";
-
-                var downloadStream = await _gridFsBucket.OpenDownloadStreamAsync(objectId);
-                return File(downloadStream, contentType, enableRangeProcessing: true);
-            }
-            catch (GridFSFileNotFoundException)
-            {
-                return NotFound(new { message = "File not found" });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
-            }
-        }
-
-        // GET: api/upload/download/{fileId}?originalName=filename.ext
-        // Trả về file để download (với content-disposition attachment)
-        [HttpGet("download/{fileId}")]
-        [AllowAnonymous]
-        public async Task<IActionResult> DownloadFile(string fileId, [FromQuery] string? originalName, [FromQuery] string? downloaderName)
-        {
-            try
-            {
-                if (!ObjectId.TryParse(fileId, out var objectId))
-                    return BadRequest(new { message = "Invalid file ID" });
-
-                var filter = Builders<GridFSFileInfo>.Filter.Eq("_id", objectId);
-                var cursor = await _gridFsBucket.FindAsync(filter);
-                var fileInfo = await cursor.FirstOrDefaultAsync();
-
-                if (fileInfo == null)
-                    return NotFound(new { message = "File not found" });
-
-                var contentType = fileInfo.Metadata?.GetValue("contentType", new BsonString("application/octet-stream")).AsString
-                                  ?? "application/octet-stream";
-
-                var downloadName = originalName
-                                   ?? fileInfo.Metadata?.GetValue("originalName", new BsonString(fileInfo.Filename)).AsString
-                                   ?? fileInfo.Filename;
-
-                if (!string.IsNullOrEmpty(downloaderName))
+                if (!ObjectId.TryParse(id, out var objectId))
                 {
-                    var log = new LogEntry
-                    {
-                        LogType = "FileAccess",
-                        Severity = "Info",
-                        Message = downloadName,
-                        ComputerName = downloaderName,
-                        ActionTaken = "Download",
-                        Timestamp = DateTime.Now
-                    };
-                    await _logsCollection.InsertOneAsync(log);
+                    return BadRequest("Invalid ID format");
                 }
 
-                var downloadStream = await _gridFsBucket.OpenDownloadStreamAsync(objectId);
-                return File(downloadStream, contentType, fileDownloadName: downloadName);
+                var stream = await _gridFS.OpenDownloadStreamAsync(objectId);
+                var contentType = stream.FileInfo.Metadata.Contains("contentType") 
+                    ? stream.FileInfo.Metadata["contentType"].AsString 
+                    : "application/octet-stream";
+
+                return File(stream, contentType, stream.FileInfo.Filename);
             }
             catch (GridFSFileNotFoundException)
             {
-                return NotFound(new { message = "File not found" });
+                return NotFound();
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+                return StatusCode(500, ex.Message);
             }
         }
     }

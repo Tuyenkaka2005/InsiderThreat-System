@@ -21,6 +21,13 @@ export interface ActiveNetwork {
     prefix: string;
 }
 
+export interface FaceCheckInResult {
+    message: string;
+    time: string;
+    matchConfidence: number;
+    livenessVerified: boolean;
+}
+
 export const attendanceService = {
     getConfig: async (): Promise<AttendanceConfig> => {
         return api.get<AttendanceConfig>('/api/attendance/config');
@@ -36,5 +43,23 @@ export const attendanceService = {
 
     getActiveNetworks: async (): Promise<ActiveNetwork[]> => {
         return api.get<ActiveNetwork[]>('/api/attendance/active-networks');
-    }
+    },
+
+    /**
+     * Zero Trust Face Check-in
+     * Sends face descriptor to server for verification
+     */
+    faceCheckIn: async (
+        descriptor: number[],
+        nonce: string,
+        livenessVerified: boolean
+    ): Promise<FaceCheckInResult> => {
+        return api.post<FaceCheckInResult>('/api/attendance/face-checkin', {
+            descriptor,
+            nonce,
+            timestamp: Date.now(),
+            livenessVerified,
+        });
+    },
 };
+

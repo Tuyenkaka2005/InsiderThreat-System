@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import LeftSidebar from '../components/LeftSidebar';
 import BottomNavigation from '../components/BottomNavigation';
 import { userService } from '../services/userService';
-import { API_BASE_URL } from '../services/api';
+import { api, API_BASE_URL } from '../services/api';
 import type { User } from '../types';
 import './GroupsPage.css';
 
@@ -65,7 +65,7 @@ export default function GroupsPage() {
     const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
     const [showCreate, setShowCreate] = useState(false);
     const [form, setForm] = useState({ 
-        name: '', description: '', privacy: 'PUBLIC', 
+        name: '', description: '', privacy: 'Public', 
         startDate: '', endDate: '', members: [] as User[] 
     });
     const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -83,6 +83,49 @@ export default function GroupsPage() {
             userService.getAllUsers().then(setAllUsers).catch(console.error);
         }
     }, [showCreate]);
+
+    useEffect(() => {
+        const loadGroups = async () => {
+            try {
+                const fetchedGroups = await api.get<any[]>('/api/groups?isProject=false');
+                const realGroups = fetchedGroups
+                    .filter(p => !['1', '2', '3', '4'].includes(p.id))
+                    .map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        description: p.description,
+                        members: p.memberIds?.length || 1,
+                        category: p.type === 'Team' ? 'Nhóm' : 'Cộng đồng',
+                        privacy: (p.privacy || 'PUBLIC').toUpperCase() as 'PUBLIC' | 'PRIVATE',
+                        coverImage: p.coverUrl || 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=200&fit=crop'
+                    }));
+                setGroups([...realGroups, ...MOCK_GROUPS]);
+            } catch (err) {
+                console.error("Failed to fetch groups", err);
+            }
+        };
+        loadGroups();
+    }, []);
+
+    const handleAccessGroup = (groupId: string) => {
+        // Cộng đồng (Community) -> Chuyển trực tiếp đến kênh Chat/Thảo luận
+        navigate(`/chat?groupId=${groupId}`);
+    };
+
+    const handleDeleteGroup = async (e: React.MouseEvent, group: Group) => {
+        e.stopPropagation();
+        
+        const confirmDelete = window.confirm(t('groups.confirm_delete_msg', { name: group.name }));
+        if (!confirmDelete) return;
+
+        try {
+            await api.delete(`/api/groups/${group.id}`);
+            setGroups(groups.filter(g => g.id !== group.id));
+        } catch (err) {
+            console.error('Failed to delete group', err);
+            alert(t('groups.delete_fail', 'Xóa nhóm thất bại.'));
+        }
+    };
 
     const filteredUsers = searchUserQuery 
         ? allUsers.filter(u => 
@@ -133,6 +176,15 @@ export default function GroupsPage() {
                                     <span className={`privacyBadge ${group.privacy === 'PRIVATE' ? 'badgePrivate' : 'badgePublic'}`}>
                                         {group.privacy}
                                     </span>
+                                    {!['1', '2', '3', '4'].includes(group.id) && (
+                                        <button 
+                                            className="deleteGroupBtn" 
+                                            onClick={(e) => handleDeleteGroup(e, group)}
+                                            title={t('groups.btn_delete')}
+                                        >
+                                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="groupBody">
                                     <div className="groupName">{group.name}</div>
@@ -142,7 +194,7 @@ export default function GroupsPage() {
                                         {group.category && <> • {group.category}</>}
                                     </div>
                                     <div className="groupDesc">{group.description}</div>
-                                    <button className="accessBtn" onClick={() => navigate(`/groups/${group.id}`)}>
+                                    <button className="accessBtn" onClick={() => handleAccessGroup(group.id)}>
                                         {t('groups.btn_access', 'TRUY CẬP')}
                                     </button>
                                 </div>
@@ -154,49 +206,28 @@ export default function GroupsPage() {
                     {showCreate && (
                         <div className="modalBackdrop" onClick={() => setShowCreate(false)}>
                             <div className="modal" onClick={e => e.stopPropagation()}>
-                                <h3 className="modalTitle">{t('groups.modal_title', 'Tạo dự án / nhóm mới')}</h3>
+                                <h3 className="modalTitle">{t('groups.modal_title', 'Tạo nhóm mới')}</h3>
                                 <div className="formRow">
-                                    <label className="formLabel">{t('groups.lbl_group_name', 'Tên dự án / nhóm')}</label>
+                                    <label className="formLabel">{t('groups.lbl_group_name', 'Tên nhóm')}</label>
                                     <input
                                         className="formInput"
-                                        placeholder={t('groups.placeholder_name', "Nhập tên dự án hoặc nhóm...")}
+                                        placeholder={t('groups.placeholder_name', "Nhập tên nhóm...")}
                                         value={form.name}
                                         onChange={e => setForm({ ...form, name: e.target.value })}
                                     />
                                 </div>
                                 <div className="formRow">
-                                    <label className="formLabel">{t('groups.lbl_description', 'Mô tả')}</label>
+                                    <label className="formLabel">Mô tả</label>
                                     <textarea
                                         className="formTextarea"
-                                        placeholder={t('groups.placeholder_desc', "Mô tả ngắn về nội dung dự án...")}
+                                        placeholder="Mô tả ngắn về nội dung nhóm..."
                                         value={form.description}
                                         onChange={e => setForm({ ...form, description: e.target.value })}
                                     />
                                 </div>
-                                
-                                <div className="formRowGroup">
-                                    <div className="formRow">
-                                        <label className="formLabel">Thời gian bắt đầu</label>
-                                        <input
-                                            type="date"
-                                            className="formInput"
-                                            value={form.startDate}
-                                            onChange={e => setForm({ ...form, startDate: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="formRow">
-                                        <label className="formLabel">Thời gian kết thúc</label>
-                                        <input
-                                            type="date"
-                                            className="formInput"
-                                            value={form.endDate}
-                                            onChange={e => setForm({ ...form, endDate: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
 
                                 <div className="formRow">
-                                    <label className="formLabel">Thêm thành viên dự án</label>
+                                    <label className="formLabel">Thêm thành viên nhóm</label>
                                     <div className="membersInputWrap" style={{ position: 'relative' }}>
                                         <input
                                             className="formInput"
@@ -251,38 +282,57 @@ export default function GroupsPage() {
                                         value={form.privacy}
                                         onChange={e => setForm({ ...form, privacy: e.target.value })}
                                     >
-                                        <option value="PUBLIC">{t('groups.privacy_public', 'Công khai')}</option>
-                                        <option value="PRIVATE">{t('groups.privacy_private', 'Riêng tư')}</option>
+                                        <option value="Public">{t('groups.privacy_public', 'Công khai')}</option>
+                                        <option value="Private">{t('groups.privacy_private', 'Riêng tư')}</option>
                                     </select>
                                 </div>
                                 <div className="modalActions">
                                     <button className="btnCancel" onClick={() => setShowCreate(false)}>{t('groups.btn_cancel', 'Hủy')}</button>
                                     <button 
                                         className="btnCreate" 
-                                        onClick={() => {
+                                        onClick={async () => {
                                             if (!form.name.trim()) {
-                                                alert('Vui lòng nhập tên dự án/nhóm!');
+                                                alert('Vui lòng nhập tên nhóm!');
                                                 return;
                                             }
-                                            const newGroup: Group = {
-                                                id: Date.now().toString(),
-                                                name: form.name,
-                                                description: form.description || 'Dự án mới',
-                                                members: form.members.length + 1,
-                                                category: 'Dự án mới',
-                                                privacy: form.privacy as 'PUBLIC' | 'PRIVATE',
-                                                coverImage: `https://picsum.photos/seed/${Date.now()}/400/200`
-                                            };
-                                            setGroups([...groups, newGroup]);
-                                            setForm({ 
-                                                name: '', description: '', privacy: 'PUBLIC', 
-                                                startDate: '', endDate: '', members: [] 
-                                            });
-                                            setSearchUserQuery('');
-                                            setShowCreate(false);
+                                            
+                                            try {
+                                                const groupData = {
+                                                    name: form.name,
+                                                    description: form.description || 'Nhóm mới',
+                                                    type: 'Community',
+                                                    isProject: false,
+                                                    privacy: form.privacy,
+                                                    memberIds: form.members.map(m => m.id || (m as any).Id)
+                                                };
+                                                
+                                                // Post to backend API
+                                                const p = await api.post<any>('/api/groups', groupData);
+                                                
+                                                const newGroup: Group = {
+                                                    id: p.id,
+                                                    name: p.name,
+                                                    description: p.description,
+                                                    members: p.memberIds?.length || 1,
+                                                    category: 'Dự án',
+                                                    privacy: (p.privacy || 'PRIVATE').toUpperCase() as 'PUBLIC' | 'PRIVATE',
+                                                    coverImage: p.coverUrl || `https://picsum.photos/seed/${Date.now()}/400/200`
+                                                };
+                                                
+                                                setGroups([newGroup, ...groups]);
+                                                setForm({ 
+                                                    name: '', description: '', privacy: 'Public', 
+                                                    startDate: '', endDate: '', members: [] 
+                                                });
+                                                setSearchUserQuery('');
+                                                setShowCreate(false);
+                                            } catch (err) {
+                                                console.error('Create group failed', err);
+                                                alert('Lỗi khi tạo nhóm.');
+                                            }
                                         }}
                                     >
-                                        {t('groups.btn_confirm_create', 'Tạo dự án')}
+                                        {t('groups.btn_confirm_create', 'Tạo nhóm mới')}
                                     </button>
                                 </div>
                             </div>

@@ -10,8 +10,8 @@
   --color-primary-light: #eff6ff;
 
   /* Backgrounds */
-  --color-bg: #f1f5f9;
-  /* slate-100 */
+  --color-bg: #f9fafb;
+  /* synchro theme bg */
   --color-surface: #ffffff;
   --color-surface-lighter: #f8fafc;
   /* slate-50 */
@@ -42,12 +42,15 @@
 }
 
 /* ===== DARK THEME — ===== */
-html.dark:root {
+.dark {
   --color-bg: #121212;
   --color-surface: #1E1E1E;
   --color-surface-lighter: #2d2d2d;
-  --color-surface-glass: rgba(30,30,30,0.8);
-  --color-primary-light: rgba(37, 99, 235, 0.15);
+  --color-surface-glass: rgba(30, 30, 30, 0.8);
+  
+  --color-primary: #60a5fa; /* Lighter blue for dark mode */
+  --color-primary-hover: #93c5fd;
+  --color-primary-light: rgba(96, 165, 250, 0.15);
   
   --color-text-main: #f1f5f9;
   --color-text-muted: #94a3b8;

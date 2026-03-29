@@ -14,11 +14,13 @@ namespace InsiderThreat.Server.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IMongoCollection<User> _usersCollection;
+    private readonly IMongoCollection<PendingAction> _pendingActionsCollection;
     private readonly ILogger<UsersController> _logger;
 
     public UsersController(IMongoDatabase database, ILogger<UsersController> logger)
     {
         _usersCollection = database.GetCollection<User>("Users");
+        _pendingActionsCollection = database.GetCollection<PendingAction>("PendingActions");
         _logger = logger;
     }
 
@@ -50,7 +52,7 @@ public class UsersController : ControllerBase
     }
 
     // POST: api/users
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
     [HttpPost]
     public async Task<ActionResult<User>> CreateUser(User newUser)
     {
@@ -114,13 +116,46 @@ public class UsersController : ControllerBase
     }
 
     // DELETE: api/users/{id}
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(string id)
     {
-        var result = await _usersCollection.DeleteOneAsync(u => u.Id == id);
-        if (result.DeletedCount == 0) return NotFound();
-        return NoContent();
+        var targetUser = await _usersCollection.Find(u => u.Id == id).FirstOrDefaultAsync();
+        if (targetUser == null) return NotFound();
+
+        // 🛡️ FOUR-EYES PRINCIPLE: 
+        // Thay vì xóa ngay, tạo một yêu cầu chờ Admin khác phê duyệt.
+        var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "Unknown";
+        var currentUserName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "Unknown";
+
+        // Kiểm tra xem đã có yêu cầu xóa user này đang chờ duyệt chưa
+        var existingRequest = await _pendingActionsCollection
+            .Find(a => a.TargetId == id && a.Type == ActionType.DeleteUser && a.Status == ActionStatus.Pending)
+            .FirstOrDefaultAsync();
+
+        if (existingRequest != null)
+        {
+            return BadRequest(new { Message = "Yêu cầu xóa người dùng này đã tồn tại và đang chờ phê duyệt." });
+        }
+
+        var pendingAction = new PendingAction
+        {
+            RequestedByUserId = currentUserId,
+            RequestedByUserName = currentUserName,
+            Type = ActionType.DeleteUser,
+            TargetId = id,
+            Reason = $"Yêu cầu xóa tài khoản người dùng: {targetUser.FullName} ({targetUser.Username})",
+            Status = ActionStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddHours(24)
+        };
+
+        await _pendingActionsCollection.InsertOneAsync(pendingAction);
+
+        return Ok(new { 
+            Message = "Yêu cầu xóa đã được gửi đi. Cần một quản trị viên khác phê duyệt để hoàn tất.",
+            IsPendingAction = true 
+        });
     }
 
     // PUT: api/users/{id}/face-embeddings

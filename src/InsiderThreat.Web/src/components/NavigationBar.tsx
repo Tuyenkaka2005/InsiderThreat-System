@@ -117,8 +117,9 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
                 <button
                     className={`${styles.iconButton} ${isActive('/feed') ? styles.active : ''}`}
                     onClick={() => navigate('/feed')}
-                    title="Feed"
+                    title={t('nav.feed', 'Bảng tin')}
                 >
+
                     <div className={styles.actionIcon}>
                         <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
                             <path d="M11.1 2.8a1.5 1.5 0 011.8 0l8.9 6.7a1.5 1.5 0 01.6 1.2V20a2 2 0 01-2 2h-4a1 1 0 01-1-1v-5h-4v5a1 1 0 01-1 1H5a2 2 0 01-2-2v-9.3a1.5 1.5 0 01.6-1.2l8.9-6.7z" />

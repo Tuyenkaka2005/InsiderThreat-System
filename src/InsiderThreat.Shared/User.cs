@@ -1,12 +1,14 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Text.Json.Serialization;
 
 namespace InsiderThreat.Shared
 {
     public class User
     {
-        [BsonId] // Định nghĩa đây là khóa chính
+        [BsonId]
         [BsonRepresentation(BsonType.ObjectId)] // Tự động chuyển ObjectId sang string
+        [JsonPropertyName("id")]
         public string? Id { get; set; }
 
         public string Username { get; set; } = string.Empty;
@@ -32,6 +34,12 @@ namespace InsiderThreat.Shared
         public string? PrivateKey { get; set; } // Stored for multi-device sync (protected by PIN)
 
         public string? ChatAccessCodeHash { get; set; } // Hashed 6-digit code
+
+        // Ràng buộc đăng nhập với thiết bị phần cứng cụ thể
+        public string? RegisteredMachineId { get; set; }
+
+        // Bắt buộc đổi mật khẩu trong lần đăng nhập đầu tiên
+        public bool RequiresPasswordChange { get; set; } = true;
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }

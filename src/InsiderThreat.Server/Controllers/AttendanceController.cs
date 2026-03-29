@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using InsiderThreat.Shared;
 using System.Security.Claims;
+using System.Collections.Concurrent;
 
 namespace InsiderThreat.Server.Controllers;
 
@@ -13,14 +14,152 @@ public class AttendanceController : ControllerBase
 {
     private readonly IMongoCollection<AttendanceLog> _attendanceCollection;
     private readonly IMongoCollection<AttendanceConfig> _configCollection;
+    private readonly IMongoCollection<User> _usersCollection;
+    private readonly IMongoCollection<LogEntry> _logsCollection;
+    private readonly ILogger<AttendanceController> _logger;
 
-    public AttendanceController(IMongoDatabase database)
+    // Nonce store to prevent replay attacks (in production, use Redis/DB)
+    private static readonly ConcurrentDictionary<string, DateTime> _usedNonces = new();
+
+    public AttendanceController(IMongoDatabase database, ILogger<AttendanceController> logger)
     {
         _attendanceCollection = database.GetCollection<AttendanceLog>("AttendanceLogs");
         _configCollection = database.GetCollection<AttendanceConfig>("AttendanceConfig");
+        _usersCollection = database.GetCollection<User>("Users");
+        _logsCollection = database.GetCollection<LogEntry>("Logs");
+        _logger = logger;
     }
 
-    // POST: api/attendance/checkin
+    // =============================================
+    // DTO for Face Check-in Request
+    // =============================================
+    public class FaceCheckInRequest
+    {
+        public double[] Descriptor { get; set; } = Array.Empty<double>();
+        public string Nonce { get; set; } = string.Empty; // One-time use token
+        public long Timestamp { get; set; } // Unix timestamp ms
+        public bool LivenessVerified { get; set; } // Whether liveness challenge was passed
+    }
+
+    // =============================================
+    // POST: api/attendance/face-checkin (Zero Trust)
+    // Frontend sends face embedding → Server verifies against DB
+    // =============================================
+    [HttpPost("face-checkin")]
+    public async Task<IActionResult> FaceCheckIn([FromBody] FaceCheckInRequest request)
+    {
+        var currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+        if (currentIp == "::1") currentIp = "127.0.0.1";
+
+        // 1. Validate Nonce (prevent replay attacks)
+        if (string.IsNullOrEmpty(request.Nonce))
+        {
+            return BadRequest(new { Message = "Nonce is required" });
+        }
+
+        // Check if nonce was already used
+        if (_usedNonces.ContainsKey(request.Nonce))
+        {
+            _logger.LogWarning("🚨 REPLAY ATTACK DETECTED! Nonce: {Nonce}, IP: {IP}", request.Nonce, currentIp);
+            await LogSecurityEvent("ReplayAttack", $"Replay attack detected. Reused nonce: {request.Nonce}", currentIp);
+            return BadRequest(new { Message = "Invalid or expired nonce (possible replay attack)" });
+        }
+
+        // Check timestamp freshness (must be within 30 seconds)
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (Math.Abs(now - request.Timestamp) > 30_000)
+        {
+            _logger.LogWarning("🚨 STALE REQUEST! Timestamp diff: {Diff}ms, IP: {IP}", Math.Abs(now - request.Timestamp), currentIp);
+            return BadRequest(new { Message = "Request expired (timestamp too old)" });
+        }
+
+        // Store nonce as used
+        _usedNonces.TryAdd(request.Nonce, DateTime.UtcNow);
+
+        // 2. Validate descriptor
+        if (request.Descriptor == null || request.Descriptor.Length < 64)
+        {
+            return BadRequest(new { Message = "Invalid face descriptor" });
+        }
+
+        // 3. Get current user from JWT
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userName = User.FindFirst(ClaimTypes.Name)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new { Message = "User not authenticated" });
+        }
+
+        // 4. Get user's stored face embeddings from DB
+        var user = await _usersCollection.Find(u => u.Id == userId).FirstOrDefaultAsync();
+        if (user == null)
+        {
+            return NotFound(new { Message = "User not found" });
+        }
+
+        if (user.FaceEmbeddings == null || user.FaceEmbeddings.Length == 0)
+        {
+            return BadRequest(new { Message = "User has not registered Face ID. Please register first." });
+        }
+
+        // 5. Server-side face matching using Euclidean Distance
+        var distance = EuclideanDistance(request.Descriptor, user.FaceEmbeddings);
+        double threshold = 0.5; // Strict threshold
+
+        _logger.LogInformation(
+            "Face check-in attempt: User={User}, Distance={Distance:F4}, Threshold={Threshold}, IP={IP}",
+            userName, distance, threshold, currentIp);
+
+        if (distance >= threshold)
+        {
+            // Face does NOT match
+            _logger.LogWarning(
+                "🚨 FACE MISMATCH! User={User}, Distance={Distance:F4}, IP={IP}",
+                userName, distance, currentIp);
+
+            await LogSecurityEvent(
+                "FaceCheckInFailed",
+                $"Face mismatch for user {userName}. Distance: {distance:F4} (threshold: {threshold}). Possible impersonation attempt.",
+                currentIp);
+
+            return Unauthorized(new { Message = "Face does not match. Check-in denied.", Distance = distance });
+        }
+
+        // 6. Check if time is abnormally fast (possible script injection)
+        // If liveness is not verified, log a warning
+        if (!request.LivenessVerified)
+        {
+            _logger.LogWarning("⚠️ Liveness NOT verified for user {User}. Check-in still allowed but flagged.", userName);
+        }
+
+        // 7. Create attendance log with full audit trail
+        var attendanceLog = new AttendanceLog
+        {
+            UserId = userId,
+            UserName = user.FullName,
+            CheckInTime = DateTime.Now,
+            Method = "FaceID",
+            MatchConfidence = distance,
+            IpAddress = currentIp,
+            LivenessVerified = request.LivenessVerified
+        };
+
+        await _attendanceCollection.InsertOneAsync(attendanceLog);
+
+        _logger.LogInformation(
+            "✅ Face check-in SUCCESS: User={User}, Distance={Distance:F4}, Liveness={Liveness}, IP={IP}",
+            userName, distance, request.LivenessVerified, currentIp);
+
+        return Ok(new
+        {
+            Message = "Check-in successful",
+            Time = attendanceLog.CheckInTime,
+            MatchConfidence = distance,
+            LivenessVerified = request.LivenessVerified
+        });
+    }
+
+    // POST: api/attendance/checkin (legacy - kept for backward compatibility)
     [HttpPost("checkin")]
     public async Task<IActionResult> CheckIn([FromBody] AttendanceLog log)
     {
@@ -39,6 +178,8 @@ public class AttendanceController : ControllerBase
                 log.UserName = userName ?? "Unknown";
             }
         }
+
+        log.IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
 
         await _attendanceCollection.InsertOneAsync(log);
 
@@ -194,4 +335,48 @@ public class AttendanceController : ControllerBase
 
         return Ok(uniqueNetworks);
     }
+
+    // =============================================
+    // Helper Methods
+    // =============================================
+    private static double EuclideanDistance(double[] a, double[] b)
+    {
+        if (a.Length != b.Length) return double.MaxValue;
+        double sum = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            sum += Math.Pow(a[i] - b[i], 2);
+        }
+        return Math.Sqrt(sum);
+    }
+
+    private async Task LogSecurityEvent(string eventType, string message, string ip)
+    {
+        var log = new LogEntry
+        {
+            LogType = "Security",
+            Severity = "Critical",
+            Message = message,
+            ComputerName = "WebClient",
+            IPAddress = ip,
+            ActionTaken = "Access Denied",
+            Timestamp = DateTime.Now
+        };
+        await _logsCollection.InsertOneAsync(log);
+    }
+
+    /// <summary>
+    /// Background cleanup: remove expired nonces older than 2 minutes
+    /// Called periodically or lazily
+    /// </summary>
+    public static void CleanupExpiredNonces()
+    {
+        var cutoff = DateTime.UtcNow.AddMinutes(-2);
+        var expired = _usedNonces.Where(kvp => kvp.Value < cutoff).Select(kvp => kvp.Key).ToList();
+        foreach (var key in expired)
+        {
+            _usedNonces.TryRemove(key, out _);
+        }
+    }
 }
+

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, message, Popconfirm, Tag, Space, Avatar } from 'antd';
+import { Table, Button, Modal, Form, Input, Select, Popconfirm, Tag, Space, Avatar, App } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, CameraOutlined, TeamOutlined, WarningOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import FaceRegistrationModal from '../components/FaceRegistrationModal';
 import LeftSidebar from '../components/LeftSidebar';
@@ -20,6 +20,7 @@ function UsersPage() {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [form] = Form.useForm();
+    const { message } = App.useApp();
     const [isFaceModalVisible, setIsFaceModalVisible] = useState(false);
     const [selectedUserForFace, setSelectedUserForFace] = useState<{ id: string; name: string } | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -55,6 +56,8 @@ function UsersPage() {
 
     // Admin role detection (case-insensitive)
     const isAdmin = currentUser?.role?.toLowerCase() === 'admin' ||
+        currentUser?.role?.toLowerCase() === 'giám đốc' ||
+        currentUser?.role?.toLowerCase() === 'giam doc' ||
         currentUser?.username?.toLowerCase() === 'admin';
 
     const fetchReports = async () => {

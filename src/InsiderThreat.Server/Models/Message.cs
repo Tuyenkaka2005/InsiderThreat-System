@@ -11,6 +11,9 @@ public class Message
 
     public string SenderId { get; set; } = string.Empty;
     public string ReceiverId { get; set; } = string.Empty;
+    
+    // Identifies the public group this message belongs to
+    public string? GroupId { get; set; }
 
     // Encrypted Content for Receiver (Base64 string)
     public string Content { get; set; } = string.Empty;

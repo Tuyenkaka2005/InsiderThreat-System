@@ -1,14 +1,28 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Text.Json.Serialization;
 using System;
 using System.Collections.Generic;
 
 namespace InsiderThreat.Server.Models
 {
+    public class ProjectMilestone
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+        
+        [JsonPropertyName("date")]
+        public DateTime Date { get; set; }
+        
+        [JsonPropertyName("isDone")]
+        public bool IsDone { get; set; } = false;
+    }
+
     public class Group
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
+        [JsonPropertyName("id")]
         public string? Id { get; set; }
 
         [BsonElement("name")]
@@ -34,6 +48,21 @@ namespace InsiderThreat.Server.Models
 
         [BsonElement("privacy")]
         public string Privacy { get; set; } = "Public"; // Public, Private, Secret
+
+        [BsonElement("isProject")]
+        public bool IsProject { get; set; } = false;
+
+        [BsonElement("projectStartDate")]
+        public DateTime? ProjectStartDate { get; set; }
+
+        [BsonElement("projectEndDate")]
+        public DateTime? ProjectEndDate { get; set; }
+
+        [BsonElement("sharedDocumentIds")]
+        public List<string> SharedDocumentIds { get; set; } = new List<string>();
+
+        [BsonElement("milestones")]
+        public List<ProjectMilestone> Milestones { get; set; } = new List<ProjectMilestone>();
 
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

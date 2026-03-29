@@ -1,0 +1,212 @@
+{
+    "landing": {
+        "hero": {
+            "title": "Bảo Vệ Doanh Nghiệp Khỏi Các Mối Đe Dọa Nội Bộ",
+            "subtitle": "Nền tảng cấp doanh nghiệp để phát hiện, giám sát và ngăn chặn rủi ro bảo mật từ nhân viên và đối tác",
+            "cta_primary": "Dùng Thử Miễn Phí",
+            "cta_secondary": "Đặt Lịch Demo"
+        },
+        "problem": {
+            "title": "Thách Thức Từ Mối Đe Dọa Nội Bộ",
+            "description": "60% các vụ vi phạm dữ liệu xuất phát từ nguồn nội bộ. Các biện pháp bảo mật truyền thống tập trung vào mối đe dọa bên ngoài, khiến doanh nghiệp dễ bị tổn thương trước rủi ro lớn nhất: những người được tin tưởng từ bên trong.",
+            "stats": [
+                {
+                    "value": "60%",
+                    "label": "Vi phạm từ nội bộ"
+                },
+                {
+                    "value": "$15M",
+                    "label": "Chi phí trung bình/sự cố"
+                },
+                {
+                    "value": "85 ngày",
+                    "label": "Thời gian phát hiện TB"
+                }
+            ]
+        },
+        "features": {
+            "title": "Bộ Giải Pháp Bảo Vệ Toàn Diện",
+            "subtitle": "Công cụ giám sát và cộng tác tiên tiến được thiết kế cho đội ngũ hiện đại",
+            "items": [
+                {
+                    "title": "Giám Sát USB & Thiết Bị",
+                    "description": "Theo dõi thời gian thực tất cả thiết bị kết nối với phát hiện và chặn mối đe dọa tự động"
+                },
+                {
+                    "title": "Nhận Diện Khuôn Mặt",
+                    "description": "Xác thực sinh trắc học đảm bảo chỉ nhân viên được ủy quyền truy cập hệ thống nhạy cảm"
+                },
+                {
+                    "title": "Theo Dõi Tài Liệu",
+                    "description": "Giám sát truy cập, chỉnh sửa và chia sẻ tài liệu với nhật ký kiểm toán đầy đủ"
+                },
+                {
+                    "title": "Nhắn Tin Bảo Mật",
+                    "description": "Kênh giao tiếp mã hóa đầu-cuối cho các cuộc thảo luận nội bộ bí mật"
+                },
+                {
+                    "title": "Hội Nghị Video",
+                    "description": "Cuộc họp video bảo mật với tính năng chia sẻ màn hình và ghi hình"
+                },
+                {
+                    "title": "Mạng Xã Hội Nội Bộ",
+                    "description": "Nền tảng tin tức và cộng tác nội bộ với hỗ trợ đa phương tiện và tương tác phong phú"
+                }
+            ]
+        },
+        "howItWorks": {
+            "title": "Cách Hoạt Động",
+            "steps": [
+                {
+                    "title": "Triển Khai",
+                    "description": "Cài đặt nhanh 15 phút không thay đổi hạ tầng"
+                },
+                {
+                    "title": "Giám Sát",
+                    "description": "Phân tích AI phát hiện hành vi bất thường"
+                },
+                {
+                    "title": "Cảnh Báo",
+                    "description": "Thông báo thời gian thực về hoạt động đáng ngờ"
+                },
+                {
+                    "title": "Phản Ứng",
+                    "description": "Quy trình phản hồi tự động và thủ công"
+                }
+            ]
+        },
+        "benefits": {
+            "title": "Tại Sao Chọn InsiderThreat?",
+            "items": [
+                {
+                    "title": "99.9% Phát Hiện Mối Đe Dọa",
+                    "description": "Độ chính xác hàng đầu ngành nhờ học máy tiên tiến"
+                },
+                {
+                    "title": "Phản Ứng Nhanh Hơn 70%",
+                    "description": "Quy trình tự động giảm thời gian phản hồi sự cố đáng kể"
+                },
+                {
+                    "title": "Sẵn Sàng Tuân Thủ",
+                    "description": "Đáp ứng GDPR, SOC 2, ISO 27001 ngay lập tức"
+                },
+                {
+                    "title": "Kiến Trúc Zero Trust",
+                    "description": "Xác minh liên tục, không tin tưởng ngầm định"
+                },
+                {
+                    "title": "Tích Hợp Liền Mạch",
+                    "description": "Hoạt động với công cụ và hạ tầng hiện có"
+                },
+                {
+                    "title": "Hỗ Trợ 24/7",
+                    "description": "Đội ngũ bảo mật chuyên môn luôn sẵn sàng"
+                }
+            ]
+        },
+        "testimonials": {
+            "title": "Được Tin Dùng Bởi Các Tổ Chức Hàng Đầu",
+            "items": [
+                {
+                    "name": "Sarah Chen",
+                    "role": "CISO, TechCorp Global",
+                    "quote": "InsiderThreat giảm 85% sự cố bảo mật của chúng tôi trong quý đầu tiên. ROI đo lường được ngay lập tức."
+                },
+                {
+                    "name": "Michael Rodriguez",
+                    "role": "VP Bảo Mật, FinanceHub",
+                    "quote": "Cuối cùng cũng có giải pháp giải quyết yếu tố con người trong bảo mật. Tính năng nhắn tin mã hóa thật tuyệt vời."
+                },
+                {
+                    "name": "TS. Anh Nguyễn",
+                    "role": "CTO, DataSecure Vietnam",
+                    "quote": "Toàn diện, mạnh mẽ và đặc biệt dễ sử dụng. Đội ngũ của chúng tôi làm quen chỉ trong vài ngày."
+                }
+            ]
+        },
+        "pricing": {
+            "title": "Chọn Gói Dịch Vụ",
+            "subtitle": "Giá linh hoạt cho mọi quy mô tổ chức",
+            "plans": [
+                {
+                    "name": "Khởi Đầu",
+                    "price": "Miễn Phí",
+                    "description": "Hoàn hảo cho đội nhỏ",
+                    "features": [
+                        "Tối đa 10 người dùng",
+                        "Giám sát cơ bản",
+                        "Lưu trữ 7 ngày",
+                        "Hỗ trợ email",
+                        "Nhắn tin bảo mật"
+                    ]
+                },
+                {
+                    "name": "Chuyên Nghiệp",
+                    "price": "$49",
+                    "period": "người dùng/tháng",
+                    "description": "Cho doanh nghiệp đang phát triển",
+                    "features": [
+                        "Tối đa 100 người dùng",
+                        "Phân tích nâng cao",
+                        "Lưu trữ 30 ngày",
+                        "Hỗ trợ ưu tiên",
+                        "Hội nghị video",
+                        "Mạng xã hội nội bộ",
+                        "Truy cập API"
+                    ],
+                    "popular": true
+                },
+                {
+                    "name": "Doanh Nghiệp",
+                    "price": "Tùy Chỉnh",
+                    "description": "Cho tổ chức lớn",
+                    "features": [
+                        "Không giới hạn người dùng",
+                        "Tích hợp tùy chỉnh",
+                        "Lưu trữ không giới hạn",
+                        "Hỗ trợ chuyên biệt",
+                        "Đảm bảo SLA",
+                        "Triển khai tại chỗ",
+                        "Tùy chọn white-label"
+                    ]
+                }
+            ]
+        },
+        "cta": {
+            "title": "Sẵn Sàng Bảo Vệ Tổ Chức Của Bạn?",
+            "subtitle": "Tham gia cùng hàng nghìn công ty đang bảo vệ tài sản với InsiderThreat",
+            "button": "Bắt Đầu Ngay"
+        },
+        "footer": {
+            "company": "InsiderThreat Security Solutions",
+            "tagline": "Bảo vệ doanh nghiệp khỏi mối đe dọa nội bộ",
+            "links": {
+                "product": "Sản Phẩm",
+                "solutions": "Giải Pháp",
+                "pricing": "Bảng Giá",
+                "docs": "Tài Liệu",
+                "about": "Về Chúng Tôi",
+                "blog": "Blog",
+                "careers": "Tuyển Dụng",
+                "contact": "Liên Hệ"
+            },
+            "legal": {
+                "privacy": "Chính Sách Bảo Mật",
+                "terms": "Điều Khoản Dịch Vụ",
+                "security": "Bảo Mật"
+            },
+            "social": {
+                "linkedin": "LinkedIn",
+                "twitter": "Twitter",
+                "github": "GitHub"
+            },
+            "copyright": "© 2026 InsiderThreat. Bản quyền đã được bảo hộ."
+        }
+    },
+    "common": {
+        "learnMore": "Tìm Hiểu Thêm",
+        "getStarted": "Bắt Đầu",
+        "contactUs": "Liên Hệ",
+        "language": "Ngôn Ngữ"
+    }
+}

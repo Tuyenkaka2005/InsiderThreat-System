@@ -1,0 +1,264 @@
+/* StaffPage.css */
+
+.staffPage {
+    padding: 28px 32px;
+    background: var(--color-bg);
+    min-height: 100%;
+}
+
+/* Header */
+.staffHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+
+.staffTitle {
+    font-size: 2.5rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: var(--color-text-main);
+    line-height: 1.1;
+    margin-bottom: 4px;
+}
+
+.staffSubtitle {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    font-style: italic;
+    font-weight: 500;
+}
+
+.memberBadge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #1e293b;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.memberBadge .count {
+    font-size: 22px;
+    font-weight: 900;
+    color: #facc15;
+}
+
+/* Search bar */
+.staffSearchRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.staffSearchWrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    transition: border-color 0.2s;
+}
+
+.staffSearchWrapper:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.staffSearchWrapper .material-symbols-outlined {
+    color: var(--color-text-muted);
+    font-size: 20px;
+}
+
+.staffSearchInput {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--color-text-main);
+}
+
+.staffSearchInput::placeholder {
+    color: var(--color-text-muted);
+}
+
+.filterBtn {
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 10px 24px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text-main);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.filterBtn:hover {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+/* Grid */
+.staffGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+/* Card */
+.staffCard {
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: 24px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: box-shadow 0.2s, transform 0.15s;
+    position: relative;
+}
+
+.staffCard:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.09);
+    transform: translateY(-2px);
+}
+
+.cardAvatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    background-size: cover;
+    background-position: center;
+    background-color: #e2e8f0;
+    margin-bottom: 12px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+}
+
+.onlineDot {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #22c55e;
+    border: 2px solid white;
+}
+
+.cardName {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-text-main);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.cardRole {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.cardDept {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+}
+
+.cardEmail {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-bottom: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.cardActions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.btnChat {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    background: white;
+    border: 1.5px solid var(--color-border);
+    color: var(--color-text-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: all 0.15s;
+}
+
+.btnChat:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-primary-light);
+}
+
+.btnProfile {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    background: #1e293b;
+    border: 1.5px solid #1e293b;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btnProfile:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+/* Empty State */
+.emptyState {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    color: var(--color-text-muted);
+    gap: 12px;
+}

@@ -2,69 +2,68 @@ import * as faceapi from '@vladmandic/face-api';
 import * as tf from '@tensorflow/tfjs';
 
 let modelsLoaded = false;
+let modelLoadPromise: Promise<boolean> | null = null;
 
 // Load models from public/models directory
 export const loadFaceApiModels = async () => {
     if (modelsLoaded) return true;
+    if (modelLoadPromise) return modelLoadPromise;
 
-    const MODEL_URL = '/models';
+    modelLoadPromise = (async () => {
+        const MODEL_URL = '/models';
+        const api = (faceapi as any).default || faceapi;
 
-    // In ESM builds, faceapi may be the namespace or have a default export
-    const api = (faceapi as any).default || faceapi;
-
-    try {
-        // ===== BACKEND INITIALIZATION =====
-        // Try WebGL first, then WASM, then fallback to CPU
-        const backends = ['webgl', 'cpu'];
-        let backendReady = false;
-
-        for (const backend of backends) {
-            try {
-                await tf.setBackend(backend);
-                await tf.ready();
-                console.log(`[FaceAPI] ✅ Using TensorFlow.js backend: ${backend}`);
-                backendReady = true;
-                break;
-            } catch (e) {
-                console.warn(`[FaceAPI] ⚠️ Backend "${backend}" failed, trying next...`);
+        try {
+            // Speed up backend init
+            if (tf.getBackend() !== 'webgl') {
+                try {
+                    await tf.setBackend('webgl');
+                    await tf.ready();
+                } catch (e) {
+                    await tf.setBackend('cpu');
+                }
             }
-        }
 
-        if (!backendReady) {
-            console.error('[FaceAPI] ❌ No TensorFlow.js backend available');
+            // tiny_face_detector is ~200KB. ssd_mobilenetv1 is ~6MB.
+            await Promise.all([
+                api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                api.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+            ]);
+
+            modelsLoaded = true;
+            console.log('[FaceAPI] ✅ Models loaded');
+            return true;
+        } catch (error) {
+            console.error('[FaceAPI] ❌ Error loading models:', error);
+            modelLoadPromise = null;
             return false;
         }
+    })();
 
-        // ===== MODEL LOADING =====
-        if (!api?.nets?.ssdMobilenetv1) {
-            console.error('❌ FaceAPI nets.ssdMobilenetv1 is missing.');
-            return false;
-        }
+    return modelLoadPromise;
+};
 
-        console.log('[FaceAPI] Loading models from:', MODEL_URL);
 
-        await Promise.all([
-            api.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-            api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            api.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-        ]);
-
-        modelsLoaded = true;
-        console.log('✅ Face API Models Loaded');
-        return true;
-    } catch (error) {
-        console.error('❌ Error loading Face API models:', error);
-        return false;
-    }
+// Get consistent detector options
+export const getFaceDetectorOptions = () => {
+    const api = (faceapi as any).default || faceapi;
+    return new api.TinyFaceDetectorOptions({
+        inputSize: 320,
+        scoreThreshold: 0.5
+    });
 };
 
 // Detect face and extract descriptor
 export const detectFace = async (videoOrImage: HTMLVideoElement | HTMLImageElement) => {
     const api = (faceapi as any).default || faceapi;
+    const options = getFaceDetectorOptions();
 
-    const detection = await api.detectSingleFace(videoOrImage)
+    const detection = await api.detectSingleFace(videoOrImage, options)
         .withFaceLandmarks()
         .withFaceDescriptor();
 
     return detection;
 };
+
+

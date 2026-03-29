@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Table, Tag, message, Typography, Card, Input, Button, Space, Alert, Select } from 'antd';
+import { Table, Tag, message, Typography, Card, Input, Button, Space, Alert, Select, Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { ClockCircleOutlined, ScanOutlined, UserOutlined, SettingOutlined, SaveOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, ScanOutlined, UserOutlined, SettingOutlined, SaveOutlined, SafetyOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { api } from '../services/api';
 import { authService } from '../services/auth';
 import { attendanceService } from '../services/attendanceService';
+import { generateNonce } from '../services/deviceValidator';
 import type { ActiveNetwork } from '../services/attendanceService';
 import type { AttendanceLog } from '../types';
 import type { ColumnsType } from 'antd/es/table';
+import LivenessChallengeComponent from '../components/LivenessChallenge';
 import './AttendancePage.css';
 
 const { Title } = Typography;
@@ -16,6 +18,8 @@ function AttendancePage() {
     const { t } = useTranslation();
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
     const [loading, setLoading] = useState(false);
+    const [checkingIn, setCheckingIn] = useState(false);
+    const [showLiveness, setShowLiveness] = useState(false);
 
     const user = authService.getCurrentUser();
     const isAdmin = user?.role === 'Admin';
@@ -70,6 +74,41 @@ function AttendancePage() {
         }
     };
 
+    // Face Check-in handlers
+    const handleFaceCheckIn = () => {
+        setShowLiveness(true);
+    };
+
+    const handleLivenessComplete = async (descriptor: number[], livenessVerified: boolean) => {
+        setShowLiveness(false);
+        setCheckingIn(true);
+
+        try {
+            const nonce = generateNonce();
+            const result = await attendanceService.faceCheckIn(descriptor, nonce, livenessVerified);
+            message.success(
+                t('attendance.checkin_success', {
+                    defaultValue: `✅ Chấm công thành công! Độ khớp: ${(1 - result.matchConfidence).toFixed(1)}%`,
+                })
+            );
+            fetchHistory(); // Refresh the table
+        } catch (error: any) {
+            const errorMsg = error.response?.data?.message || t('attendance.checkin_fail', 'Chấm công thất bại');
+            message.error(`🚫 ${errorMsg}`);
+        } finally {
+            setCheckingIn(false);
+        }
+    };
+
+    const handleLivenessFail = (reason: string) => {
+        setShowLiveness(false);
+        message.error(`🚫 ${reason}`);
+    };
+
+    const handleLivenessCancel = () => {
+        setShowLiveness(false);
+    };
+
     const columns: ColumnsType<AttendanceLog> = [
         {
             title: t('attendance.col_user', 'User'),
@@ -99,7 +138,7 @@ function AttendancePage() {
             key: 'method',
             render: (method) => {
                 let color = 'geekblue';
-                let icon = <ScanOutlined />;
+                const icon = <ScanOutlined />;
 
                 if (method === 'FaceID') color = 'green';
                 else if (method === 'Password') color = 'orange';
@@ -111,11 +150,73 @@ function AttendancePage() {
                 );
             },
         },
+        {
+            title: t('attendance.col_liveness', 'Liveness'),
+            dataIndex: 'livenessVerified',
+            key: 'livenessVerified',
+            render: (verified) => (
+                <Tooltip title={verified ? t('attendance.liveness_verified', 'Đã xác minh liveness') : t('attendance.liveness_not_verified', 'Chưa xác minh liveness')}>
+                    {verified ? (
+                        <Tag color="success" icon={<CheckCircleOutlined />}>Verified</Tag>
+                    ) : (
+                        <Tag color="default" icon={<CloseCircleOutlined />}>N/A</Tag>
+                    )}
+                </Tooltip>
+            ),
+        },
+        {
+            title: t('attendance.col_confidence', 'Confidence'),
+            dataIndex: 'matchConfidence',
+            key: 'matchConfidence',
+            render: (confidence) => {
+                if (!confidence && confidence !== 0) return <span style={{ color: 'var(--color-text-muted, #94a3b8)' }}>—</span>;
+                const pct = ((1 - confidence) * 100).toFixed(1);
+                const color = confidence < 0.3 ? '#22c55e' : confidence < 0.45 ? '#eab308' : '#ef4444';
+                return <span style={{ fontWeight: 600, color }}>{pct}%</span>;
+            },
+        },
     ];
 
     return (
         <div style={{ padding: 24 }}>
-            <Title level={2}>{t('attendance.title', '📅 Lịch sử Chấm công')}</Title>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+                <Title level={2} style={{ margin: 0 }}>{t('attendance.title', '📅 Lịch sử Chấm công')}</Title>
+
+                {/* Face Check-in Button */}
+                <Button
+                    type="primary"
+                    size="large"
+                    icon={<ScanOutlined />}
+                    loading={checkingIn}
+                    onClick={handleFaceCheckIn}
+                    style={{
+                        background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
+                        borderColor: 'transparent',
+                        borderRadius: 12,
+                        height: 48,
+                        paddingInline: 28,
+                        fontWeight: 700,
+                        fontSize: 15,
+                        boxShadow: '0 4px 16px rgba(59,130,246,0.3)',
+                    }}
+                >
+                    {t('attendance.face_checkin', '🔐 Chấm công Face ID')}
+                </Button>
+            </div>
+
+            {/* Security info */}
+            <Alert
+                title={
+                    <Space>
+                        <SafetyOutlined />
+                        {t('attendance.security_info', 'Hệ thống được bảo vệ bởi: Liveness Detection + Server-Side Matching + Anti-Replay')}
+                    </Space>
+                }
+                type="success"
+                showIcon={false}
+                style={{ marginBottom: 16, borderRadius: 10 }}
+            />
+
 
             {isAdmin && (
                 <Card
@@ -124,12 +225,13 @@ function AttendancePage() {
                     size="small"
                 >
                     <Alert
-                        message={t('attendance.config_alert_title', 'Bảo mật mạng WiFi')}
+                        title={t('attendance.config_alert_title', 'Bảo mật mạng WiFi')}
                         description={t('attendance.config_alert_desc', 'Chọn một mạng từ danh sách các mạng đang hoạt động của cả Máy chủ và Thiết bị hiện tại để tự động trích xuất dải mạng hợp lệ (rất hữu ích cho mạng cục bộ LAN/WiFi). Các thiết bị chung mạng này sẽ có thể chấm công. Hoặc bạn có thể nhập thủ công IP chính xác bên dưới.')}
                         type="info"
                         showIcon
                         style={{ marginBottom: 16 }}
                     />
+
                     <div className="attendance-config-container">
                         <div className="config-row">
                             <span className="config-label">{t('attendance.lbl_active_network', 'Mạng đang hoạt động:')}</span>
@@ -175,6 +277,14 @@ function AttendancePage() {
                 loading={loading}
                 pagination={{ pageSize: 10 }}
                 scroll={{ x: 'max-content' }}
+            />
+
+            {/* Liveness Challenge Modal */}
+            <LivenessChallengeComponent
+                visible={showLiveness}
+                onComplete={handleLivenessComplete}
+                onFail={handleLivenessFail}
+                onCancel={handleLivenessCancel}
             />
         </div>
     );

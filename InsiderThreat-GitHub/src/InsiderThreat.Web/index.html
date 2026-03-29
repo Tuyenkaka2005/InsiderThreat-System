@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%232563eb'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='central' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='900' font-size='24'%3EW%3C/text%3E%3C/svg%3E" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Insider Threat</title>
+  <!-- Material Symbols -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+    rel="stylesheet" />
+  <!-- Inter Font -->
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#2563eb",
+            "primary-hover": "#1d4ed8",
+            "bg-base": "#f1f5f9",
+            "surface": "#ffffff",
+            "surface-glass": "rgba(255,255,255,0.72)",
+            "text-main": "#0f172a",
+            "text-muted": "#64748b",
+            "border-light": "#e2e8f0",
+          },
+          fontFamily: {
+            "sans": ["Inter", "system-ui", "sans-serif"],
+            "display": ["Inter", "sans-serif"],
+          },
+          borderRadius: {
+            "DEFAULT": "0.5rem",
+            "lg": "1rem",
+            "xl": "1.5rem",
+            "2xl": "2rem",
+            "full": "9999px"
+          },
+          backdropBlur: {
+            "glass": "12px",
+          },
+        },
+      },
+    }
+  </script>
+</head>
+
+<body class="bg-[#f1f5f9] text-[#0f172a] font-sans antialiased">
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

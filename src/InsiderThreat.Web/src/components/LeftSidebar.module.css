@@ -1,133 +1,280 @@
-/* LeftSidebar — WORK App Style */
-
+/* LeftSidebar — Synchro Design */
 .sidebar {
-    width: 300px;
-    min-width: 300px;
+    width: 260px;
+    min-width: 260px;
     height: calc(100vh - var(--header-height));
     background: var(--color-surface);
     border-right: 1px solid var(--color-border);
     display: none;
-    /* Hide by default on mobile */
     flex-direction: column;
     position: sticky;
     top: var(--header-height);
     left: 0;
-    padding: 12px 8px;
+    padding: 24px 16px;
     margin: 0;
-    gap: 4px;
     overflow: hidden;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: 'Inter', sans-serif;
+}
+
+.sidebar.collapsed {
+    width: 80px;
+    min-width: 80px;
+    padding: 24px 8px;
 }
 
 @media (min-width: 1024px) {
     .sidebar {
         display: flex;
-        /* Show on desktop */
     }
 }
-.logo {
+
+/* User Profile Section */
+.userProfileSection {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 8px 16px;
-    cursor: pointer;
-    user-select: none;
+    justify-content: space-between;
+    margin-bottom: 24px;
 }
 
-.logoIcon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #2563eb, #60a5fa);
-    color: white;
-    font-size: 18px;
-    font-weight: 800;
+.userInfo {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
-    flex-shrink: 0;
+    flex-direction: column;
+    flex: 1;
+    margin-left: 12px;
 }
 
-.logoText {
-    font-size: 16px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
+.userName {
+    font-weight: 700;
+    font-size: 15px;
     color: var(--color-text-main);
 }
 
-/* Nav */
+.userEmail {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.toggleCollapseBtn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 6px;
+}
+
+.toggleCollapseBtn:hover {
+    color: var(--color-text-main);
+    background: var(--color-bg);
+}
+
+/* Create Task Button */
+.createTaskWrapper {
+    margin-bottom: 20px;
+}
+
+.createTaskBtn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--color-text-main); /* Usually black in light, white in dark if logic applies */
+    color: var(--color-surface);
+    border: none;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.createTaskBtn:hover {
+    opacity: 0.9;
+}
+
+/* Main Navigation */
 .nav {
     display: flex;
     flex-direction: column;
-    gap: 2px;
     flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin-right: -8px; 
+    padding-right: 8px;
+}
+
+.navSectionScroll {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .navItem {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-radius: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
     background: transparent;
     border: none;
     cursor: pointer;
-    color: var(--color-text-main);
-    font-size: 15px;
-    font-weight: 600;
-    font-family: 'Inter', sans-serif;
+    color: var(--color-text-muted);
+    font-size: 14px;
+    font-weight: 500;
     text-align: left;
     width: 100%;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
+}
+
+.sidebar.collapsed .navItem {
+    justify-content: center;
+    padding: 12px 0;
 }
 
 .navItem:hover {
-    background: var(--color-primary-light);
-    color: var(--color-primary);
+    background: var(--color-bg);
+    color: var(--color-text-main);
 }
 
 .navItem.active {
-    background: #2563eb;
-    color: #ffffff;
+    background: var(--color-bg);
+    color: var(--color-text-main);
+    font-weight: 600;
 }
 
-.navItem.active .material-symbols-outlined {
-    color: #ffffff;
+.navIcon {
+    font-size: 20px;
+    margin-right: 12px;
 }
 
-.navItem .material-symbols-outlined {
-    font-size: 22px;
-    flex-shrink: 0;
+.sidebar.collapsed .navIcon {
+    margin-right: 0;
 }
 
 .navLabel {
-    font-size: 13px;
-    font-weight: 600;
+    flex: 1;
+    white-space: nowrap;
 }
 
-/* Logout */
-.logoutBtn {
+.navBadge {
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+}
+
+/* Favourite Section */
+.sectionHeader {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 10px;
+    justify-content: space-between;
+    padding: 16px 12px 8px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 12px;
+}
+
+.sectionHeader span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.favouriteItem {
+    padding: 8px 12px;
+    color: var(--color-text-muted);
+}
+
+.favouriteItem .navIcon {
+    font-size: 18px;
+}
+
+/* Footer (Help Center & Settings) */
+.sidebarFooter {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border);
+}
+
+.settingsRow {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 12px;
+    margin-bottom: 16px;
+}
+
+.settingsItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settingsLabel {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.footerActions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.footerBtn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
     background: transparent;
     border: none;
     cursor: pointer;
-    color: #ef4444;
-    font-size: 13px;
+    color: var(--color-text-muted);
     font-weight: 600;
-    font-family: 'Inter', sans-serif;
-    width: 100%;
-    transition: background 0.15s;
-    margin-top: 8px;
+    font-size: 14px;
+    padding: 10px 12px;
+    transition: all 0.2s;
+    border-radius: 8px;
+}
+
+.footerBtn:hover {
+    color: var(--color-text-main);
+    background: var(--color-bg);
+}
+
+.logoutBtn {
+    color: #ef4444 !important;
 }
 
 .logoutBtn:hover {
-    background: #fef2f2;
+    background: #fef2f2 !important;
 }
 
-.logoutBtn .material-symbols-outlined {
-    font-size: 20px;
+:global(.dark) .logoutBtn:hover {
+    background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.sidebar.collapsed .footerBtn {
+    justify-content: center;
+    padding: 12px 0;
+}
+
+.sidebar.collapsed .settingsRow {
+    align-items: center;
+    padding: 0;
+}
+
+.sidebar.collapsed .settingsItem {
+    justify-content: center;
+    width: 100%;
 }

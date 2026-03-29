@@ -55,6 +55,7 @@ export interface LoginRequest {
 export interface LoginResponse {
     token: string;
     user: User;
+    message?: string;
 }
 
 export interface AttendanceLog {

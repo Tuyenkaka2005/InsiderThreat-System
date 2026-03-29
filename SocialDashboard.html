@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Dashboard</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        darkBg: '#0f0f11',
+                        darkPanel: '#19191c',
+                        darkCard: '#222226',
+                        darkBorder: '#2d2d33',
+                        brandBlue: '#3b82f6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .glass-nav {
+            backdrop-filter: blur(20px);
+        }
+        .hero-banner-light {
+            background: linear-gradient(135deg, #0058be 0%, #2170e4 100%);
+        }
+        .hero-banner-dark {
+            background-image: linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?q=80&w=2074&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+</head>
+<body class="bg-[#f7f9fb] dark:bg-darkBg text-slate-800 dark:text-gray-200 min-h-screen">
+
+    <!-- TopNavBar -->
+    <nav class="fixed top-0 w-full z-50 glass-nav shadow-sm dark:shadow-none dark:border-b dark:border-darkBorder bg-white/80 dark:bg-darkBg/90 px-6 h-16 flex justify-between items-center transition-colors duration-300">
+        <div class="flex items-center gap-8">
+            <span class="text-xl font-bold tracking-tight text-blue-600 dark:text-brandBlue dyn-text-light">Luminous</span>
+            <span class="text-xl font-bold tracking-tight text-blue-500 hidden dyn-text-dark">Midnight Curator</span>
+            
+            <div class="hidden md:flex items-center bg-slate-100 dark:bg-darkPanel px-4 py-2 rounded-full w-96 gap-2 border border-transparent dark:border-darkBorder transition-colors">
+                <span class="material-symbols-outlined text-gray-400 text-sm">search</span>
+                <input type="text" placeholder="Tìm kiếm nội dung..." class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder-gray-500 dark:placeholder-gray-400 text-slate-800 dark:text-gray-200 outline-none p-0">
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <button class="p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-darkPanel rounded-full transition-colors hidden md:block">
+                <span class="material-symbols-outlined">notifications</span>
+            </button>
+            <button class="p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-darkPanel rounded-full transition-colors hidden md:block">
+                <span class="material-symbols-outlined">mail</span>
+            </button>
+            <button class="p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-darkPanel rounded-full transition-colors">
+                <span class="material-symbols-outlined">settings</span>
+            </button>
+            <div class="w-8 h-8 rounded-full overflow-hidden ml-2 ring-2 ring-transparent dark:ring-darkBorder shrink-0">
+                <img src="https://ui-avatars.com/api/?name=Admin&background=E0E7FF&color=4F46E5" alt="Profile" class="w-full h-full object-cover">
+            </div>
+        </div>
+    </nav>
+
+    <!-- SideNavBar -->
+    <aside class="fixed left-0 top-0 h-full w-64 pt-20 flex flex-col gap-2 p-4 bg-slate-50 dark:bg-darkBg border-r border-slate-200 dark:border-darkBorder hidden md:flex transition-colors duration-300">
+        <div class="mb-6 px-4">
+            <h2 class="text-lg font-black text-slate-900 dark:text-gray-100">
+                <span class="dyn-text-light">Dashboard</span>
+                <span class="hidden dyn-text-dark">The Gallery</span>
+            </h2>
+            <p class="text-[11px] font-bold text-slate-500 dark:text-gray-500 tracking-wider">
+                <span class="dyn-text-light uppercase">Social Network</span>
+                <span class="hidden dyn-text-dark uppercase">Curated Network</span>
+            </p>
+        </div>
+        
+        <nav class="flex flex-col gap-1 flex-1">
+            <a href="#" class="bg-blue-50 dark:bg-darkPanel text-blue-700 dark:text-brandBlue rounded-xl mx-2 px-4 py-3 flex items-center gap-3 font-semibold transition-all shadow-sm dark:shadow-none dark:border-l-4 dark:border-brandBlue">
+                <span class="material-symbols-outlined">dashboard</span> Dashboard
+            </a>
+            <a href="#" class="text-slate-600 dark:text-gray-400 mx-2 px-4 py-3 flex items-center gap-3 font-medium rounded-xl hover:bg-slate-100 dark:hover:bg-darkPanel transition-all">
+                <span class="material-symbols-outlined">rss_feed</span> Newsfeed
+            </a>
+            <a href="#" class="text-slate-600 dark:text-gray-400 mx-2 px-4 py-3 flex items-center gap-3 font-medium rounded-xl hover:bg-slate-100 dark:hover:bg-darkPanel transition-all">
+                <span class="material-symbols-outlined">group</span> People
+            </a>
+            <a href="#" class="text-slate-600 dark:text-gray-400 mx-2 px-4 py-3 flex items-center gap-3 font-medium rounded-xl hover:bg-slate-100 dark:hover:bg-darkPanel transition-all">
+                <span class="material-symbols-outlined">folder</span> Files
+            </a>
+            <a href="#" class="text-slate-600 dark:text-gray-400 mx-2 px-4 py-3 flex items-center gap-3 font-medium rounded-xl hover:bg-slate-100 dark:hover:bg-darkPanel transition-all">
+                <span class="material-symbols-outlined">hub</span> Groups
+            </a>
+            <a href="#" class="text-slate-600 dark:text-gray-400 mx-2 px-4 py-3 flex items-center gap-3 font-medium rounded-xl hover:bg-slate-100 dark:hover:bg-darkPanel transition-all">
+                <span class="material-symbols-outlined">video_chat</span> Meetings
+            </a>
+
+            <!-- Toggle Button -->
+            <div class="mt-4 pt-4 border-t border-slate-200 dark:border-darkBorder mx-2">
+                <button id="theme-toggle" class="w-full text-slate-600 dark:text-gray-400 px-4 py-3 flex items-center justify-between font-medium rounded-xl hover:bg-slate-100 dark:hover:bg-darkPanel transition-all duration-200">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined" id="theme-icon">dark_mode</span>
+                        <span id="theme-text">Giao diện Tối</span>
+                    </div>
+                    <div class="w-10 h-5 bg-slate-300 dark:bg-brandBlue rounded-full relative transition-[background] duration-300 flex items-center px-1">
+                        <div id="theme-knob" class="w-3.5 h-3.5 bg-white rounded-full shadow transform transition-transform duration-300"></div>
+                    </div>
+                </button>
+            </div>
+        </nav>
+
+        <div class="mt-auto p-4">
+            <button class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-brandBlue dark:hover:bg-blue-500 text-white rounded-full py-3 px-6 font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined">add</span> Create Post
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="md:ml-64 pt-20 p-6 md:p-8 transition-colors duration-300">
+        <div class="max-w-6xl mx-auto flex flex-col gap-6 md:gap-8">
+            <!-- Hero Banner -->
+            <section class="rounded-2xl p-8 md:p-10 relative overflow-hidden flex flex-col justify-center min-h-[220px] shadow-sm hero-banner-light dark:hero-banner-dark dark:bg-darkPanel transition-all duration-300">
+                <div class="relative z-10">
+                    <h1 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight mb-2">
+                        <span class="dyn-text-light">Welcome back, Alex!</span>
+                        <span class="hidden dyn-text-dark">Chào mừng trở lại, Administrator</span>
+                    </h1>
+                    <p class="text-blue-100 dark:text-gray-300 max-w-lg text-base md:text-lg">
+                        <span class="dyn-text-light">Your network is buzzing today. You have 12 new updates from your inner circle.</span>
+                        <span class="hidden dyn-text-dark">Khám phá những tin tức mới nhất từ mạng lưới của bạn.</span>
+                    </p>
+                </div>
+            </section>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+                <!-- Center Feed Column -->
+                <div class="lg:col-span-8 flex flex-col gap-6 md:gap-8">
+                    <div class="bg-white dark:bg-darkPanel rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-darkBorder transition-colors duration-300">
+                        <div class="flex gap-4 items-center">
+                            <div class="w-10 h-10 rounded-full overflow-hidden shrink-0">
+                                <img src="https://ui-avatars.com/api/?name=Admin&background=E0E7FF&color=4F46E5" alt="Avatar" class="w-full h-full object-cover">
+                            </div>
+                            <div class="flex-1 bg-slate-50 dark:bg-darkCard rounded-full px-4 py-3 flex items-center border border-transparent dark:border-darkBorder transition-colors">
+                                <input type="text" placeholder="Administrator ơi, bạn đang nghĩ gì?" class="w-full bg-transparent border-none focus:ring-0 text-sm placeholder-slate-400 dark:placeholder-gray-500 text-slate-800 dark:text-gray-200 outline-none p-0">
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center pt-4 mt-4 border-t border-slate-100 dark:border-darkBorder transition-colors">
+                            <div class="flex gap-2">
+                                <button class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-darkCard text-slate-600 dark:text-gray-300 font-medium text-sm transition-colors">
+                                    <span class="material-symbols-outlined text-green-500 text-[20px]">image</span> Ảnh/Video
+                                </button>
+                                <button class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-darkCard text-slate-600 dark:text-gray-300 font-medium text-sm transition-colors">
+                                    <span class="material-symbols-outlined text-yellow-500 text-[20px]">mood</span> Cảm xúc
+                                </button>
+                            </div>
+                            <button class="bg-slate-100 dark:bg-darkCard hover:bg-slate-200 dark:hover:bg-darkBorder text-slate-800 dark:text-gray-200 px-6 py-2 rounded-full font-bold active:scale-95 transition-all text-sm">Đăng tin</button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-6 md:gap-8">
+                        <article class="bg-white dark:bg-darkPanel rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-darkBorder transition-colors duration-300">
+                            <div class="p-5 flex flex-col gap-4">
+                                <div class="flex justify-between items-center">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 rounded-full shrink-0">
+                                            <img src="https://ui-avatars.com/api/?name=Minh+Anh&background=ffedd5&color=f97316" alt="Author UI" class="w-full h-full rounded-full">
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-slate-800 dark:text-gray-100">Minh Anh Lê</h4>
+                                            <p class="text-[11px] font-semibold tracking-wider text-slate-500 dark:text-gray-400 mt-0.5 uppercase">2 GIỜ TRƯỚC • CHẾ ĐỘ CÔNG KHAI</p>
+                                        </div>
+                                    </div>
+                                    <button class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-darkCard transition-colors">
+                                        <span class="material-symbols-outlined">more_horiz</span>
+                                    </button>
+                                </div>
+                                <p class="text-slate-600 dark:text-gray-300 leading-relaxed text-sm md:text-[15px]">
+                                    Vừa hoàn thành dự án thiết kế giao diện cho Midnight Curator. Cảm giác thực sự tuyệt vời khi mọi thứ bắt đầu đi vào quỹ đạo. Cảm ơn team đã hỗ trợ nhiệt tình! 🚀✨
+                                </p>
+                                <div class="rounded-xl overflow-hidden bg-slate-100 dark:bg-darkCard aspect-[4/3] relative border border-slate-200 dark:border-darkBorder group cursor-pointer block">
+                                    <img src="https://images.unsplash.com/photo-1621501103258-0e3240212903?q=80&w=2070&auto=format&fit=crop" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Mockup Presentation">
+                                </div>
+                                <div class="flex items-center justify-between pt-4 mt-2 border-t border-slate-100 dark:border-darkBorder transition-colors">
+                                    <div class="flex gap-4 md:gap-6">
+                                        <button class="flex items-center gap-1.5 md:gap-2 text-slate-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-brandBlue font-medium text-xs md:text-sm transition-colors">
+                                            <span class="material-symbols-outlined">favorite</span> Thích (128)
+                                        </button>
+                                        <button class="flex items-center gap-1.5 md:gap-2 text-slate-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-brandBlue font-medium text-xs md:text-sm transition-colors">
+                                            <span class="material-symbols-outlined">chat_bubble</span> Bình luận (24)
+                                        </button>
+                                    </div>
+                                    <button class="flex items-center gap-2 text-slate-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-brandBlue font-medium text-xs md:text-sm transition-colors">
+                                        <span class="material-symbols-outlined">share</span> Chia sẻ
+                                    </button>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+
+                <!-- Right Sidebar Column -->
+                <div class="lg:col-span-4 flex flex-col gap-6 md:gap-8">
+                    <!-- GỢI Ý LIÊN HỆ -->
+                    <section class="bg-white dark:bg-darkPanel rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-darkBorder transition-colors duration-300">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-slate-800 dark:text-gray-100 uppercase text-sm tracking-wider">Gợi ý Liên hệ</h3>
+                            <button class="text-xs font-semibold text-blue-600 dark:text-brandBlue hover:underline">Xem tất cả</button>
+                        </div>
+                        <div class="flex flex-col gap-5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 shrink-0"><img src="https://ui-avatars.com/api/?name=Thu+Ha&background=fdba74&color=fff" class="w-full h-full rounded-full border border-slate-200 dark:border-darkBorder" alt="User"></div>
+                                    <div>
+                                        <p class="font-bold text-[13px] text-slate-800 dark:text-gray-200">Thu Hà Nguyễn</p>
+                                        <p class="text-[11px] text-slate-500 dark:text-gray-500">Gợi ý từ bạn bè chung</p>
+                                    </div>
+                                </div>
+                                <button class="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-darkCard text-slate-600 dark:text-gray-300 rounded-full hover:bg-blue-600 hover:text-white dark:hover:bg-brandBlue dark:hover:text-white transition-all"><span class="material-symbols-outlined text-[18px]">person_add</span></button>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 shrink-0"><img src="https://ui-avatars.com/api/?name=Quoc+Cuong&background=fed7aa&color=fff" class="w-full h-full rounded-full border border-slate-200 dark:border-darkBorder" alt="User"></div>
+                                    <div>
+                                        <p class="font-bold text-[13px] text-slate-800 dark:text-gray-200">Quốc Cường Trần</p>
+                                        <p class="text-[11px] text-slate-500 dark:text-gray-500">Cùng tham gia nhóm Design</p>
+                                    </div>
+                                </div>
+                                <button class="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-darkCard text-slate-600 dark:text-gray-300 rounded-full hover:bg-blue-600 hover:text-white dark:hover:bg-brandBlue dark:hover:text-white transition-all"><span class="material-symbols-outlined text-[18px]">person_add</span></button>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 shrink-0"><img src="https://ui-avatars.com/api/?name=Thuy+Duong&background=ffedd5&color=fff" class="w-full h-full rounded-full border border-slate-200 dark:border-darkBorder" alt="User"></div>
+                                    <div>
+                                        <p class="font-bold text-[13px] text-slate-800 dark:text-gray-200">Thùy Dương Phạm</p>
+                                        <p class="text-[11px] text-slate-500 dark:text-gray-500">Bạn có thể biết người này</p>
+                                    </div>
+                                </div>
+                                <button class="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-darkCard text-slate-600 dark:text-gray-300 rounded-full hover:bg-blue-600 hover:text-white dark:hover:bg-brandBlue dark:hover:text-white transition-all"><span class="material-symbols-outlined text-[18px]">person_add</span></button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- XU HƯỚNG MỚI -->
+                    <section class="bg-white dark:bg-darkPanel rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-darkBorder transition-colors duration-300">
+                        <h3 class="font-bold text-slate-800 dark:text-gray-100 uppercase text-sm tracking-wider mb-5">Xu Hướng</h3>
+                        <div class="flex flex-col gap-4">
+                            <div class="bg-slate-50 dark:bg-darkCard p-4 rounded-xl cursor-copy hover:ring-2 hover:ring-blue-100 dark:hover:ring-darkBorder transition-all border border-transparent dark:border-darkBorder">
+                                <p class="text-[10px] font-bold text-blue-600 dark:text-brandBlue tracking-wider uppercase mb-1">#MIDNIGHTCURATOR</p>
+                                <h4 class="font-semibold text-[13px] text-slate-800 dark:text-gray-200">Giao diện mới cực chất</h4>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-darkCard p-4 rounded-xl cursor-copy hover:ring-2 hover:ring-blue-100 dark:hover:ring-darkBorder transition-all border border-transparent dark:border-darkBorder">
+                                <p class="text-[10px] font-bold text-blue-600 dark:text-brandBlue tracking-wider uppercase mb-1">#UIUXDESIGN</p>
+                                <h4 class="font-semibold text-[13px] text-slate-800 dark:text-gray-200">Xu hướng thiết kế 2024</h4>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Feature Buttons -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <button class="bg-white dark:bg-darkPanel border border-slate-100 dark:border-darkBorder rounded-2xl p-5 flex flex-col items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-darkCard transition-all shadow-sm active:scale-95 text-slate-600 dark:text-gray-300">
+                            <span class="material-symbols-outlined text-blue-500 dark:text-brandBlue text-3xl">star</span>
+                            <span class="text-xs font-bold tracking-wide">Top Fans</span>
+                        </button>
+                        <button class="bg-white dark:bg-darkPanel border border-slate-100 dark:border-darkBorder rounded-2xl p-5 flex flex-col items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-darkCard transition-all shadow-sm active:scale-95 text-slate-600 dark:text-gray-300">
+                            <span class="material-symbols-outlined text-orange-500 text-3xl">local_fire_department</span>
+                            <span class="text-xs font-bold tracking-wide">Hot Events</span>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeKnob = document.getElementById('theme-knob');
+        const htmlElement = document.documentElement;
+        const themeIcon = document.getElementById('theme-icon');
+        const themeText = document.getElementById('theme-text');
+        
+        function updateUI(isDark) {
+            if (isDark) {
+                themeIcon.textContent = 'light_mode';
+                themeText.textContent = 'Giao diện Sáng';
+                themeKnob.style.transform = 'translateX(100%)';
+                document.querySelectorAll('.dyn-text-light').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('.dyn-text-dark').forEach(el => el.classList.remove('hidden'));
+            } else {
+                themeIcon.textContent = 'dark_mode';
+                themeText.textContent = 'Giao diện Tối';
+                themeKnob.style.transform = 'translateX(0)';
+                document.querySelectorAll('.dyn-text-dark').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('.dyn-text-light').forEach(el => el.classList.remove('hidden'));
+            }
+        }
+
+        if (localStorage.getItem('theme') === 'dark') {
+            htmlElement.classList.add('dark');
+            htmlElement.classList.remove('light');
+            updateUI(true);
+        } else {
+            updateUI(false);
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            const isDark = htmlElement.classList.contains('dark');
+            if (isDark) {
+                htmlElement.classList.remove('dark');
+                htmlElement.classList.add('light');
+                localStorage.setItem('theme', 'light');
+                updateUI(false);
+            } else {
+                htmlElement.classList.remove('light');
+                htmlElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                updateUI(true);
+            }
+        });
+    </script>
+</body>
+</html>

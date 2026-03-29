@@ -1,0 +1,125 @@
+/* LeftSidebar — WORK App Style */
+
+.sidebar {
+    width: 160px;
+    min-width: 160px;
+    height: calc(100vh - var(--header-height));
+    background: #ffffff;
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: var(--header-height);
+    padding: 12px 8px;
+    gap: 4px;
+    overflow: hidden;
+}
+
+/* Logo */
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 8px 16px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.logoIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #2563eb, #60a5fa);
+    color: white;
+    font-size: 18px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+    flex-shrink: 0;
+}
+
+.logoText {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: #0f172a;
+}
+
+/* Nav */
+.nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.navItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    text-align: left;
+    width: 100%;
+    transition: all 0.15s ease;
+}
+
+.navItem:hover {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.navItem.active {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.navItem.active .material-symbols-outlined {
+    color: #ffffff;
+}
+
+.navItem .material-symbols-outlined {
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.navLabel {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Logout */
+.logoutBtn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #ef4444;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    width: 100%;
+    transition: background 0.15s;
+    margin-top: 8px;
+}
+
+.logoutBtn:hover {
+    background: #fef2f2;
+}
+
+.logoutBtn .material-symbols-outlined {
+    font-size: 20px;
+}

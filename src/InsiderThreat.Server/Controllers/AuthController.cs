@@ -114,10 +114,58 @@ public class AuthController : ControllerBase
                 });
             }
 
+            // 2.2. Kiểm tra xem có bắt buộc đổi mật khẩu không
+            if (user.RequiresPasswordChange)
+            {
+                return Ok(new LoginResponse
+                {
+                    Success = false,
+                    Message = "CHANGE_PASSWORD_REQUIRED",
+                    User = new UserInfo
+                    {
+                        Id = user.Id ?? "",
+                        Username = user.Username,
+                        FullName = user.FullName,
+                        Role = user.Role
+                    }
+                });
+            }
+
+            // 2.5. Safety-net: Nếu username là "admin" thì luôn đảm bảo role = "Admin"
+            if (user.Username.ToLower() == "admin" && user.Role != "Admin")
+            {
+                _logger.LogWarning($"Admin user has incorrect role '{user.Role}' in DB. Auto-correcting to 'Admin'.");
+                user.Role = "Admin";
+                // Tự động sửa lại trong DB
+                try
+                {
+                    var update = Builders<User>.Update.Set(u => u.Role, "Admin");
+                    await usersCollection.UpdateOneAsync(u => u.Id == user.Id, update);
+                    _logger.LogInformation("Admin role auto-corrected in database.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to auto-correct admin role in DB");
+                }
+            }
+
             // 3. Tạo JWT Token
             string token = GenerateJwtToken(user);
 
             _logger.LogInformation($"User '{user.Username}' đăng nhập thành công");
+
+            // Normalize role for response (same logic as GenerateJwtToken)
+            string responseRole = (user.Role ?? "User").Trim();
+            responseRole = responseRole.ToLower() switch
+            {
+                "admin" => "Admin",
+                "giám đốc" => "Giám đốc",
+                "giam doc" => "Giám đốc",
+                "director" => "Giám đốc",
+                "quản lý" => "Quản lý",
+                "nhân viên" => "Nhân viên",
+                _ => responseRole
+            };
 
             return Ok(new LoginResponse
             {
@@ -129,7 +177,7 @@ public class AuthController : ControllerBase
                     Id = user.Id ?? "",
                     Username = user.Username,
                     FullName = user.FullName,
-                    Role = user.Role,
+                    Role = responseRole,
                     AvatarUrl = user.AvatarUrl
                 }
             });
@@ -145,23 +193,46 @@ public class AuthController : ControllerBase
         }
     }
 
+    public class FaceLoginRequest
+    {
+        public double[] Descriptor { get; set; } = null!;
+        public long Timestamp { get; set; } // Unix timestamp (ms)
+        public string? MachineId { get; set; } // HWID from Agent
+        public string? LivenessToken { get; set; } // Token from frontend challenge
+    }
+
     [HttpPost("face-login")]
-    public async Task<ActionResult<LoginResponse>> FaceLogin([FromBody] double[] descriptor)
+    public async Task<ActionResult<LoginResponse>> FaceLogin([FromBody] FaceLoginRequest request)
     {
         try
         {
+            if (request == null || request.Descriptor == null || request.Descriptor.Length == 0)
+            {
+                return BadRequest(new LoginResponse { Success = false, Message = "Dữ liệu khuôn mặt không hợp lệ." });
+            }
+
+            // 1. Kiểm tra "độ tươi" của gói tin (Chống Replay Attack)
+            var nowTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var timeDiff = Math.Abs(nowTs - request.Timestamp);
+            if (timeDiff > 120000) // Nới lỏng lên 120 giây đề phòng lệch múi giờ
+            {
+                _logger.LogWarning($"Face Login REJECTED: Replay attack suspected. Time diff: {timeDiff}ms");
+                return BadRequest(new LoginResponse { Success = false, Message = "Phiên đăng nhập đã hết hạn. Vui lòng thử lại." });
+            }
+
+            // 2. So sánh khuôn mặt
             var usersCollection = _database.GetCollection<User>("Users");
             var users = await usersCollection
-                .Find(u => u.FaceEmbeddings != null)
+                .Find(u => u.FaceEmbeddings != null && u.FaceEmbeddings.Length > 0)
                 .ToListAsync();
 
             User? matchedUser = null;
             double minDistance = double.MaxValue;
-            double threshold = 0.5; // Stricter threshold for security
+            double threshold = 0.5; // Ngưỡng nhận diện chặt chẽ (càng thấp càng khó)
 
             foreach (var user in users)
             {
-                var distance = EuclideanDistance(descriptor, user.FaceEmbeddings!);
+                var distance = EuclideanDistance(request.Descriptor, user.FaceEmbeddings!);
                 if (distance < threshold && distance < minDistance)
                 {
                     minDistance = distance;
@@ -171,37 +242,33 @@ public class AuthController : ControllerBase
 
             if (matchedUser == null)
             {
-                // Log failure
-                var log = new LogEntry
-                {
-                    LogType = "Auth",
-                    Severity = "Warning",
-                    Message = "Face Login failed: No matching face found",
-                    ComputerName = "WebClient",
-                    IPAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
-                    ActionTaken = "Access Denied",
-                    Timestamp = DateTime.Now
-                };
-                await _logsCollection.InsertOneAsync(log);
-
-                return Unauthorized(new LoginResponse
-                {
-                    Success = false,
-                    Message = "Không nhận diện được khuôn mặt hoặc chưa đăng ký Face ID"
-                });
+                // Ghi nhật ký lỗi nhận diện
+                await LogAuthFailure($"Face Login failed: No matching face found for current session (MinDist: {minDistance})");
+                return Unauthorized(new LoginResponse { Success = false, Message = "Không nhận diện được khuôn mặt hoặc chưa đăng ký Face ID" });
             }
 
-            // Log Attendance
+            // 3. Hardware Binding (Chỉ áp dụng cho người dùng đã đăng ký máy tính)
+            if (!string.IsNullOrEmpty(matchedUser.RegisteredMachineId) && !string.IsNullOrEmpty(request.MachineId) && request.MachineId != "unknown_web_client")
+            {
+                if (matchedUser.RegisteredMachineId != request.MachineId)
+                {
+                    _logger.LogCritical($"SECURITY ALERT: User {matchedUser.Username} attempted face login from unauthorized machine {request.MachineId}");
+                    await LogAuthFailure($"Hardware Mismatch: Expected {matchedUser.RegisteredMachineId}, got {request.MachineId}");
+                    return Unauthorized(new LoginResponse { Success = false, Message = "Truy cập bị từ chối: Tài khoản của bạn chỉ được phép đăng nhập trên máy tính đã đăng ký." });
+                }
+            }
+
+            // Ghi nhật ký điểm danh (Cần dùng IMongoDatabase trực tiếp nếu collection chưa được khai báo ở constructor)
             var attendanceLog = new AttendanceLog
             {
                 UserId = matchedUser.Id!,
-                UserName = matchedUser.FullName, // Use FullName for display
+                UserName = matchedUser.FullName,
                 CheckInTime = DateTime.Now,
                 Method = "FaceID"
             };
             await _database.GetCollection<AttendanceLog>("AttendanceLogs").InsertOneAsync(attendanceLog);
 
-            // Generate Token
+            // Tạo Token
             string token = GenerateJwtToken(matchedUser);
 
             return Ok(new LoginResponse
@@ -222,8 +289,23 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Lỗi Face Login");
-            return StatusCode(500, new LoginResponse { Success = false, Message = ex.Message });
+            return StatusCode(500, new LoginResponse { Success = false, Message = "Lỗi hệ thống trong khi xác thực khuôn mặt: " + ex.Message });
         }
+    }
+
+    private async Task LogAuthFailure(string reason)
+    {
+        var log = new LogEntry
+        {
+            LogType = "Auth",
+            Severity = "Warning",
+            Message = reason,
+            ComputerName = "WebClient",
+            IPAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+            ActionTaken = "Access Denied",
+            Timestamp = DateTime.Now
+        };
+        await _logsCollection.InsertOneAsync(log);
     }
 
     private static double EuclideanDistance(double[] a, double[] b)
@@ -281,6 +363,49 @@ public class AuthController : ControllerBase
         await usersCollection.UpdateOneAsync(u => u.Id == userId, update);
 
         return Ok(new { Success = true, Message = "Đổi mật khẩu thành công" });
+    }
+
+    public class ChangeFirstPasswordRequest
+    {
+        public string Username { get; set; } = string.Empty;
+        public string OldPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
+    [HttpPost("change-first-password")]
+    public async Task<IActionResult> ChangeFirstPassword([FromBody] ChangeFirstPasswordRequest request)
+    {
+        var usersCollection = _database.GetCollection<User>("Users");
+        var user = await usersCollection.Find(u => u.Username == request.Username).FirstOrDefaultAsync();
+
+        if (user == null) return NotFound(new { message = "Người dùng không tồn tại" });
+
+        // Kiểm tra mật khẩu cũ
+        if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
+        {
+            return BadRequest(new { message = "Mật khẩu cũ không chính xác" });
+        }
+
+        // 🛡️ KIỂM TRA ĐỘ MẠNH MẬT KHẨU (REGEX)
+        // Yêu cầu: Chữ cái đầu viết hoa, ít nhất 1 số, 1 ký tự đặc biệt, dài ít nhất 8 ký tự
+        var passwordRegex = new System.Text.RegularExpressions.Regex(@"^[A-Z](?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{7,}$");
+        
+        if (!passwordRegex.IsMatch(request.NewPassword))
+        {
+            return BadRequest(new { 
+                message = "Mật khẩu không đạt chuẩn bảo mật: Chữ cái đầu phải viết hoa, bao gồm ít nhất một chữ số, một ký tự đặc biệt và dài tối thiểu 8 ký tự." 
+            });
+        }
+
+        // Cập nhật mật khẩu mới và tắt cờ RequiresPasswordChange
+        var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        var update = Builders<User>.Update
+            .Set(u => u.PasswordHash, newHash)
+            .Set(u => u.RequiresPasswordChange, false);
+
+        await usersCollection.UpdateOneAsync(u => u.Id == user.Id, update);
+
+        return Ok(new { success = true, message = "Đổi mật khẩu thành công! Bây giờ bạn có thể đăng nhập." });
     }
 
     // =============================================
@@ -464,9 +589,18 @@ public class AuthController : ControllerBase
         var jwtSettings = _configuration.GetSection("Jwt");
         var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
 
-        // Normalize role to PascalCase (e.g., "admin" -> "Admin")
-        string normalizedRole = char.ToUpper(user.Role[0]) + user.Role.Substring(1).ToLower();
-        if (user.Role.ToLower() == "admin") normalizedRole = "Admin"; // Explicit for safety
+        // Normalize role safely (preserve Vietnamese accented characters, only fix casing for known roles)
+        string role = (user.Role ?? "User").Trim();
+        string normalizedRole = role.ToLower() switch
+        {
+            "admin" => "Admin",
+            "giám đốc" => "Giám đốc",
+            "giam doc" => "Giám đốc",
+            "director" => "Giám đốc",
+            "quản lý" => "Quản lý",
+            "nhân viên" => "Nhân viên",
+            _ => role // Keep original if unknown
+        };
 
         var claims = new[]
         {

@@ -24,6 +24,7 @@ interface ChatUser {
     lastMessageTime?: string;
     publicKey?: string;
     unreadCount?: number;
+    isGroup?: boolean;
 }
 
 interface Message {
@@ -42,6 +43,7 @@ export default function ChatPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const userIdParam = searchParams.get('userId');
+    const groupIdParam = searchParams.get('groupId');
 
     // Stabilize currentUser to prevent infinite useEffect loops
     const currentUser = useMemo(() => authService.getCurrentUser(), []);
@@ -207,6 +209,17 @@ export default function ChatPage() {
                     }
                 });
 
+                // Static Community Groups
+                const COMMUNITY_GROUPS: ChatUser[] = [
+                    { id: '1', username: 'Phòng Phát Triển Sản Phẩm', avatar: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=200&fit=crop', isGroup: true, lastMessage: t('chat.group_welcome', "Chào mừng bạn đến nhóm!"), unreadCount: 0 },
+                    { id: '2', username: 'Hội Những Người Thích Cà Phê', avatar: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=200&fit=crop', isGroup: true, lastMessage: t('chat.group_welcome', "Chào mừng bạn đến nhóm!"), unreadCount: 0 },
+                    { id: '3', username: 'Kỹ thuật & Công nghệ', avatar: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=200&fit=crop', isGroup: true, lastMessage: t('chat.group_welcome', "Chào mừng bạn đến nhóm!"), unreadCount: 0 },
+                    { id: '4', username: 'HR & Văn hóa doanh nghiệp', avatar: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=200&fit=crop', isGroup: true, lastMessage: t('chat.group_welcome', "Chào mừng bạn đến nhóm!"), unreadCount: 0 }
+                ];
+                COMMUNITY_GROUPS.forEach(g => {
+                    if (!chatUsersMap.has(g.id)) chatUsersMap.set(g.id, g);
+                });
+
                 const sortedUsers = Array.from(chatUsersMap.values()).sort((a, b) => {
                     if ((a.unreadCount || 0) > 0 && (b.unreadCount || 0) === 0) return -1;
                     if ((a.unreadCount || 0) === 0 && (b.unreadCount || 0) > 0) return 1;
@@ -229,16 +242,17 @@ export default function ChatPage() {
         fetchContacts();
     }, [currentUser]);
 
-    // Auto-select user from URL parameter
+    // Auto-select user or group from URL parameter
     useEffect(() => {
-        if (userIdParam && contacts.length > 0) {
+        const paramId = userIdParam || groupIdParam;
+        if (paramId && contacts.length > 0) {
             setSelectedUser(prevSelected => {
-                if (prevSelected?.id === userIdParam) return prevSelected;
-                const userToSelect = contacts.find(c => c.id === userIdParam);
+                if (prevSelected?.id === paramId) return prevSelected;
+                const userToSelect = contacts.find(c => c.id === paramId);
                 return userToSelect || prevSelected;
             });
         }
-    }, [userIdParam, contacts]);
+    }, [userIdParam, groupIdParam, contacts]);
 
     // Realtime Presence Listeners
     useEffect(() => {
@@ -262,11 +276,33 @@ export default function ChatPage() {
             }
         };
 
+        const handleReceiveGroupMessage = (message: any) => {
+            if (selectedUser?.id === message.groupId) {
+                const newMsg: Message = {
+                    id: message.id || Date.now().toString(),
+                    text: message.content || '',
+                    senderId: message.senderId,
+                    timestamp: new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    attachmentUrl: message.attachmentUrl,
+                    attachmentType: message.attachmentType,
+                    attachmentName: message.attachmentName,
+                    isRead: true,
+                    isEdited: message.isEdited
+                };
+                setMessages(prev => {
+                    // Prevent duplicates from rapid SignalR vs Polling
+                    if (prev.find(m => m.id === newMsg.id || (m.timestamp === newMsg.timestamp && m.senderId === newMsg.senderId && m.text === newMsg.text))) return prev;
+                    return [...prev, newMsg];
+                });
+            }
+        };
+
         const hubConnection = signalRService.getConnection();
         if (hubConnection) {
             hubConnection.on('UserOnline', handleUserOnline);
             hubConnection.on('UserOffline', handleUserOffline);
             hubConnection.on('MessagesRead', handleMessagesRead);
+            hubConnection.on('ReceiveGroupMessage', handleReceiveGroupMessage);
         }
 
         return () => {
@@ -274,9 +310,22 @@ export default function ChatPage() {
                 hubConnection.off('UserOnline', handleUserOnline);
                 hubConnection.off('UserOffline', handleUserOffline);
                 hubConnection.off('MessagesRead', handleMessagesRead);
+                hubConnection.off('ReceiveGroupMessage', handleReceiveGroupMessage);
             }
         };
     }, [selectedUser?.id]);
+
+    // SignalR Group Room Subscription
+    useEffect(() => {
+        const hubConnection = signalRService.getConnection();
+        if (selectedUser?.isGroup && hubConnection) {
+            hubConnection.invoke("JoinChatGroup", selectedUser.id).catch(err => console.error("SignalR Join Group Error:", err));
+
+            return () => {
+                hubConnection.invoke("LeaveChatGroup", selectedUser.id).catch(err => console.error("SignalR Leave Group Error:", err));
+            };
+        }
+    }, [selectedUser]);
 
     // 3. Fetch Messages when User Selected (E2EE: client decrypts after receiving)
     useEffect(() => {
@@ -285,23 +334,43 @@ export default function ChatPage() {
         const loadMessages = async () => {
             if (!currentUser?.id) return;
             try {
-                const apiMessages = await chatService.getMessages(selectedUser.id, currentUser.id);
+                if (selectedUser.isGroup) {
+                    const apiMessages = await chatService.getGroupMessages(selectedUser.id);
+                    const mappedMessages = apiMessages.map((msg: any) => ({
+                        id: msg.id || Date.now().toString(),
+                        text: msg.content || '',
+                        senderId: msg.senderId,
+                        timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        attachmentUrl: msg.attachmentUrl,
+                        attachmentType: msg.attachmentType,
+                        attachmentName: msg.attachmentName,
+                        isRead: true, // Auto-read for public groups
+                        isEdited: msg.isEdited
+                    }));
+                    setMessages(prev => {
+                        const isDifferent = prev.length !== mappedMessages.length ||
+                            prev[prev.length - 1]?.id !== mappedMessages[mappedMessages.length - 1]?.id;
+                        return isDifferent ? mappedMessages : prev;
+                    });
+                } else {
+                    const apiMessages = await chatService.getMessages(selectedUser.id, currentUser.id);
 
-                // E2EE: Decrypt all messages on client side
-                const mappedMessages = await decryptMessages(apiMessages);
+                    // E2EE: Decrypt all messages on client side
+                    const mappedMessages = await decryptMessages(apiMessages);
 
-                setMessages(prev => {
-                    const isDifferent = prev.length !== mappedMessages.length ||
-                        prev[prev.length - 1]?.id !== mappedMessages[mappedMessages.length - 1]?.id ||
-                        prev.some((m, i) => m.isRead !== mappedMessages[i]?.isRead);
-                    return isDifferent ? mappedMessages : prev;
-                });
+                    setMessages(prev => {
+                        const isDifferent = prev.length !== mappedMessages.length ||
+                            prev[prev.length - 1]?.id !== mappedMessages[mappedMessages.length - 1]?.id ||
+                            prev.some((m, i) => m.isRead !== mappedMessages[i]?.isRead);
+                        return isDifferent ? mappedMessages : prev;
+                    });
 
-                // Mark messages as read
-                const unreadMsgs = apiMessages.filter((m: any) => m.senderId === selectedUser.id && !m.isRead);
-                if (unreadMsgs.length > 0) {
-                    await chatService.markMessagesAsRead(selectedUser.id);
-                    setContacts(prev => prev.map(c => c.id === selectedUser.id ? { ...c, unreadCount: 0 } : c));
+                    // Mark messages as read
+                    const unreadMsgs = apiMessages.filter((m: any) => m.senderId === selectedUser.id && !m.isRead);
+                    if (unreadMsgs.length > 0) {
+                        await chatService.markMessagesAsRead(selectedUser.id);
+                        setContacts(prev => prev.map(c => c.id === selectedUser.id ? { ...c, unreadCount: 0 } : c));
+                    }
                 }
 
             } catch (error) {
@@ -331,32 +400,43 @@ export default function ChatPage() {
         const plainText = messageInput;
 
         try {
-            // E2EE: Get receiver's public key
-            let receiverPublicKey = selectedUser.publicKey;
-            if (!receiverPublicKey) {
-                receiverPublicKey = await chatService.getUserPublicKey(selectedUser.id);
-            }
-            if (!receiverPublicKey) {
-                alert(t('chat.no_key_e2ee', 'Người nhận chưa thiết lập khóa mã hóa. Không thể gửi tin nhắn E2EE.'));
-                return;
-            }
+            if (selectedUser.isGroup) {
+                // Public Group Message (No E2EE)
+                await chatService.sendMessage({
+                    senderId: currentUser.id || '',
+                    receiverId: '', 
+                    groupId: selectedUser.id,
+                    content: plainText,
+                    senderContent: plainText
+                } as any);
+            } else {
+                // E2EE: Get receiver's public key
+                let receiverPublicKey = selectedUser.publicKey;
+                if (!receiverPublicKey) {
+                    receiverPublicKey = await chatService.getUserPublicKey(selectedUser.id);
+                }
+                if (!receiverPublicKey) {
+                    alert(t('chat.no_key_e2ee', 'Người nhận chưa thiết lập khóa mã hóa. Không thể gửi tin nhắn E2EE.'));
+                    return;
+                }
 
-            // E2EE: Encrypt for receiver (using their public key)
-            const encryptedForReceiver = await cryptoService.encryptForUser(plainText, receiverPublicKey);
+                // E2EE: Encrypt for receiver (using their public key)
+                const encryptedForReceiver = await cryptoService.encryptForUser(plainText, receiverPublicKey);
 
-            // E2EE: Encrypt for sender (using my own public key) — so I can read my sent messages
-            let encryptedForSender: string | undefined;
-            if (myPublicKeyRef.current) {
-                encryptedForSender = await cryptoService.encryptForUser(plainText, myPublicKeyRef.current);
+                // E2EE: Encrypt for sender (using my own public key) — so I can read my sent messages
+                let encryptedForSender: string | undefined;
+                if (myPublicKeyRef.current) {
+                    encryptedForSender = await cryptoService.encryptForUser(plainText, myPublicKeyRef.current);
+                }
+
+                // Send encrypted message to server
+                await chatService.sendMessage({
+                    senderId: currentUser.id || '',
+                    receiverId: selectedUser.id,
+                    content: encryptedForReceiver,
+                    senderContent: encryptedForSender,
+                });
             }
-
-            // Send encrypted message to server
-            await chatService.sendMessage({
-                senderId: currentUser.id || '',
-                receiverId: selectedUser.id,
-                content: encryptedForReceiver,
-                senderContent: encryptedForSender,
-            });
 
             // Optimistic UI — show plain text immediately
             const newMsg: Message = {

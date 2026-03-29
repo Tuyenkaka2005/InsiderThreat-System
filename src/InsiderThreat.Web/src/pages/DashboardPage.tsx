@@ -17,6 +17,7 @@ import { authService } from '../services/auth';
 import { attendanceService } from '../services/attendanceService';
 import { confirmLogout } from '../utils/logoutUtils';
 import UsbNotification from '../components/UsbNotification';
+import UsbAnalyticsChart from '../components/UsbAnalyticsChart';
 import BlockedDevicesTable from '../components/BlockedDevicesTable';
 import WhitelistTable from '../components/WhitelistTable';
 import RecentLogsTable from '../components/RecentLogsTable';
@@ -157,7 +158,21 @@ function DashboardPage() {
             case 'usb':
                 return (
                     <div className={`content-wrapper ${isMobile ? 'mobile-usb-content' : ''}`}>
-                        {!isMobile && <Title level={2}>{t('dashboard.usb_title', '🔐 USB Device Management')}</Title>}
+                        {!isMobile && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <Title level={2} style={{ margin: 0 }}>{t('dashboard.usb_title', '🔐 USB Device Management')}</Title>
+                                <Button 
+                                    type="primary" 
+                                    danger 
+                                    size="large"
+                                    icon={<WarningOutlined />} 
+                                    onClick={() => navigate('/monitor-logs')}
+                                    style={{ animation: 'pulse 2s infinite', fontWeight: 'bold' }}
+                                >
+                                    Cảnh báo Rò rỉ Tài liệu (PC Monitor)
+                                </Button>
+                            </div>
+                        )}
                         {isMobile && (
                             <header className="mobile-usb-header">
                                 <div className="mobile-usb-header-left">
@@ -172,6 +187,10 @@ function DashboardPage() {
                                 <Avatar size={40} src="https://i.pravatar.cc/150?u=admin" />
                             </header>
                         )}
+
+                        {/* 📊 BIỂU ĐỒ PHÂN TÍCH USB */}
+                        <UsbAnalyticsChart />
+
                         <Tabs
                             items={tabItems}
                             defaultActiveKey="alerts"
@@ -216,7 +235,7 @@ function DashboardPage() {
 
     const dashboardNavItems = [
         { icon: 'newspaper', label: t('dashboard.nav_feed', 'Feed'), path: '/feed' },
-        ...(user?.role === 'Admin' ? [
+        ...(isAdminUser ? [
             { icon: 'person_search', label: t('dashboard.nav_users', 'Users'), key: 'users', onClick: () => setSelectedKey('users') },
             { icon: 'chat', label: t('dashboard.nav_posts', 'Posts'), key: 'posts', onClick: () => setSelectedKey('posts') },
             { icon: 'report', label: t('dashboard.nav_reports', 'Vi phạm'), key: 'reports', onClick: () => setSelectedKey('reports') },
@@ -291,7 +310,6 @@ function DashboardPage() {
                             <div className="user-info">
                                 <Avatar icon={<UserOutlined />} />
                                 <span className="username">{user.fullName}</span>
-                                <span className="role-badge">{user.role}</span>
                             </div>
                         </Dropdown>
                     </div>

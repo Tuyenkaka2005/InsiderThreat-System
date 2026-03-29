@@ -81,6 +81,9 @@ interface SharedDocument {
     allowedDownloadUserIds?: string[];
     requireCamera?: boolean;
     requireWatermark?: boolean;
+    enableAgentMonitoring?: boolean;
+    department?: string;
+    securityLevel?: string;
 }
 
 interface UserSummary {
@@ -111,6 +114,11 @@ const LibraryPage = () => {
     const [selectedDownloadUserIds, setSelectedDownloadUserIds] = useState<string[]>([]);
     const [requireCamera, setRequireCamera] = useState(true);
     const [requireWatermark, setRequireWatermark] = useState(true);
+    const [enableAgentMonitoring, setEnableAgentMonitoring] = useState(true);
+    const [department, setDepartment] = useState('General');
+    const [securityLevel, setSecurityLevel] = useState('Internal');
+    const [filterDept, setFilterDept] = useState('All');
+    const [filterLevel, setFilterLevel] = useState('All');
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -168,17 +176,27 @@ const LibraryPage = () => {
     };
 
     const handleOpenEditModal = (doc: SharedDocument) => {
+        console.log('Opening edit modal for doc:', doc);
         setEditingDocument(doc);
         setMinRole(doc.minimumRole);
         setSelectedUserIds(doc.allowedUserIds || []);
         setSelectedDownloadUserIds(doc.allowedDownloadUserIds || []);
         setRequireCamera(doc.requireCamera ?? true);
         setRequireWatermark(doc.requireWatermark ?? true);
+        setEnableAgentMonitoring(doc.enableAgentMonitoring ?? true);
+        setDepartment(doc.department || 'General');
+        setSecurityLevel(doc.securityLevel || 'Internal');
         setIsEditModalVisible(true);
     };
 
     const handleUpdatePermissions = async () => {
         if (!editingDocument) return;
+
+        console.log('Updating permissions with:', {
+            department,
+            securityLevel,
+            minRole
+        });
 
         setLoading(true);
         try {
@@ -187,7 +205,10 @@ const LibraryPage = () => {
                 allowedUserIds: selectedUserIds,
                 allowedDownloadUserIds: selectedDownloadUserIds,
                 requireCamera,
-                requireWatermark
+                requireWatermark,
+                enableAgentMonitoring,
+                department: department,
+                securityLevel: securityLevel
             });
             message.success(t('library.update_success', 'Đã cập nhật cấu hình bảo mật và quyền truy cập'));
             setIsEditModalVisible(false);
@@ -229,6 +250,27 @@ const LibraryPage = () => {
         }
     };
 
+    const getSecurityLevelStyle = (level: string) => {
+        switch (level) {
+            case 'Restricted': return { bg: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', label: 'TUYỆT MẬT' }; // Red
+            case 'Confidential': return { bg: 'rgba(217, 70, 239, 0.15)', color: '#d946ef', label: 'BẢO MẬT' }; // Purple
+            case 'Internal': return { bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', label: 'NỘI BỘ' }; // Blue
+            case 'Public': return { bg: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', label: 'CÔNG KHAI' }; // Green
+            default: return { bg: 'var(--color-surface-lighter)', color: 'var(--color-text-muted)', label: 'NỘI BỘ' };
+        }
+    };
+
+    const getDepartmentStyle = (dept: string) => {
+        switch (dept) {
+            case 'Engineering': return { icon: 'code', label: 'Engineering' };
+            case 'Product': return { icon: 'inventory_2', label: 'Product' };
+            case 'Security': return { icon: 'verified_user', label: 'Security' };
+            case 'Business': return { icon: 'payments', label: 'Business' };
+            case 'HR': return { icon: 'groups', label: 'HR & Admin' };
+            default: return { icon: 'folder', label: 'Chung' };
+        }
+    };
+
     const uploadProps = {
         name: 'file',
         multiple: true,
@@ -242,7 +284,10 @@ const LibraryPage = () => {
             allowedUserIdsJson: JSON.stringify(selectedUserIds),
             allowedDownloadUserIdsJson: JSON.stringify(selectedDownloadUserIds),
             requireCamera,
-            requireWatermark
+            requireWatermark,
+            enableAgentMonitoring,
+            department,
+            securityLevel
         },
         showFileList: false,
         onChange(info: any) {
@@ -259,6 +304,9 @@ const LibraryPage = () => {
                 setMinRole('Nhân viên');
                 setRequireCamera(true);
                 setRequireWatermark(true);
+                setEnableAgentMonitoring(true);
+                setDepartment('General');
+                setSecurityLevel('Internal');
             } else if (status === 'error') {
                 const errorMsg = info.file.response?.message || info.file.response || t('library.unknown_error', "Lỗi không xác định");
                 message.error(t('library.upload_fail', { name: info.file.name, error: errorMsg, defaultValue: `${info.file.name} tải lên thất bại: ${errorMsg}` }));
@@ -266,10 +314,13 @@ const LibraryPage = () => {
         },
     };
 
-    const filteredDocs = documents.filter(doc =>
-        doc.fileName.toLowerCase().includes(searchText.toLowerCase()) ||
-        doc.uploaderName.toLowerCase().includes(searchText.toLowerCase())
-    );
+    const filteredDocs = documents.filter(doc => {
+        const matchesSearch = doc.fileName?.toLowerCase().includes(searchText.toLowerCase()) || 
+                              doc.uploaderName?.toLowerCase().includes(searchText.toLowerCase());
+        const matchesDept = filterDept === 'All' || doc.department === filterDept;
+        const matchesLevel = filterLevel === 'All' || doc.securityLevel === filterLevel;
+        return matchesSearch && matchesDept && matchesLevel;
+    });
 
     return (
         <div className="library-container">
@@ -285,7 +336,7 @@ const LibraryPage = () => {
                         <p>{t('library.subtitle', 'Quản lý và chia sẻ tài liệu nội bộ')}</p>
                     </div>
 
-                    {!isMobile && user.role?.toLowerCase() === 'admin' && (
+                    {!isMobile && (user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'giám đốc' || user.role?.toLowerCase() === 'giam doc') && (
                         <Button
                             type="primary"
                             size="large"
@@ -311,6 +362,43 @@ const LibraryPage = () => {
                     />
                 </div>
 
+                <div className="mobile-filter-bar" style={{ 
+                    padding: '0 16px 12px', 
+                    display: 'flex', 
+                    gap: '8px', 
+                    overflowX: 'auto',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none'
+                }}>
+                    <Select
+                        size="middle"
+                        value={filterDept}
+                        onChange={setFilterDept}
+                        style={{ minWidth: '120px' }}
+                        options={[
+                            { value: 'All', label: 'Tất cả Phòng ban' },
+                            { value: 'Engineering', label: 'Engineering' },
+                            { value: 'Product', label: 'Product' },
+                            { value: 'Security', label: 'Security' },
+                            { value: 'Business', label: 'Business' },
+                            { value: 'HR', label: 'HR & Admin' },
+                        ]}
+                    />
+                    <Select
+                        size="middle"
+                        value={filterLevel}
+                        onChange={setFilterLevel}
+                        style={{ minWidth: '120px' }}
+                        options={[
+                            { value: 'All', label: 'Tất cả Bảo mật' },
+                            { value: 'Public', label: 'Công khai' },
+                            { value: 'Internal', label: 'Nội bộ' },
+                            { value: 'Confidential', label: 'Mật' },
+                            { value: 'Restricted', label: 'Tuyệt mật' },
+                        ]}
+                    />
+                </div>
+
                 <main className="mobile-document-list">
                     {loading && documents.length === 0 ? (
                         <div className="p-10 text-center">{t('library.loading_docs', 'Đang tải tài liệu...')}</div>
@@ -327,6 +415,8 @@ const LibraryPage = () => {
                                 
                                 // Quyền tản xuống: Admin, Người tạo file, hoặc những người có trong danh sách AllowedDownloadUserIds
                                 const canDownload = user.role?.toLowerCase() === 'admin' || 
+                                                    user.role?.toLowerCase() === 'giám đốc' || 
+                                                    user.role?.toLowerCase() === 'giam doc' || 
                                                     doc.uploaderId === user.id || 
                                                     (doc.allowedDownloadUserIds && doc.allowedDownloadUserIds.includes(user.id));
 
@@ -336,12 +426,32 @@ const LibraryPage = () => {
                                             <div className="doc-icon-container" style={{ backgroundColor: iconData.bg, color: iconData.color }}>
                                                 <span className="material-symbols-outlined">{iconData.icon}</span>
                                             </div>
-                                            <span className="role-badge-compact" style={{ backgroundColor: badgeStyle.bg, color: badgeStyle.color }}>
-                                                {doc.minimumRole}
-                                            </span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                <span className="role-badge-compact" style={{ backgroundColor: badgeStyle.bg, color: badgeStyle.color }}>
+                                                    {doc.minimumRole}
+                                                </span>
+                                                <span className="role-badge-compact" style={{ 
+                                                    backgroundColor: getSecurityLevelStyle(doc.securityLevel || 'Internal').bg, 
+                                                    color: getSecurityLevelStyle(doc.securityLevel || 'Internal').color,
+                                                    fontSize: '10px',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    fontWeight: 700
+                                                }}>
+                                                    {getSecurityLevelStyle(doc.securityLevel || 'Internal').label}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <div className="doc-info">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                                <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>
+                                                    {getDepartmentStyle(doc.department || 'General').icon}
+                                                </span>
+                                                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                                                    {getDepartmentStyle(doc.department || 'General').label}
+                                                </span>
+                                            </div>
                                             <h3>{doc.fileName}</h3>
                                             <p className="doc-uploader">{doc.uploaderName}</p>
                                         </div>
@@ -363,7 +473,7 @@ const LibraryPage = () => {
                                                     <span className="material-symbols-outlined">download</span>
                                                 </button>
                                             )}
-                                            {user.role?.toLowerCase() === 'admin' && (
+                                            {(user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'giám đốc' || user.role?.toLowerCase() === 'giam doc') && (
                                                 <button className="doc-action-btn" onClick={() => handleOpenEditModal(doc)}>
                                                     <span className="material-symbols-outlined">edit</span>
                                                 </button>
@@ -371,7 +481,7 @@ const LibraryPage = () => {
                                             <button className="doc-action-btn" onClick={() => handlePreview(doc)} title={t('library.tooltip_preview', "Xem trực tiếp")}>
                                                 <span className="material-symbols-outlined">visibility</span>
                                             </button>
-                                            {user.role?.toLowerCase() === 'admin' && (
+                                            {(user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'giám đốc' || user.role?.toLowerCase() === 'giam doc') && (
                                                 <Popconfirm
                                                     title={t('library.delete_title', "Xóa tài liệu")}
                                                     description={t('library.delete_confirm', "Bạn có muốn xóa vĩnh viễn tệp này?")}
@@ -405,7 +515,7 @@ const LibraryPage = () => {
                     </button>
                 )}
 
-                {user.role?.toLowerCase() === 'admin' && (
+                {(user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'giám đốc' || user.role?.toLowerCase() === 'giam doc') && (
                     <button className="floating-upload-btn" onClick={() => setIsUploadModalVisible(true)}>
                         <span className="material-symbols-outlined">upload_file</span>
                     </button>
@@ -441,6 +551,42 @@ const LibraryPage = () => {
                             onChange={e => setDescription(e.target.value)}
                         />
                     </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div className="upload-field">
+                            <label className="field-label">Phòng ban & Chức năng</label>
+                            <Select
+                                className="mobile-select"
+                                value={department}
+                                onChange={setDepartment}
+                                getPopupContainer={triggerNode => triggerNode.parentElement}
+                                options={[
+                                    { value: 'Engineering', label: 'Engineering & Tech' },
+                                    { value: 'Product', label: 'Product Management' },
+                                    { value: 'Security', label: 'Security & Compliance' },
+                                    { value: 'Business', label: 'Business & Finance' },
+                                    { value: 'HR', label: 'HR & Admin' },
+                                    { value: 'General', label: 'Chung (General)' },
+                                ]}
+                            />
+                        </div>
+                        <div className="upload-field">
+                            <label className="field-label">Cấp độ Bảo mật</label>
+                            <Select
+                                className="mobile-select"
+                                value={securityLevel}
+                                onChange={setSecurityLevel}
+                                getPopupContainer={triggerNode => triggerNode.parentElement}
+                                options={[
+                                    { value: 'Public', label: 'Public (Công khai)' },
+                                    { value: 'Internal', label: 'Internal (Nội bộ)' },
+                                    { value: 'Confidential', label: 'Confidential (Mật)' },
+                                    { value: 'Restricted', label: 'Restricted (Tuyệt mật)' },
+                                ]}
+                            />
+                        </div>
+                    </div>
+
 
                     <div className="upload-field">
                         <label className="field-label">{t('library.field_min_role', 'Cấp bậc tối thiểu')}</label>
@@ -503,6 +649,11 @@ const LibraryPage = () => {
                     <div className="upload-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <label className="field-label" style={{ marginBottom: 0 }}>Kích hoạt Dynamic Watermark (Đóng dấu IP)</label>
                         <Switch checked={requireWatermark} onChange={setRequireWatermark} />
+                    </div>
+
+                    <div className="upload-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="field-label" style={{ marginBottom: 0 }}>Kích hoạt Giám sát Agent (Chống copy/gửi file)</label>
+                        <Switch checked={enableAgentMonitoring} onChange={setEnableAgentMonitoring} />
                     </div>
 
                     <div className="upload-field">
@@ -577,6 +728,42 @@ const LibraryPage = () => {
                         />
                     </div>
 
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div className="upload-field">
+                            <label className="field-label">Phòng ban & Chức năng</label>
+                            <Select
+                                className="mobile-select"
+                                value={department}
+                                onChange={setDepartment}
+                                getPopupContainer={triggerNode => triggerNode.parentElement}
+                                options={[
+                                    { value: 'Engineering', label: 'Engineering & Tech' },
+                                    { value: 'Product', label: 'Product Management' },
+                                    { value: 'Security', label: 'Security & Compliance' },
+                                    { value: 'Business', label: 'Business & Finance' },
+                                    { value: 'HR', label: 'HR & Admin' },
+                                    { value: 'General', label: 'Chung (General)' },
+                                ]}
+                            />
+                        </div>
+                        <div className="upload-field">
+                            <label className="field-label">Cấp độ Bảo mật</label>
+                            <Select
+                                className="mobile-select"
+                                value={securityLevel}
+                                onChange={setSecurityLevel}
+                                getPopupContainer={triggerNode => triggerNode.parentElement}
+                                options={[
+                                    { value: 'Public', label: 'Public (Công khai)' },
+                                    { value: 'Internal', label: 'Internal (Nội bộ)' },
+                                    { value: 'Confidential', label: 'Confidential (Mật)' },
+                                    { value: 'Restricted', label: 'Restricted (Tuyệt mật)' },
+                                ]}
+                            />
+                        </div>
+                    </div>
+
+
                     <div className="upload-field">
                         <label className="field-label">{t('library.field_min_role', 'Cấp bậc tối thiểu')}</label>
                         <Select
@@ -639,6 +826,11 @@ const LibraryPage = () => {
                         <label className="field-label" style={{ marginBottom: 0 }}>Kích hoạt Dynamic Watermark (Đóng dấu IP)</label>
                         <Switch checked={requireWatermark} onChange={setRequireWatermark} />
                     </div>
+
+                    <div className="upload-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="field-label" style={{ marginBottom: 0 }}>Kích hoạt Giám sát Agent (Chống copy/gửi file)</label>
+                        <Switch checked={enableAgentMonitoring} onChange={setEnableAgentMonitoring} />
+                    </div>
                 </div>
 
                 <div className="modal-footer-mobile">
@@ -665,7 +857,7 @@ const LibraryPage = () => {
                 width={1000}
                 style={{ top: 20 }}
                 styles={{ body: { height: '80vh', padding: 0 } }}
-                destroyOnClose
+                destroyOnHidden={true}
             >
                 {previewingDocument && (
                     <SecureDocumentViewer 

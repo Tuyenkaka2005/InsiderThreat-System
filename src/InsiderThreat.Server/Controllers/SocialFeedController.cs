@@ -486,7 +486,7 @@ namespace InsiderThreat.Server.Controllers
 
         // POST: api/SocialFeed/posts/{id}/hide
         [HttpPost("posts/{id}/hide")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
         public async Task<IActionResult> HidePost(string id)
         {
             try
@@ -506,7 +506,7 @@ namespace InsiderThreat.Server.Controllers
 
         // GET: api/SocialFeed/reports
         [HttpGet("reports")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
         public async Task<IActionResult> GetReports()
         {
             try

@@ -42,6 +42,11 @@ export const chatService = {
         return await api.get<Message[]>(`/api/messages/${otherUserId}?currentUserId=${currentUserId}`);
     },
 
+    // Get Group Messages (returns plaintext messages — group chats are public)
+    getGroupMessages: async (groupId: string) => {
+        return await api.get<Message[]>(`/api/messages/group/${groupId}`);
+    },
+
     // Get Conversations (recent chat list with unread counts)
     getConversations: async (userId: string) => {
         return await api.get<any[]>(`/api/messages/conversations?userId=${userId}`);

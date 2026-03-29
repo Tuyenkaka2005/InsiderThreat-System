@@ -17,13 +17,19 @@ namespace InsiderThreat.Server.Controllers
         private readonly IMongoCollection<User> _users;
         private readonly IGridFSBucket _gridFS;
         private readonly ILogger<DocumentLibraryController> _logger;
+        private readonly InsiderThreat.Server.Services.FileEncryptionService _encryptionService;
 
-        public DocumentLibraryController(IMongoDatabase database, IGridFSBucket gridFS, ILogger<DocumentLibraryController> logger)
+        public DocumentLibraryController(
+            IMongoDatabase database, 
+            IGridFSBucket gridFS, 
+            ILogger<DocumentLibraryController> logger,
+            InsiderThreat.Server.Services.FileEncryptionService encryptionService)
         {
             _documents = database.GetCollection<SharedDocument>("SharedDocuments");
             _users = database.GetCollection<User>("Users");
             _gridFS = gridFS;
             _logger = logger;
+            _encryptionService = encryptionService;
         }
 
         [HttpGet]
@@ -60,7 +66,7 @@ namespace InsiderThreat.Server.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
         public async Task<ActionResult<SharedDocument>> UploadDocument(
             [FromForm] IFormFile file, 
             [FromForm] string? description, 
@@ -68,7 +74,10 @@ namespace InsiderThreat.Server.Controllers
             [FromForm] string? allowedUserIdsJson,
             [FromForm] string? allowedDownloadUserIdsJson,
             [FromForm] bool requireCamera = true,
-            [FromForm] bool requireWatermark = true)
+            [FromForm] bool requireWatermark = true,
+            [FromForm] bool enableAgentMonitoring = true,
+            [FromForm] string? department = "General",
+            [FromForm] string? securityLevel = "Internal")
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
@@ -103,21 +112,28 @@ namespace InsiderThreat.Server.Controllers
 
                 _logger.LogInformation($"Uploading document: {file.FileName} ({file.Length} bytes) with MinRole: {minimumRole}, AllowedUsers: {allowedUserIds.Count}, AllowedDownloaders: {allowedDownloadUserIds.Count}");
                 
-                // 1. Upload to GridFS
+                // 1. Encrypt and Upload to GridFS
                 var options = new GridFSUploadOptions
                 {
                     Metadata = new BsonDocument
                     {
                         { "originalName", file.FileName },
                         { "contentType", file.ContentType },
-                        { "uploadedAt", DateTime.UtcNow }
+                        { "uploadedAt", DateTime.UtcNow },
+                        { "isEncrypted", true }
                     }
                 };
 
-                using var stream = file.OpenReadStream();
-                var fileId = await _gridFS.UploadFromStreamAsync(file.FileName, stream, options);
+                using var sourceStream = file.OpenReadStream();
+                using var encryptedStream = new MemoryStream();
+                
+                // Perform military-grade encryption
+                await _encryptionService.EncryptStreamAsync(sourceStream, encryptedStream);
+                encryptedStream.Position = 0;
 
-                _logger.LogInformation($"Uploaded to GridFS with ID: {fileId}");
+                var fileId = await _gridFS.UploadFromStreamAsync(file.FileName, encryptedStream, options);
+
+                _logger.LogInformation($"Uploaded ENCRYPTED file to GridFS with ID: {fileId}");
 
                 // 2. Save metadata
                 var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
@@ -139,7 +155,10 @@ namespace InsiderThreat.Server.Controllers
                     AllowedUserIds = allowedUserIds,
                     AllowedDownloadUserIds = allowedDownloadUserIds,
                     RequireCamera = requireCamera,
-                    RequireWatermark = requireWatermark
+                    RequireWatermark = requireWatermark,
+                    EnableAgentMonitoring = enableAgentMonitoring,
+                    Department = department ?? "General",
+                    SecurityLevel = securityLevel ?? "Internal"
                 };
 
                 await _documents.InsertOneAsync(sharedDoc);
@@ -154,7 +173,7 @@ namespace InsiderThreat.Server.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
         public async Task<IActionResult> DeleteDocument(string id)
         {
             _logger.LogInformation($"Attempting to delete document with ID: {id}");
@@ -205,7 +224,7 @@ namespace InsiderThreat.Server.Controllers
         }
 
         [HttpPut("{id}/permissions")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Giám đốc,Giam doc,Director")]
         public async Task<IActionResult> UpdatePermissions(string id, [FromBody] UpdatePermissionsRequest request)
         {
             var doc = await _documents.Find(d => d.Id == id).FirstOrDefaultAsync();
@@ -219,12 +238,21 @@ namespace InsiderThreat.Server.Controllers
             if (doc.UploaderId != userId && userRole != "Admin" && userRole != "Giám đốc")
                 return Forbid();
 
+            _logger.LogInformation($"Updating permissions for doc {id}. Dept: {request.Department}, Level: {request.SecurityLevel}");
+
             var update = Builders<SharedDocument>.Update
-                .Set(d => d.MinimumRole, request.MinimumRole ?? "Nhân viên")
-                .Set(d => d.AllowedUserIds, request.AllowedUserIds ?? new List<string>())
-                .Set(d => d.AllowedDownloadUserIds, request.AllowedDownloadUserIds ?? new List<string>())
+                .Set(d => d.MinimumRole, request.MinimumRole ?? doc.MinimumRole)
+                .Set(d => d.AllowedUserIds, request.AllowedUserIds ?? doc.AllowedUserIds)
+                .Set(d => d.AllowedDownloadUserIds, request.AllowedDownloadUserIds ?? doc.AllowedDownloadUserIds)
                 .Set(d => d.RequireCamera, request.RequireCamera)
-                .Set(d => d.RequireWatermark, request.RequireWatermark);
+                .Set(d => d.RequireWatermark, request.RequireWatermark)
+                .Set(d => d.EnableAgentMonitoring, request.EnableAgentMonitoring);
+
+            if (!string.IsNullOrEmpty(request.Department))
+                update = update.Set(d => d.Department, request.Department);
+            
+            if (!string.IsNullOrEmpty(request.SecurityLevel))
+                update = update.Set(d => d.SecurityLevel, request.SecurityLevel);
 
             var result = await _documents.UpdateOneAsync(d => d.Id == id, update);
 
@@ -232,6 +260,44 @@ namespace InsiderThreat.Server.Controllers
                 return NotFound();
 
             return Ok(new { message = "Bộ lọc và quyền xem đã được cập nhật" });
+        }
+
+        [HttpGet("{id}/file")]
+        public async Task<IActionResult> GetFile(string id)
+        {
+            var doc = await _documents.Find(d => d.Id == id).FirstOrDefaultAsync();
+            if (doc == null) return NotFound();
+
+            // 🛡️ Kiểm tra quyền xem file
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Nhân viên";
+            
+            bool canView = userRole == "Admin" || doc.UploaderId == userId || (doc.AllowedUserIds != null && doc.AllowedUserIds.Contains(userId!));
+            if (!canView)
+            {
+                var userRoleLevel = GetRoleLevel(userRole);
+                var docMinRoleLevel = GetRoleLevel(doc.MinimumRole);
+                if (docMinRoleLevel > userRoleLevel) return Forbid();
+            }
+
+            try
+            {
+                if (!ObjectId.TryParse(doc.FileId, out var fileId)) return BadRequest("Invalid file reference");
+
+                using var encryptedStream = await _gridFS.OpenDownloadStreamAsync(fileId);
+                var outputStream = new MemoryStream();
+
+                // 🔓 GIẢI MÃ TRONG BỘ NHỚ (Military-grade decryption)
+                await _encryptionService.DecryptStreamAsync(encryptedStream, outputStream);
+                outputStream.Position = 0;
+
+                return File(outputStream, doc.ContentType, doc.FileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error serving file: {doc.FileName}");
+                return StatusCode(500, "Lỗi khi giải mã tài liệu bảo mật");
+            }
         }
 
         private int GetRoleLevel(string role)
@@ -254,5 +320,8 @@ namespace InsiderThreat.Server.Controllers
         public List<string>? AllowedDownloadUserIds { get; set; }
         public bool RequireCamera { get; set; } = true;
         public bool RequireWatermark { get; set; } = true;
+        public bool EnableAgentMonitoring { get; set; } = true;
+        public string? Department { get; set; }
+        public string? SecurityLevel { get; set; }
     }
 }

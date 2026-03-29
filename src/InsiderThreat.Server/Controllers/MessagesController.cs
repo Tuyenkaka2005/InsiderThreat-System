@@ -49,7 +49,16 @@ public class MessagesController : ControllerBase
             var sender = await _users.Find(u => u.Id == message.SenderId).FirstOrDefaultAsync();
             var senderName = sender?.FullName ?? sender?.Username ?? "Someone";
 
-            // Push notification (generic preview — server cannot read E2EE content)
+            if (!string.IsNullOrEmpty(message.GroupId))
+            {
+                // Group Chat Broadcast
+                await _hubContext.Clients.Group($"group_{message.GroupId}")
+                    .SendAsync("ReceiveGroupMessage", message);
+                
+                return Ok(message);
+            }
+
+            // Push notification for 1-on-1
             var previewText = !string.IsNullOrEmpty(message.AttachmentType)
                 ? (message.AttachmentType == "image" ? "[Hình ảnh]" : "[Tệp đính kèm]")
                 : "Đã gửi một tin nhắn mới";
@@ -64,7 +73,7 @@ public class MessagesController : ControllerBase
                 relatedId: message.Id
             );
 
-            // Return the message as-is (client will decrypt locally)
+            // Return the message
             return Ok(message);
         }
         catch (Exception ex)
@@ -95,7 +104,17 @@ public class MessagesController : ControllerBase
         // Filter out messages deleted for this user
         messages = messages.Where(m => m.DeletedFor == null || !m.DeletedFor.Contains(currentUserId)).ToList();
 
-        // E2EE: Return encrypted messages as-is — client decrypts locally
+        return Ok(messages);
+    }
+
+    // GET: api/messages/group/{groupId}
+    [HttpGet("group/{groupId}")]
+    public async Task<ActionResult<List<Message>>> GetGroupMessages(string groupId)
+    {
+        var filter = Builders<Message>.Filter.Eq(m => m.GroupId, groupId);
+        var sort = Builders<Message>.Sort.Ascending(m => m.Timestamp);
+        var messages = await _messagesCollection.Find(filter).Sort(sort).ToListAsync();
+
         return Ok(messages);
     }
 

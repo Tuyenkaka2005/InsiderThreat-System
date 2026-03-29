@@ -1,0 +1,136 @@
+:root {
+  /* ===== LIGHT THEME — ===== */
+  font-family: 'Inter', system-ui, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Brand */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #eff6ff;
+
+  /* Backgrounds */
+  --color-bg: #f1f5f9;
+  /* slate-100 */
+  --color-surface: #ffffff;
+  --color-surface-lighter: #f8fafc;
+  /* slate-50 */
+  --color-surface-glass: rgba(255, 255, 255, 0.72);
+
+  /* Text */
+  --color-text-main: #0f172a;
+  /* slate-900 */
+  --color-text-muted: #64748b;
+  /* slate-500 */
+
+  /* Borders */
+  --color-border: #e2e8f0;
+  /* slate-200 */
+
+  /* Layout */
+  --header-height: 64px;
+
+  /* ===== ALIASES — keep old names so ChatPage/other pages don't break ===== */
+  --color-dark-bg: #f1f5f9;
+  --color-dark-surface: #ffffff;
+  --color-dark-surface-lighter: #f1f5f9;
+}
+
+/* ===== RESET ===== */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-main);
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ===== GLASS UTILITY ===== */
+.glass {
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Hide scrollbar utility */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ===== ANT DESIGN MODAL OVERRIDE (light) ===== */
+.dark-theme-modal .ant-modal-content {
+  background-color: var(--color-surface) !important;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08) !important;
+}
+
+.dark-theme-modal .ant-modal-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+.dark-theme-modal .ant-modal-title {
+  color: var(--color-text-main) !important;
+}
+
+.dark-theme-modal .ant-modal-body {
+  color: var(--color-text-muted) !important;
+}
+
+.dark-theme-modal .ant-btn-default {
+  background-color: var(--color-surface-lighter);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.dark-theme-modal .ant-btn-default:hover {
+  color: var(--color-text-main);
+  border-color: var(--color-primary);
+}
+
+/* ===== MATERIAL SYMBOLS ===== */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  transition: font-variation-settings 0.2s ease;
+}

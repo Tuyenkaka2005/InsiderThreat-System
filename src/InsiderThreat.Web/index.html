@@ -15,6 +15,12 @@
   <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet" />
+  
+  <!-- PWA Metadata -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#1890ff" />
+  <link rel="apple-touch-icon" href="/favicon.ico" />
+
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
     tailwind.config = {
@@ -59,6 +65,17 @@
 <body class="bg-[#f1f5f9] text-[#0f172a] font-sans antialiased">
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('PWA Service Worker registered'))
+          .catch(err => console.log('PWA Service Worker failed', err));
+      });
+    }
+  </script>
 </body>
 
 </html>

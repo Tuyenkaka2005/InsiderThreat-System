@@ -315,11 +315,7 @@
     },
     "feed": {
         "max_chat_windows": "Maximum 3 chat windows allowed",
-        "welcome_back_user": "Welcome back, {{name}} 👋",
-        "welcome_back_admin": "Welcome back, Administrator",
-        "daily_prompt_user": "What's new today? Share with your colleagues!",
-        "daily_prompt_admin": "Monitor system access logs and latest activities.",
-        "admin_panel": "Admin Panel",
+
         "post_placeholder": "What's on your mind, {{name}}?",
         "create_post_title": "CREATE POST",
         "public_badge": "🌐 PUBLIC",
@@ -472,7 +468,10 @@
         "privacy_public": "Public",
         "privacy_private": "Private",
         "btn_cancel": "Cancel",
-        "btn_confirm_create": "Create group"
+        "btn_confirm_create": "Create group",
+        "btn_delete": "Delete Project",
+        "confirm_delete_title": "Delete Project",
+        "confirm_delete_msg": "Are you sure you want to delete project '{{name}}'? This action cannot be undone."
     },
     "staff": {
         "dept_tech": "Technology",
@@ -552,5 +551,160 @@
         "tooltip_stop_share": "Stop sharing",
         "tooltip_share_screen": "Share screen",
         "tooltip_leave": "Leave room"
+    },
+    "project_detail": {
+        "tabs": {
+            "dashboard": "Dashboard",
+            "mytasks": "My Tasks",
+            "timeline": "Timeline",
+            "files": "Files"
+        },
+        "breadcrumbs": {
+            "workspace": "Workspace",
+            "projects": "Projects"
+        },
+        "header": {
+            "subtitle": "Manage and track project progress",
+            "sprint": "Sprint: Digital Rebrand",
+            "btn_delete": "Delete Project"
+        },
+        "stats": {
+            "health": "Health Score",
+            "total": "Total Tasks",
+            "progress": "In Progress",
+            "completed": "Completed",
+            "sub_health": "Project health",
+            "sub_total": "Tasks created",
+            "sub_progress": "Active tasks",
+            "sub_completed": "Done tasks"
+        },
+        "dashboard": {
+            "overview": "Overview",
+            "overview_subtitle": "Track your project progression here.",
+            "total_projects": "Total projects",
+            "active_tasks": "Active tasks",
+            "assigned_to_me": "Assigned to Me",
+            "completed": "Completed",
+            "roadmap": "Roadmap Map",
+            "recent_activity": "Recent Tasks Activity",
+            "today_tasks": "Today Projects",
+            "see_all": "See all",
+            "create_task": "Create Task",
+            "new_task_modal": "Create New Task",
+            "task_title": "Task Title",
+            "description": "Description",
+            "assign_to": "Assign To",
+            "priority": "Priority",
+            "start_date": "Start Date",
+            "due_date": "Due Date",
+            "btn_cancel": "Cancel"
+        },
+        "task_drawer": {
+            "assignee": "Assignee",
+            "tags": "Tags",
+            "status": "Status",
+            "due_date": "Due date",
+            "priority": "Priority",
+            "description_tab": "Description",
+            "comment_tab": "Comment",
+            "setting_tab": "Setting",
+            "comment_placeholder": "Add a comment... (Type @ to mention)",
+            "collaborators": "Collaborators",
+            "cancel": "Cancel",
+            "save": "Save",
+            "status_todo": "To Do",
+            "status_in_progress": "On Progress",
+            "status_review": "In Review",
+            "status_waiting": "Waiting Approval",
+            "status_done": "Done",
+            "action_reply": "Reply",
+            "action_like": "Like",
+            "action_delete": "Delete"
+        },
+        "timeline": {
+            "title": "Project Roadmap & Planning",
+            "subtitle": "Strategic timeline for the project rollout",
+            "daily": "Day",
+            "weekly": "Week",
+            "monthly": "Month",
+            "load_fail": "Failed to load roadmap",
+            "update_success": "Roadmap updated successfully",
+            "update_fail": "Update failed",
+            "exporting": "Exporting...",
+            "export_success": "Roadmap exported to PDF",
+            "btn_export": "Export",
+            "btn_schedule": "Schedule",
+            "col_tasks": "PROJECT WORKFLOW",
+            "milestones_title": "Project Milestones",
+            "milestone_kickoff": "Project Kickoff",
+            "milestone_design": "System Design",
+            "milestone_beta": "Beta Release",
+            "milestone_finish": "Final Completion",
+            "schedule_modal_title": "Timeline Configuration",
+            "schedule_desc": "Define the start and end of your project to scale the Gannt chart.",
+            "project_range": "Total Duration"
+        },
+        "team": {
+            "title": "Project Squad",
+            "invite": "Invite",
+            "manage": "Manage Access"
+        },
+        "charts": {
+            "distribution": "Task Distribution",
+            "done": "Done",
+            "in_progress": "In Progress",
+            "remaining": "Remaining",
+            "velocity": "TOTAL VELOCITY",
+            "mood": "TEAM MOOD",
+            "optimal": "Optimal"
+        },
+        "focus": {
+            "title": "Focus Mode",
+            "critical": "Critical Path",
+            "overdue": "Overdue Tasks",
+            "milestones": "Milestones only"
+        },
+        "mytasks": {
+            "narrative": "PROJECT NARRATIVE",
+            "search": "Search tasks...",
+            "board": "Board",
+            "list": "List",
+            "filters": "Filters",
+            "add_new": "Add New",
+            "add_task": "Add task",
+            "board_title": "Project Workflow",
+            "load_fail": "Failed to load tasks",
+            "move_success": "Moved to {{status}}",
+            "update_status_fail": "Could not update status",
+            "delete_confirm_title": "Delete task?",
+            "delete_confirm_msg": "This action cannot be undone.",
+            "btn_delete": "Delete",
+            "delete_success": "Task deleted",
+            "delete_fail": "Failed to delete task",
+            "calendar_title": "Task Calendar",
+            "all_tasks_label": "All Tasks",
+            "progress_tooltip": "Progress",
+            "col_task": "Task",
+            "no_task_found": "No tasks found",
+            "add_success": "Task created",
+            "status_todo": "To Do",
+            "status_in_progress": "On Progress",
+            "status_review": "In Review",
+            "status_waiting": "Waiting Approval",
+            "status_done": "Done"
+        },
+        "files": {
+            "resource_library": "PROJECT DOCUMENTATION",
+            "project_assets": "File Repository",
+            "search": "Find assets...",
+            "upload": "Upload Files",
+            "drop_zone": "Click or drag files to upload",
+            "storage_usage": "Project Storage Quota",
+            "used": "Used",
+            "total": "of",
+            "license": "Active License",
+            "load_fail": "File loading failed",
+            "upgrade_storage": "Buy More Storage"
+        }
     }
 }

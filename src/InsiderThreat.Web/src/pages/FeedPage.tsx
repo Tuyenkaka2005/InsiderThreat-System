@@ -296,56 +296,7 @@ export default function FeedPage() {
                 {/* Main Feed Content */}
                 <div className="feed-wrapper">
                     <div className="feed-container">
-                        {/* ── Welcome Banner ── */}
-                        <div className="rounded-3xl p-8 md:p-10 text-white relative flex flex-col gap-6 overflow-hidden hero-banner-light dark:hero-banner-dark shadow-[0_12px_40px_rgba(37,99,235,0.25)] dark:shadow-none transition-all duration-500"
-                             style={{ background: 'var(--gradient-premium)' /* Fallback for light mode if CSS fails */ }}>
-                            
-                            {/* Background decoration (Light Mode Only) */}
-                            <div className="block dark:hidden" style={{
-                                position: 'absolute', left: -20, bottom: -20,
-                                width: 140, height: 140,
-                                borderRadius: '50%',
-                                background: 'rgba(255,255,255,0.06)',
-                                pointerEvents: 'none',
-                            }} />
 
-                            <div className="relative z-10 max-w-[80%]">
-                                <h1 className="text-3xl md:text-4xl font-extrabold mb-3 tracking-tight block dark:hidden">
-                                    {t('feed.welcome_back_user', { name: user?.fullName || user?.username, defaultValue: `Chào mừng trở lại, ${user?.fullName || user?.username} 👋` })}
-                                </h1>
-                                <h1 className="text-3xl md:text-4xl font-extrabold mb-3 tracking-tight hidden dark:block text-blue-400">
-                                    {t('feed.welcome_back_admin', 'Chào mừng trở lại, Administrator')}
-                                </h1>
-                                <p className="text-sm md:text-base opacity-90 font-medium block dark:hidden">
-                                     {t('feed.daily_prompt_user', 'Hôm nay có gì mới không? Chia sẻ với đồng nghiệp nhé!')}
-                                </p>
-                                <p className="text-sm md:text-base text-slate-400 font-medium hidden dark:block">
-                                    {t('feed.daily_prompt_admin', 'Theo dõi các biến động truy cập hệ thống và hoạt động mới nhất.')}
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-3 relative z-10 block dark:hidden">
-                                {user?.role === 'Admin' && (
-                                    <button
-                                        onClick={() => navigate('/dashboard')}
-                                        style={{
-                                            background: 'rgba(255,255,255,0.2)',
-                                            borderRadius: 12,
-                                            padding: '8px 20px',
-                                            fontSize: 13,
-                                            fontWeight: 700,
-                                            color: 'white',
-                                            border: 'none',
-                                            backdropFilter: 'blur(4px)',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        {t('feed.admin_panel', 'Admin Panel')}
-                                    </button>
-                                )}
-                            </div>
-                        </div>
 
                         {/* Create Post — Click to open modal */}
                         <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-sm px-4 py-3 flex items-center gap-3 cursor-pointer" onClick={() => setShowPostModal(true)}>

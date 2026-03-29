@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  InsiderThreat.Shared -> C:\Users\nguye\InsiderThreat-System\src\InsiderThreat.Shared\bin\Debug\net8.0\InsiderThreat.Shared.dll
+  InsiderThreat.Server -> C:\Users\nguye\InsiderThreat-System\src\InsiderThreat.Server\bin\Debug\net8.0\InsiderThreat.Server.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.91
+
+Workload updates are available. Run `dotnet workload list` for more information.

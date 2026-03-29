@@ -1,9 +1,12 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Modal, Button, message, Space, Spin, Alert } from 'antd';
-import { CameraOutlined } from '@ant-design/icons';
-import { loadFaceApiModels, detectFace } from '../services/faceApi';
+import { Modal, Button, message, Space, Spin, Alert, Progress } from 'antd';
+import { CameraOutlined, SafetyCertificateOutlined, CheckCircleFilled } from '@ant-design/icons';
+import * as faceapi from '@vladmandic/face-api';
+import { loadFaceApiModels, getFaceDetectorOptions } from '../services/faceApi';
 import { api } from '../services/api';
 import { useTranslation } from 'react-i18next';
+import { LivenessDetector } from '../services/livenessService';
+import { validateVideoDevices } from '../services/deviceValidator';
 
 interface FaceRegistrationModalProps {
     visible: boolean;
@@ -12,114 +15,145 @@ interface FaceRegistrationModalProps {
     userName: string;
 }
 
+type RegistrationPhase = 'checking_device' | 'loading' | 'ready' | 'verifying_liveness' | 'capturing' | 'done';
+
 function FaceRegistrationModal({ visible, onCancel, userId, userName }: FaceRegistrationModalProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
-    const [loadingModels, setLoadingModels] = useState(false);
-    const [modelLoaded, setModelLoaded] = useState(false);
-    const [cameraReady, setCameraReady] = useState(false);
+    const animFrameRef = useRef<number>(0);
+    const detectorRef = useRef(new LivenessDetector(10000)); // 10s timeout
+
+    const [phase, setPhase] = useState<RegistrationPhase>('checking_device');
+    const [blinkCount, setBlinkCount] = useState(0);
     const [processing, setProcessing] = useState(false);
+    const [blockedDevice, setBlockedDevice] = useState<string | null>(null);
     const { t } = useTranslation();
 
     const stopCamera = useCallback(() => {
+        if (animFrameRef.current) {
+            cancelAnimationFrame(animFrameRef.current);
+            animFrameRef.current = 0;
+        }
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
         }
-        setCameraReady(false);
+        setPhase('ready');
     }, []);
 
     const startCamera = useCallback(async () => {
         try {
-            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            // Step 1: Chống camera ảo
+            const deviceResult = await validateVideoDevices();
+            if (!deviceResult.isValid) {
+                setBlockedDevice(deviceResult.blockedDevice || 'Unknown');
+                setPhase('ready');
+                message.error(`Cảnh báo: Phát hiện camera ảo (${deviceResult.blockedDevice}). Vui lòng dùng camera thật.`);
+                return false;
+            }
+
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'user', width: 640, height: 480 } 
+            });
             streamRef.current = mediaStream;
 
-            // Wait a tick for video element to be rendered
-            setTimeout(() => {
-                if (videoRef.current) {
-                    videoRef.current.srcObject = mediaStream;
-                    setCameraReady(true);
-                    console.log('[FaceReg] Camera started and attached to video element');
-                } else {
-                    console.warn('[FaceReg] videoRef.current is null after camera started');
-                }
-            }, 100);
+            if (videoRef.current) {
+                videoRef.current.srcObject = mediaStream;
+                setPhase('ready');
+                return true;
+            }
         } catch (error) {
-            console.error('[FaceReg] Camera access error:', error);
             message.error(t('face.camera_error', 'Không thể truy cập camera'));
         }
+        return false;
     }, [t]);
 
-    // Load models and start camera when modal opens
     useEffect(() => {
         if (!visible) {
             stopCamera();
             return;
         }
 
-        let cancelled = false;
-
         const init = async () => {
-            setLoadingModels(true);
-            setModelLoaded(false);
-            setCameraReady(false);
-
+            setPhase('loading');
             try {
-                const success = await loadFaceApiModels();
-                if (cancelled) return;
-
-                if (success) {
-                    setModelLoaded(true);
-                    setLoadingModels(false);
-                    // Start camera after models loaded and loadingModels is false
-                    // so that video element is rendered
-                    await startCamera();
-                } else {
-                    message.error(t('face.model_load_failed', 'Không thể tải model AI. Kiểm tra console.'));
-                    setLoadingModels(false);
-                }
+                await loadFaceApiModels();
+                await startCamera();
             } catch (error) {
-                if (!cancelled) {
-                    message.error(t('face.model_load_failed', 'Không thể tải model AI'));
-                    setLoadingModels(false);
-                }
+                message.error(t('face.model_load_failed', 'Lỗi khởi tạo hệ thống AI'));
             }
         };
 
         init();
-
-        return () => {
-            cancelled = true;
-        };
+        return () => stopCamera();
     }, [visible, stopCamera, startCamera, t]);
 
-    const handleCapture = async () => {
-        if (!videoRef.current || !userId) {
-            console.warn('[FaceReg] Cannot capture: videoRef or userId missing');
-            return;
-        }
+    const startLivenessCheck = () => {
+        setPhase('verifying_liveness');
+        setBlinkCount(0);
+        detectorRef.current.reset();
+        detectionLoop();
+    };
 
-        setProcessing(true);
+    const detectionLoop = async () => {
+        if (!videoRef.current || phase === 'done') return;
+
+        const api = (faceapi as any).default || faceapi;
         try {
-            const detection = await detectFace(videoRef.current);
+            const options = getFaceDetectorOptions();
+            const detection = await api.detectSingleFace(videoRef.current, options)
+                .withFaceLandmarks();
 
-            if (!detection) {
-                message.warning(t('face.no_face', 'Không phát hiện khuôn mặt. Hãy đặt khuôn mặt rõ ràng trước camera.'));
+
+            if (detection) {
+                const isBlinked = detectorRef.current.processFrame(detection.landmarks, 'blink');
+                
+                // Cập nhật số lần chớp mắt để hiển thị UI (dùng internal state của detector)
+                const currentBlinks = (detectorRef.current as any).blinkCount || 0;
+                setBlinkCount(currentBlinks);
+
+                if (isBlinked) {
+                    // Liveness verified! Move to capture
+                    handleFinalCapture();
+                    return;
+                }
+            }
+        } catch (e) { /* ignore frame error */ }
+
+        if (phase === 'verifying_liveness') {
+            animFrameRef.current = requestAnimationFrame(detectionLoop);
+        }
+    };
+
+    const handleFinalCapture = async () => {
+        if (!videoRef.current || !userId) return;
+
+        setPhase('capturing');
+        setProcessing(true);
+        
+        try {
+            const api = (faceapi as any).default || faceapi;
+            const options = getFaceDetectorOptions();
+            const finalDetection = await api.detectSingleFace(videoRef.current, options)
+                .withFaceLandmarks()
+                .withFaceDescriptor();
+
+
+            if (!finalDetection) {
+                message.error("Lỗi: Mất dấu khuôn mặt ở bước cuối. Thử lại.");
+                setPhase('ready');
                 return;
             }
 
-            const descriptor = Array.from(detection.descriptor);
-
-            console.log(`[FaceReg] Registering Face for User ID: ${userId}`);
-            console.log('[FaceReg] Descriptor length:', descriptor.length);
-
+            const descriptor = Array.from(finalDetection.descriptor);
             await api.put(`/api/users/${userId}/face-embeddings`, descriptor);
 
-            message.success(t('face.success', 'Đăng ký Face ID thành công!'));
-            handleClose();
+            setPhase('done');
+            message.success(t('face.success', 'Đăng ký Face ID bảo mật thành công!'));
+            setTimeout(handleClose, 1500);
         } catch (error) {
-            console.error('[FaceReg] Capture error:', error);
-            message.error(t('face.capture_failed', 'Đăng ký thất bại. Vui lòng thử lại.'));
+            message.error('Lỗi khi lưu dữ liệu khuôn mặt');
+            setPhase('ready');
         } finally {
             setProcessing(false);
         }
@@ -132,64 +166,120 @@ function FaceRegistrationModal({ visible, onCancel, userId, userName }: FaceRegi
 
     return (
         <Modal
-            title={`${t('face.register_title', 'Đăng ký Face ID cho')} ${userName}`}
+            title={<Space><SafetyCertificateOutlined style={{color: '#1890ff'}} /> {t('face.register_title', 'Đăng ký Face ID Bảo mật')}</Space>}
             open={visible}
             onCancel={handleClose}
             footer={[
-                <Button key="cancel" onClick={handleClose}>
+                <Button key="cancel" onClick={handleClose} disabled={processing}>
                     {t('common.cancel', 'Hủy bỏ')}
                 </Button>,
-                <Button
-                    key="capture"
-                    type="primary"
-                    icon={<CameraOutlined />}
-                    loading={processing}
-                    onClick={handleCapture}
-                    disabled={!cameraReady || !modelLoaded || loadingModels}
-                >
-                    {t('face.capture_save', 'Chụp và lưu')}
-                </Button>,
+                phase === 'ready' && (
+                    <Button
+                        key="start"
+                        type="primary"
+                        icon={<CameraOutlined />}
+                        onClick={startLivenessCheck}
+                        disabled={!!blockedDevice}
+                    >
+                        Bắt đầu xác minh & Đăng ký
+                    </Button>
+                ),
             ]}
-            width={500}
+            width={520}
             destroyOnHidden
         >
-            <Space direction="vertical" style={{ width: '100%', alignItems: 'center' }}>
-                <Alert
-                    message={t('face.instruction', 'Hãy đảm bảo ánh sáng tốt và nhìn thẳng vào máy ảnh.')}
-                    type="info"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {blockedDevice ? (
+                    <Alert
+                        title={<span style={{ fontWeight: 600 }}>Thiết bị bị chặn</span>}
+                        description={`Phát hiện phần mềm camera ảo: ${blockedDevice}. Vui lòng tắt OBS/ManyCam và sử dụng camera vật lý để đăng ký.`}
+                        type="error"
+                        showIcon
+                    />
+                ) : (
+                    <Alert
+                        title={<span style={{ fontWeight: 600 }}>{phase === 'verifying_liveness' ? "Xác minh thực thể sống" : "Hướng dẫn đăng ký"}</span>}
+                        description={phase === 'verifying_liveness' 
+                            ? "Vui lòng chớp mắt 2 lần trước camera để xác nhận bạn là người thật." 
+                            : "Nhìn thẳng vào máy ảnh, đảm bảo đủ ánh sáng. Hệ thống sẽ yêu cầu bạn chớp mắt để bảo mật."}
+                        type={phase === 'verifying_liveness' ? "warning" : "info"}
+                        showIcon
+                    />
+                )}
+
 
                 <div style={{
-                    width: '100%',
-                    height: 300,
-                    backgroundColor: '#000',
-                    borderRadius: 8,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center'
+                    width: '100%', height: 320, backgroundColor: '#000',
+                    borderRadius: 12, overflow: 'hidden', position: 'relative',
+                    display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    border: phase === 'verifying_liveness' ? '3px solid #faad14' : '3px solid #f0f0f0'
                 }}>
-                    {loadingModels ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <Spin size="large" />
-                            <div style={{ marginTop: 10, color: '#fff' }}>
-                                {t('face.loading_models', 'Đang tải mô hình AI...')}
-                            </div>
-                        </div>
+                    {phase === 'loading' ? (
+                        <Spin size="large">
+                            <div style={{ marginTop: 10, color: '#fff' }}>Đang khởi tạo AI...</div>
+                        </Spin>
                     ) : (
-                        <video
-                            ref={videoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
-                        />
+                        <>
+                            <video
+                                ref={videoRef}
+                                autoPlay playsInline muted
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+                            />
+                            
+                            {/* Overlay cho bước chớp mắt */}
+                            {phase === 'verifying_liveness' && (
+                                <div style={{
+                                    position: 'absolute', inset: 0,
+                                    background: 'rgba(0,0,0,0.2)',
+                                    display: 'flex', flexDirection: 'column',
+                                    alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    <div style={{ 
+                                        padding: '12px 24px', background: 'rgba(0,0,0,0.7)', 
+                                        borderRadius: 30, color: '#fff', textAlign: 'center'
+                                    }}>
+                                        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>VUI LÒNG CHỚP MẮT</div>
+                                        <Progress 
+                                            percent={(blinkCount / 2) * 100} 
+                                            steps={2} 
+                                            strokeColor="#52c41a" 
+                                            showInfo={false}
+                                            style={{ width: 120 }}
+                                        />
+                                        <div style={{ marginTop: 4 }}>{blinkCount}/2 lần</div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {phase === 'capturing' && (
+                                <div style={{
+                                    position: 'absolute', inset: 0, background: 'rgba(24,144,255,0.3)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    <Spin size="large">
+                                        <div style={{ marginTop: 10, color: '#fff' }}>Đang lấy mẫu khuôn mặt...</div>
+                                    </Spin>
+                                </div>
+                            )}
+
+                            {phase === 'done' && (
+                                <div style={{
+                                    position: 'absolute', inset: 0, background: 'rgba(82,196,26,0.4)',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                    color: '#fff'
+                                }}>
+                                    <CheckCircleFilled style={{ fontSize: 64, marginBottom: 16 }} />
+                                    <div style={{ fontSize: 20, fontWeight: 700 }}>ĐĂNG KÝ THÀNH CÔNG</div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
-            </Space>
+
+                <div style={{ textAlign: 'center', marginTop: 8, color: '#8c8c8c', fontSize: 12 }}>
+                    ID Nhân viên: <code style={{background: '#f5f5f5', padding: '2px 6px'}}>{userId}</code>
+                </div>
+            </div>
         </Modal>
     );
 }
