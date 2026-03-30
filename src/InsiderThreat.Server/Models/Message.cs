@@ -13,6 +13,7 @@ public class Message
     public string ReceiverId { get; set; } = string.Empty;
     
     // Identifies the public group this message belongs to
+    [BsonRepresentation(BsonType.ObjectId)]
     public string? GroupId { get; set; }
 
     // Encrypted Content for Receiver (Base64 string)

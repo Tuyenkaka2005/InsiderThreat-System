@@ -751,6 +751,7 @@ namespace InsiderThreat.Server.Controllers
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
+        [BsonRepresentation(BsonType.ObjectId)]
         public string GroupId { get; set; } = string.Empty;
         public string FileId { get; set; } = string.Empty;
         public string FileName { get; set; } = string.Empty;
