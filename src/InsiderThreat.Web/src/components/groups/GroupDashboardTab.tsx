@@ -65,6 +65,7 @@ export default function GroupDashboardTab({ onInviteClick }: GroupDashboardTabPr
     const [group, setGroup] = useState<GroupInfo | null>(null);
     const [members, setMembers] = useState<Member[]>([]);
     const [tasks, setTasks] = useState<ProjectTask[]>([]);
+    const [prodStats, setProdStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     // UI States
@@ -84,14 +85,16 @@ export default function GroupDashboardTab({ onInviteClick }: GroupDashboardTabPr
         if (!groupId) return;
         try {
             setLoading(true);
-            const [gRes, mRes, tRes] = await Promise.all([
+            const [gRes, mRes, tRes, pRes] = await Promise.all([
                 api.get<GroupInfo>(`/api/groups/${groupId}`),
                 api.get<Member[]>(`/api/groups/${groupId}/members-details`),
-                api.get<ProjectTask[]>(`/api/groups/${groupId}/tasks`)
+                api.get<ProjectTask[]>(`/api/groups/${groupId}/tasks`),
+                api.get<any>(`/api/groups/${groupId}/productivity`)
             ]);
             setGroup(gRes);
             setMembers(mRes || []);
             setTasks(tRes || []);
+            setProdStats(pRes);
         } catch (err) {
             console.error('Data sync failed', err);
         } finally {
@@ -244,6 +247,13 @@ export default function GroupDashboardTab({ onInviteClick }: GroupDashboardTabPr
                     <Title level={2} style={{ margin: "4px 0" }}>{stats.done}</Title>
                     <Text type="success">Good pacing</Text>
                 </div>
+                {prodStats?.OverdueCount > 0 && (
+                    <div className="stat-card warning">
+                        <Text type="secondary">Nhiệm vụ Quá hạn</Text>
+                        <Title level={2} style={{ margin: "4px 0", color: '#ef4444' }}>{prodStats.OverdueCount}</Title>
+                        <Text type="danger">Cần xử lý ngay</Text>
+                    </div>
+                )}
             </div>
 
             {/* Main Content Split: Left (Charts) / Right (Widgets) */}
@@ -347,6 +357,28 @@ export default function GroupDashboardTab({ onInviteClick }: GroupDashboardTabPr
                 </div>
 
                 <div className="dashboard-right-col">
+                    <div className="widget-panel gold-panel">
+                        <div className="panel-header">
+                            <Title level={5} style={{ margin: 0 }}>🏆 Bảng Vàng Hiệu Suất</Title>
+                        </div>
+                        <div className="top-performers-list">
+                            {prodStats?.TopPerformers?.map((p: any, index: number) => (
+                                <div key={index} className="performer-row">
+                                    <div className="performer-rank">{index + 1}</div>
+                                    <Avatar size="small" style={{ backgroundColor: index === 0 ? '#fbbf24' : '#94a3b8' }}>{p.name.charAt(0)}</Avatar>
+                                    <div className="performer-info">
+                                        <Text strong>{p.name}</Text>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>{p.count} nhiệm vụ hoàn thành</Text>
+                                    </div>
+                                    {index === 0 && <span className="crown-icon">👑</span>}
+                                </div>
+                            ))}
+                            {(!prodStats?.TopPerformers || prodStats.TopPerformers.length === 0) && (
+                                <Text type="secondary">Chưa có dữ liệu vinh danh.</Text>
+                            )}
+                        </div>
+                    </div>
+
                     <div className="widget-panel">
                         <div className="panel-header">
                             <Title level={5} style={{ margin: 0 }}>{t('project_detail.dashboard.today_tasks')}</Title>

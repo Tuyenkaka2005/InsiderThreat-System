@@ -34,6 +34,24 @@ public class UsersController : ControllerBase
         return Ok(users);
     }
 
+    // GET: api/users/hierarchy
+    [HttpGet("hierarchy")]
+    public async Task<ActionResult<List<User>>> GetHierarchy()
+    {
+        // Trả về danh sách user cơ bản để build cây sơ đồ tổ chức
+        var users = await _usersCollection.Find(_ => true)
+            .Project<User>(Builders<User>.Projection
+                .Include(u => u.Id)
+                .Include(u => u.FullName)
+                .Include(u => u.Role)
+                .Include(u => u.Department)
+                .Include(u => u.Position)
+                .Include(u => u.AvatarUrl)
+                .Include(u => u.ManagerId))
+            .ToListAsync();
+        return Ok(users);
+    }
+
     // GET: api/users/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<User>> GetUser(string id)
@@ -102,6 +120,9 @@ public class UsersController : ControllerBase
 
         // Always update avatar if provided (allow null to clear? No, usually we send new url)
         if (!string.IsNullOrEmpty(updatedUser.AvatarUrl)) user.AvatarUrl = updatedUser.AvatarUrl;
+
+        // Cập nhật người quản lý (ManagerId)
+        user.ManagerId = updatedUser.ManagerId;
 
         // user.Username thường không cho đổi để tránh conflict ID hệ thống khác
 

@@ -15,5 +15,6 @@ export const POST_CATEGORIES = [
     'Project',
     'Training',
     'Event',
-    'Security'
+    'Security',
+    'Surveys'
 ];

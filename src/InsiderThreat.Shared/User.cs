@@ -41,6 +41,11 @@ namespace InsiderThreat.Shared
         // Bắt buộc đổi mật khẩu trong lần đăng nhập đầu tiên
         public bool RequiresPasswordChange { get; set; } = true;
 
+        public string? ManagerId { get; set; }
+        
+        // Annual Leave balance
+        public int AnnualLeaveBalance { get; set; } = 12;
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }

@@ -161,6 +161,18 @@ namespace InsiderThreat.Server.Controllers
                     UrgentReason = request.UrgentReason
                 };
 
+                // Initialize poll if options provided
+                if (request.PollOptions != null && request.PollOptions.Count > 0)
+                {
+                    post.PollOptions = request.PollOptions.Select(opt => new PollOption { Text = opt }).ToList();
+                    post.MultipleChoice = request.MultipleChoice;
+                    if (request.PollDurationDays.HasValue)
+                    {
+                        post.PollEndsAt = DateTime.UtcNow.AddDays(request.PollDurationDays.Value);
+                    }
+                    post.Type = "Poll";
+                }
+
                 await _posts.InsertOneAsync(post);
 
                 // Broadcast NewPost realtime tới tất cả user
@@ -454,7 +466,6 @@ namespace InsiderThreat.Server.Controllers
                 return StatusCode(500, new { message = "Error reacting to post", error = ex.Message });
             }
         }
-
         // POST: api/SocialFeed/posts/{id}/report
         [HttpPost("posts/{id}/report")]
         public async Task<IActionResult> ReportPost(string id, [FromBody] ReportRequest request)
@@ -481,6 +492,55 @@ namespace InsiderThreat.Server.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Error reporting post", error = ex.Message });
+            }
+        }
+
+        // POST: api/SocialFeed/posts/{id}/vote
+        [HttpPost("posts/{id}/vote")]
+        public async Task<IActionResult> VotePoll(string id, [FromBody] int optionIndex)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var post = await _posts.Find(p => p.Id == id).FirstOrDefaultAsync();
+
+                if (post == null || post.PollOptions == null) 
+                    return NotFound(new { message = "Poll not found" });
+
+                if (post.PollEndsAt.HasValue && post.PollEndsAt.Value < DateTime.UtcNow)
+                    return BadRequest(new { message = "Bình chọn đã kết thúc" });
+
+                if (optionIndex < 0 || optionIndex >= post.PollOptions.Count)
+                    return BadRequest(new { message = "Lựa chọn không hợp lệ" });
+
+                // Check if user already voted (unless multipleChoice is allowed? user stated 'Poll' usually 1 vote)
+                // If not multipleChoice, remove user from all other options first
+                if (!post.MultipleChoice)
+                {
+                    foreach (var opt in post.PollOptions)
+                    {
+                        opt.VoterIds.Remove(userId!);
+                    }
+                }
+
+                // Toggle vote for the selected option
+                if (post.PollOptions[optionIndex].VoterIds.Contains(userId!))
+                {
+                    post.PollOptions[optionIndex].VoterIds.Remove(userId!);
+                }
+                else
+                {
+                    post.PollOptions[optionIndex].VoterIds.Add(userId!);
+                }
+
+                var update = Builders<Post>.Update.Set(p => p.PollOptions, post.PollOptions);
+                await _posts.UpdateOneAsync(p => p.Id == id, update);
+
+                return Ok(new { success = true, pollOptions = post.PollOptions });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error voting in poll", error = ex.Message });
             }
         }
 
@@ -793,6 +853,11 @@ namespace InsiderThreat.Server.Controllers
         public List<string>? AllowedDepartments { get; set; }
         public bool IsUrgent { get; set; } = false;
         public string? UrgentReason { get; set; }
+        
+        // Poll fields
+        public List<string>? PollOptions { get; set; }
+        public bool MultipleChoice { get; set; }
+        public int? PollDurationDays { get; set; }
     }
 
     public class UpdatePostRequest

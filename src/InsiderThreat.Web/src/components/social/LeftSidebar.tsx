@@ -6,10 +6,11 @@ import {
     VideoCameraOutlined,
     AppstoreOutlined,
     ClockCircleOutlined,
-    UsergroupAddOutlined,
-    CalendarOutlined,
-    FileProtectOutlined,
-    UsbOutlined
+    UsbOutlined,
+    ScheduleOutlined,
+    CheckSquareOutlined,
+    ClusterOutlined,
+    TableOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import styles from './LeftSidebar.module.css';
@@ -27,9 +28,14 @@ const LeftSidebar = () => {
         { icon: <CalendarOutlined />, label: 'Events', path: '/events' },
         { icon: <ClockCircleOutlined />, label: 'Memories', path: '/memories' },
         { type: 'divider' },
+        { icon: <ScheduleOutlined />, label: 'Nghỉ phép của tôi', path: '/my-leave' },
+        { icon: <CheckSquareOutlined />, label: 'Duyệt nghỉ phép', path: '/leave-approvals', manager: true },
+        { icon: <TableOutlined />, label: 'Bảng công (HR)', path: '/timesheet', admin: true },
+        { type: 'divider' },
         { icon: <UsbOutlined />, label: 'USB Monitoring', path: '/usb-monitor', admin: true },
         { icon: <FileProtectOutlined />, label: 'Documents', path: '/documents', admin: true },
         { icon: <AppstoreOutlined />, label: 'Analytics', path: '/dashboard', admin: true },
+        { icon: <ClusterOutlined />, label: 'Sơ đồ tổ chức', path: '/org-chart' }
     ];
 
     return (
@@ -41,6 +47,10 @@ const LeftSidebar = () => {
                     }
 
                     if (item.admin && user.role !== 'Admin') {
+                        return null;
+                    }
+
+                    if (item.manager && user.role !== 'Admin' && user.role !== 'Manager' && user.role !== 'Giám đốc' && user.role !== 'Giam doc') {
                         return null;
                     }
 

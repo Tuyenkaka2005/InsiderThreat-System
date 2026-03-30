@@ -80,6 +80,25 @@ namespace InsiderThreat.Server.Models
 
         [BsonElement("urgentReason")]
         public string? UrgentReason { get; set; } // Optional reason for urgency
+
+        // Poll Support
+        [BsonElement("pollOptions")]
+        public List<PollOption>? PollOptions { get; set; }
+
+        [BsonElement("multipleChoice")]
+        public bool MultipleChoice { get; set; } = false;
+
+        [BsonElement("pollEndsAt")]
+        public DateTime? PollEndsAt { get; set; }
+    }
+
+    public class PollOption
+    {
+        [BsonElement("text")]
+        public string Text { get; set; } = string.Empty;
+
+        [BsonElement("voterIds")]
+        public List<string> VoterIds { get; set; } = new List<string>();
     }
 
     public class MediaFile

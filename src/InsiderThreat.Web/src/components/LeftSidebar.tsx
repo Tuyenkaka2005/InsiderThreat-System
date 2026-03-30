@@ -51,13 +51,27 @@ export default function LeftSidebar({ defaultCollapsed = false }: LeftSidebarPro
     }, []);
 
     const isAdmin = user?.role?.toLowerCase().includes('admin') ||
+        user?.role?.toLowerCase() === 'giám đốc' ||
+        user?.role?.toLowerCase() === 'director' ||
         user?.username?.toLowerCase() === 'admin';
 
+    const isManagerial = isAdmin || 
+        user?.role?.toLowerCase().includes('manager') || 
+        user?.role?.toLowerCase().includes('quản lý') ||
+        user?.role?.toLowerCase().includes('director') ||
+        user?.role?.toLowerCase().includes('giám đốc') ||
+        user?.position?.toLowerCase().includes('trưởng phòng');
+
     const mainNavItems = [
+        { icon: 'space_dashboard', label: t('nav.workspace', 'Không gian làm việc'), path: '/workspace' },
         ...(isAdmin ? [{ icon: 'monitoring', label: t('nav.admin_dashboard', 'Dashboard'), path: '/dashboard' }] : []),
         { icon: 'dynamic_feed', label: t('nav.feed', 'Bảng tin'), path: '/feed' },
+        { icon: 'poll', label: t('nav.surveys', 'Khảo sát'), path: '/surveys' },
+        ...(isManagerial ? [{ icon: 'fact_check', label: t('nav.leave_approvals', 'Duyệt nghỉ phép'), path: '/leave-approvals' }] : []),
+        ...(isAdmin ? [{ icon: 'settings_accessibility', label: 'Cấu hình Sơ đồ', path: '/org-chart/config' }] : []),
         { icon: 'mail', label: t('nav.inbox', 'Inbox'), path: '/inbox', badge: 5 },
         { icon: 'people', label: t('nav.staff', 'Nhân sự'), path: '/staff' },
+        { icon: 'account_tree', label: t('nav.staff_chart', 'Sơ đồ tổ chức'), path: '/org-chart' },
         { icon: 'folder_shared', label: t('nav.library', 'Kho tài liệu'), path: '/library' },
         { icon: 'rocket_launch', label: t('nav.projects', 'Dự án'), path: '/projects' },
         { icon: 'groups', label: t('nav.groups', 'Cộng đồng'), path: '/groups' },
@@ -134,7 +148,7 @@ export default function LeftSidebar({ defaultCollapsed = false }: LeftSidebarPro
             <nav className={styles.nav}>
                 <div className={styles.navSectionScroll}>
                     {mainNavItems.map(item => {
-                        const isActive = location.pathname.startsWith(item.path) ||
+                        const isActive = location.pathname.startsWith(item.path.split('?')[0]) ||
                             (item.path === '/feed' && location.pathname === '/');
                         return (
                             <button

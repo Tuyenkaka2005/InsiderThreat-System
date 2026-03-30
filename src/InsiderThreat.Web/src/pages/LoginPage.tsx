@@ -49,10 +49,10 @@ function LoginPage() {
             }
 
             const role = response.user.role?.trim().toLowerCase();
-            if (role === 'admin') {
+            if (role === 'admin' || role === 'giám đốc' || role === 'director') {
                 navigate('/dashboard');
             } else {
-                navigate('/feed');
+                navigate('/workspace');
             }
         } catch (error: any) {
             const errMsg = error.response?.data?.message || t('auth.login_failed_desc', 'Login failed! Please check your credentials.');

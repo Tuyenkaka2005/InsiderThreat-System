@@ -186,6 +186,78 @@ public class AttendanceController : ControllerBase
         return Ok(new { Message = "Check-in successful", Time = log.CheckInTime });
     }
 
+    // GET: api/attendance/summary
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetMonthlySummary([FromQuery] int month, [FromQuery] int year)
+    {
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        if (role != "Admin" && role != "Manager" && role != "Giám đốc" && role != "Giam doc") 
+            return Forbid();
+
+        var startDate = new DateTime(year, month, 1);
+        var endDate = startDate.AddMonths(1).AddSeconds(-1);
+
+        // Fetch all logs for the month
+        var logs = await _attendanceCollection.Find(l => l.CheckInTime >= startDate && l.CheckInTime <= endDate).ToListAsync();
+
+        // Get all users
+        var users = await _usersCollection.Find(_ => true).Project(u => new { u.Id, u.FullName, u.Department }).ToListAsync();
+
+        var summary = users.Select(user => {
+            var userLogs = logs.Where(l => l.UserId == user.Id).ToList();
+            
+            // Group by Day
+            var logsByDay = userLogs.GroupBy(l => l.CheckInTime.Date)
+                .ToDictionary(g => g.Key, g => g.OrderBy(l => l.CheckInTime).First());
+
+            int onTimeDays = 0;
+            int lateDays = 0;
+            int totalWorkingDays = GetWorkingDays(startDate, endDate);
+            
+            foreach (var kvp in logsByDay)
+            {
+                // Check if late (e.g., after 9:15 AM)
+                if (kvp.Value.CheckInTime.TimeOfDay > new TimeSpan(9, 15, 0))
+                {
+                    lateDays++;
+                }
+                else
+                {
+                    onTimeDays++;
+                }
+            }
+
+            int absentDays = totalWorkingDays - (onTimeDays + lateDays);
+            if (absentDays < 0) absentDays = 0;
+
+            return new {
+                UserId = user.Id,
+                UserName = user.FullName,
+                Department = user.Department,
+                TotalWorkingDays = totalWorkingDays,
+                OnTimeDays = onTimeDays,
+                LateDays = lateDays,
+                AbsentDays = absentDays,
+                TotalCheckIns = logsByDay.Count
+            };
+        }).Where(s => s.TotalCheckIns > 0 || absentDaysCheck(s.TotalWorkingDays)).ToList();
+
+        return Ok(summary);
+    }
+
+    private bool absentDaysCheck(int workingDays) => true; // Include all users
+    
+    private int GetWorkingDays(DateTime startDate, DateTime endDate)
+    {
+        int count = 0;
+        for (DateTime i = startDate; i <= endDate; i = i.AddDays(1))
+        {
+            if (i.DayOfWeek != DayOfWeek.Saturday && i.DayOfWeek != DayOfWeek.Sunday)
+                count++;
+        }
+        return count;
+    }
+
     // GET: api/attendance/history
     [HttpGet("history")]
     public async Task<ActionResult<List<AttendanceLog>>> GetHistory()

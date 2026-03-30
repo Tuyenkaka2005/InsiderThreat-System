@@ -113,6 +113,21 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
 
             {/* Right Section */}
             <div className={styles.rightSection}>
+                {/* Workspace / Home Link */}
+                <button
+                    className={`${styles.iconButton} ${isActive('/workspace') ? styles.active : ''}`}
+                    onClick={() => navigate('/workspace')}
+                    title={t('nav.workspace', 'Không gian làm việc')}
+                >
+                    <div className={styles.actionIcon}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <line x1="9" y1="3" x2="9" y2="21" />
+                            <line x1="3" y1="9" x2="21" y2="9" />
+                        </svg>
+                    </div>
+                </button>
+
                 {/* Feed Link */}
                 <button
                     className={`${styles.iconButton} ${isActive('/feed') ? styles.active : ''}`}
@@ -123,6 +138,19 @@ export default function NavigationBar({ onChatClick }: NavigationBarProps) {
                     <div className={styles.actionIcon}>
                         <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
                             <path d="M11.1 2.8a1.5 1.5 0 011.8 0l8.9 6.7a1.5 1.5 0 01.6 1.2V20a2 2 0 01-2 2h-4a1 1 0 01-1-1v-5h-4v5a1 1 0 01-1 1H5a2 2 0 01-2-2v-9.3a1.5 1.5 0 01.6-1.2l8.9-6.7z" />
+                        </svg>
+                    </div>
+                </button>
+
+                {/* Survey Link */}
+                <button
+                    className={`${styles.iconButton} ${isActive('/surveys') ? styles.active : ''}`}
+                    onClick={() => navigate('/surveys')}
+                    title={t('nav.surveys', 'Khảo sát')}
+                >
+                    <div className={styles.actionIcon}>
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
                         </svg>
                     </div>
                 </button>

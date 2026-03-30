@@ -233,6 +233,66 @@ namespace InsiderThreat.Server.Controllers
 
         // ─── TASK MANAGEMENT ──────────────────────────
 
+        [HttpGet("my-tasks")]
+        public async Task<IActionResult> GetMyTasks()
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+                // Get all groups the user is a member of
+                var filterBuilder = Builders<Group>.Filter;
+                var groupFilter = filterBuilder.Where(g => g.MemberIds.Contains(userId));
+                var userGroups = await _groups.Find(groupFilter).ToListAsync();
+                var groupIds = userGroups.Select(g => g.Id).ToList();
+
+                // Fetch tasks assigned to the user in those groups
+                var taskFilter = Builders<ProjectTask>.Filter.And(
+                    Builders<ProjectTask>.Filter.Eq(t => t.AssignedTo, userId),
+                    Builders<ProjectTask>.Filter.In(t => t.GroupId, groupIds)
+                );
+
+                var tasks = await _tasks.Find(taskFilter).SortByDescending(t => t.CreatedAt).ToListAsync();
+
+                var statusStats = tasks.GroupBy(t => t.Status)
+                    .Select(g => new { status = g.Key, count = g.Count() });
+
+                var now = DateTime.UtcNow;
+                var overdueCount = tasks.Count(t => t.Status != "Done" && t.Deadline.HasValue && t.Deadline.Value < now);
+                var onTimeCount = tasks.Count(t => t.Status == "Done" && (!t.Deadline.HasValue || t.CompletedAt <= t.Deadline));
+
+                // Map tasks with group names
+                var enrichedTasks = tasks.Select(t => new {
+                    t.Id,
+                    t.GroupId,
+                    GroupName = userGroups.FirstOrDefault(g => g.Id == t.GroupId)?.Name,
+                    t.Title,
+                    t.Description,
+                    t.Status,
+                    t.Priority,
+                    t.Progress,
+                    t.StartDate,
+                    t.Deadline,
+                    t.CompletedAt
+                });
+
+                return Ok(new
+                {
+                    TotalTasks = tasks.Count,
+                    StatusStats = statusStats,
+                    OverdueCount = overdueCount,
+                    OnTimeCount = onTimeCount,
+                    Tasks = enrichedTasks
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching my-tasks");
+                return StatusCode(500, new { message = "Lỗi hệ thống", error = ex.Message });
+            }
+        }
+
         [HttpGet("{id}/tasks")]
         public async Task<IActionResult> GetTasks(string id)
         {
@@ -518,6 +578,50 @@ namespace InsiderThreat.Server.Controllers
                 return StatusCode(500, "Internal server error during upload");
             }
         }
+
+        [HttpGet("{id}/productivity")]
+        public async Task<IActionResult> GetProductivityStats(string id)
+        {
+            var tasks = await _tasks.Find(t => t.GroupId == id).ToListAsync();
+            
+            if (!tasks.Any()) return Ok(new { total = 0 });
+
+            var statusStats = tasks.GroupBy(t => t.Status)
+                .Select(g => new { status = g.Key, count = g.Count() });
+
+            var priorityStats = tasks.GroupBy(t => t.Priority)
+                .Select(g => new { priority = g.Key, count = g.Count() });
+
+            var now = DateTime.UtcNow;
+            var overdueCount = tasks.Count(t => t.Status != "Done" && t.Deadline.HasValue && t.Deadline.Value < now);
+            var onTimeCount = tasks.Count(t => t.Status == "Done" && (!t.Deadline.HasValue || t.CompletedAt <= t.Deadline));
+
+            // Top performers (Done tasks)
+            var userIds = tasks.Where(t => t.Status == "Done" && t.CompletedBy != null).Select(t => t.CompletedBy).Distinct().ToList();
+            var usersList = await _users.Find(u => userIds.Contains(u.Id!)).ToListAsync();
+            var userDict = usersList.ToDictionary(u => u.Id!, u => u.FullName);
+
+            var topPerformers = tasks.Where(t => t.Status == "Done" && t.CompletedBy != null)
+                .GroupBy(t => t.CompletedBy)
+                .Select(g => new { 
+                    name = userDict.ContainsKey(g.Key!) ? userDict[g.Key!] : "Unknown", 
+                    count = g.Count() 
+                })
+                .OrderByDescending(x => x.count)
+                .Take(5)
+                .ToList();
+
+            return Ok(new
+            {
+                TotalTasks = tasks.Count,
+                StatusStats = statusStats,
+                PriorityStats = priorityStats,
+                OverdueCount = overdueCount,
+                OnTimeCount = onTimeCount,
+                TopPerformers = topPerformers
+            });
+        }
+
         [HttpGet("{id}/analytics")]
         public async Task<IActionResult> GetDailyAnalytics(string id)
         {

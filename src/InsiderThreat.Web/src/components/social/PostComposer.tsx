@@ -1,5 +1,5 @@
 import { Card, Avatar, Input, Button, message, Upload, Space, Progress, Tag } from 'antd';
-import { UserOutlined, PictureOutlined, VideoCameraOutlined, SmileOutlined, SendOutlined, CloseCircleFilled, FileImageOutlined, PlaySquareOutlined } from '@ant-design/icons';
+import { UserOutlined, PictureOutlined, VideoCameraOutlined, SmileOutlined, SendOutlined, CloseCircleFilled, FileImageOutlined, PlaySquareOutlined, BarChartOutlined, PlusOutlined } from '@ant-design/icons';
 import { useState, useRef } from 'react';
 import api from '../../services/api';
 import styles from './PostComposer.module.css';
@@ -21,6 +21,8 @@ const PostComposer: React.FC<PostComposerProps> = ({ onPostCreated }) => {
     const [loading, setLoading] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [isPollMode, setIsPollMode] = useState(false);
+    const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,8 +48,14 @@ const PostComposer: React.FC<PostComposerProps> = ({ onPostCreated }) => {
     };
 
     const handlePost = async () => {
-        if (!content.trim() && selectedFiles.length === 0) {
-            message.warning('Please write something or select a file!');
+        if (!content.trim() && selectedFiles.length === 0 && (!isPollMode || pollOptions.every(opt => !opt.trim()))) {
+            message.warning('Please write something or specify poll options!');
+            return;
+        }
+
+        const validPollOptions = pollOptions.filter(opt => opt.trim() !== '');
+        if (isPollMode && validPollOptions.length < 2) {
+            message.warning('A poll must have at least 2 options!');
             return;
         }
 
@@ -83,15 +91,22 @@ const PostComposer: React.FC<PostComposerProps> = ({ onPostCreated }) => {
             }
 
             // 2. Create the post
+            const type = isPollMode ? 'Poll' : (selectedFiles.some(f => f.type === 'video') ? 'Video' : (selectedFiles.length > 0 ? 'Image' : 'Text'));
+            
             const newPost = await api.post<any>('/api/socialfeed/posts', {
                 content: content.trim(),
                 privacy: 'Public',
-                type: selectedFiles.some(f => f.type === 'video') ? 'Video' : (selectedFiles.length > 0 ? 'Image' : 'Text'),
-                mediaFiles: uploadedMedia
+                type,
+                mediaFiles: uploadedMedia,
+                pollOptions: isPollMode ? validPollOptions : undefined,
+                multipleChoice: false,
+                pollDurationDays: 7
             });
 
             // Cleanup
             setContent('');
+            setIsPollMode(false);
+            setPollOptions(['', '']);
             selectedFiles.forEach(f => URL.revokeObjectURL(f.preview));
             setSelectedFiles([]);
             setUploadProgress(0);
@@ -141,6 +156,51 @@ const PostComposer: React.FC<PostComposerProps> = ({ onPostCreated }) => {
                 </div>
             )}
 
+            {/* Poll Section */}
+            {isPollMode && (
+                <div className={styles.pollSection}>
+                    <div className={styles.pollHeader}>
+                        <span className={styles.pollTitle}>Bình chọn</span>
+                        <CloseCircleFilled 
+                            className={styles.pollClose} 
+                            onClick={() => setIsPollMode(false)}
+                        />
+                    </div>
+                    <div className={styles.pollOptions}>
+                        {pollOptions.map((option, idx) => (
+                            <div key={idx} className={styles.pollOptionInput}>
+                                <Input 
+                                    placeholder={`Lựa chọn ${idx + 1}`} 
+                                    value={option}
+                                    onChange={(e) => {
+                                        const newOpts = [...pollOptions];
+                                        newOpts[idx] = e.target.value;
+                                        setPollOptions(newOpts);
+                                    }}
+                                />
+                                {pollOptions.length > 2 && (
+                                    <CloseCircleFilled 
+                                        className={styles.removeOption}
+                                        onClick={() => {
+                                            const newOpts = pollOptions.filter((_, i) => i !== idx);
+                                            setPollOptions(newOpts);
+                                        }}
+                                    />
+                                )}
+                            </div>
+                        ))}
+                        <Button 
+                            type="dashed" 
+                            onClick={() => setPollOptions([...pollOptions, ''])} 
+                            block
+                            icon={<PlusOutlined />}
+                        >
+                            Thêm lựa chọn
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {/* Progress Bar */}
             {loading && uploadProgress > 0 && uploadProgress < 100 && (
                 <div style={{ padding: '0 16px 10px' }}>
@@ -169,9 +229,9 @@ const PostComposer: React.FC<PostComposerProps> = ({ onPostCreated }) => {
                     <VideoCameraOutlined style={{ color: '#f3425f' }} />
                     <span>Live Video</span>
                 </div>
-                <div className={styles.action}>
-                    <SmileOutlined style={{ color: '#f7b928' }} />
-                    <span>Feeling</span>
+                <div className={styles.action} onClick={() => setIsPollMode(!isPollMode)}>
+                    <BarChartOutlined style={{ color: '#2563eb' }} />
+                    <span>Poll</span>
                 </div>
                 
                 <Button

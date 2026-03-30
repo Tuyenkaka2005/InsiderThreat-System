@@ -13,6 +13,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import FeedPage from './pages/FeedPage';
 import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
+import SurveyPage from './pages/Survey/SurveyPage';
 import StaffPage from './pages/StaffPage';
 import GroupsPage from './pages/GroupsPage';
 import GroupDetailPage from './pages/GroupDetailPage';
@@ -24,6 +25,12 @@ import MonitorLogsPage from './pages/MonitorLogsPage';
 import SecurityApprovalsPage from './pages/SecurityApprovalsPage';
 import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
+import OrgChartPage from './pages/OrgChart/OrgChartPage';
+import OrgChartConfigPage from './pages/Admin/OrgChartConfigPage';
+import MyLeavePage from './pages/LeaveManagement/MyLeavePage';
+import LeaveApprovalsPage from './pages/LeaveManagement/LeaveApprovalsPage';
+import TimesheetReportPage from './pages/LeaveManagement/TimesheetReportPage';
+import WorkspacePage from './pages/WorkspacePage';
 import { NotificationProvider } from './contexts/NotificationContext';
 import NotificationToast from './components/NotificationToast';
 import { ChatWidget } from './components/ChatWidget';
@@ -42,10 +49,11 @@ function RoleBasedRedirect() {
   const userStr = localStorage.getItem('user');
   if (userStr) {
     const user = JSON.parse(userStr);
-    if (user.role === 'Admin') {
+    const role = user.role?.toLowerCase();
+    if (role === 'admin' || role === 'giám đốc' || role === 'director') {
       return <Navigate to="/dashboard" replace />;
     }
-    return <Navigate to="/feed" replace />;
+    return <Navigate to="/workspace" replace />;
   }
   return <Navigate to="/login" replace />;
 }
@@ -96,6 +104,7 @@ function App() {
               <Route path="/documents" element={<PrivateRoute><DocumentsPage /></PrivateRoute>} />
               <Route path="/profile/:userId" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
               <Route path="/feed" element={<PrivateRoute><FeedPage /></PrivateRoute>} />
+              <Route path="/surveys" element={<PrivateRoute><SurveyPage /></PrivateRoute>} />
               <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
               <Route path="/staff" element={<PrivateRoute><StaffPage /></PrivateRoute>} />
               <Route path="/groups" element={<PrivateRoute><GroupsPage /></PrivateRoute>} />
@@ -108,6 +117,12 @@ function App() {
               <Route path="/meet" element={<PrivateRoute><MeetPage /></PrivateRoute>} />
               <Route path="/monitor-logs" element={<PrivateRoute><MonitorLogsPage /></PrivateRoute>} />
               <Route path="/security-approvals" element={<PrivateRoute><SecurityApprovalsPage /></PrivateRoute>} />
+              <Route path="/org-chart" element={<PrivateRoute><OrgChartPage /></PrivateRoute>} />
+              <Route path="/my-leave" element={<PrivateRoute><MyLeavePage /></PrivateRoute>} />
+              <Route path="/leave-approvals" element={<PrivateRoute><LeaveApprovalsPage /></PrivateRoute>} />
+              <Route path="/timesheet" element={<PrivateRoute><TimesheetReportPage /></PrivateRoute>} />
+              <Route path="/workspace" element={<PrivateRoute><WorkspacePage /></PrivateRoute>} />
+              <Route path="/org-chart/config" element={<PrivateRoute><OrgChartConfigPage /></PrivateRoute>} />
               <Route path="/" element={<RoleBasedRedirect />} />
               <Route path="*" element={<RoleBasedRedirect />} />
             </Routes>

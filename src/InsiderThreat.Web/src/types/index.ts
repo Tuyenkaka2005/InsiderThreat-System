@@ -14,6 +14,8 @@ export interface User {
     publicKey?: string;
     avatarUrl?: string;
     faceEmbeddings?: number[];
+    managerId?: string;
+    annualLeaveBalance?: number;
 }
 
 export interface LogEntry {
@@ -99,6 +101,9 @@ export interface Post {
     isHidden?: boolean;
     isUrgent?: boolean;
     urgentReason?: string;
+    pollOptions?: { text: string; voterIds: string[] }[];
+    multipleChoice?: boolean;
+    pollEndsAt?: string;
 }
 
 export interface LinkMetadata {
@@ -119,4 +124,20 @@ export interface Comment {
     createdAt: string;
     reactions?: Record<string, string[]>;
     likedBy?: string[];
+}
+
+export interface LeaveRequest {
+    id?: string;
+    userId: string;
+    userName: string;
+    managerId?: string;
+    type: string;
+    startDate: string;
+    endDate: string;
+    reason: string;
+    status: string;
+    approvedBy?: string;
+    approvedAt?: string;
+    rejectionReason?: string;
+    createdAt?: string;
 }

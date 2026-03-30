@@ -58,12 +58,13 @@ export default function FeedPage() {
     const [allowedDepartments, setAllowedDepartments] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [searchParams] = useSearchParams();
+
     // Filter State
-    const [filterCategory, setFilterCategory] = useState<string>('All');
+    const [filterCategory, setFilterCategory] = useState<string>(searchParams.get('category') || 'All');
     const [filterDate, setFilterDate] = useState<string>('All');
 
     // Highlighted Post State
-    const [searchParams] = useSearchParams();
     const highlightedPostId = searchParams.get('postId');
 
     // Focused Post State (from notification hash)
@@ -539,6 +540,26 @@ export default function FeedPage() {
                                 ))}
                             </div>
                         </div>
+
+                        {/* Survey Module Banner */}
+                        {filterCategory === 'Surveys' && (
+                            <div className="survey-header-banner">
+                                <div className="survey-banner-content">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-4xl shadow-lg border border-white/30">📊</div>
+                                        <div>
+                                            <h1 className="text-2xl font-bold text-white mb-1">Trung tâm Khảo sát</h1>
+                                            <p className="text-blue-50/80 text-sm font-medium">Lắng nghe ý kiến, cùng nhau phát triển doanh nghiệp 🚀</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 mt-6">
+                                        <div className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white text-xs font-bold uppercase tracking-wider">Lấy ý kiến</div>
+                                        <div className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white text-xs font-bold uppercase tracking-wider">Đánh giá 360</div>
+                                        <div className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white text-xs font-bold uppercase tracking-wider">Minh bạch</div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Posts */}
                         {isLoading ? (

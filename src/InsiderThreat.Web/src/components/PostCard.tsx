@@ -260,6 +260,27 @@ export default function PostCard({ post, currentUser, onPostUpdated, onPostDelet
         }
     };
 
+    const handleVote = async (index: number) => {
+        const hasVotedAny = localPost.pollOptions?.some(o => o.voterIds?.includes(currentUser?.id || ''));
+        if (hasVotedAny && currentUser?.role !== 'Admin') {
+            alert("Bạn đã bình chọn rồi!");
+            return;
+        }
+
+        try {
+            const res = await feedService.votePoll(localPost.id, index);
+            if (res.success) {
+                const updated = { ...localPost, pollOptions: res.pollOptions };
+                setLocalPost(updated);
+                onPostUpdated(updated);
+                alert("Bình chọn thành công! 🚀");
+            }
+        } catch (error: any) {
+            console.error("Vote failed", error);
+            alert("Lỗi khi bình chọn: " + (error.response?.data?.message || error.message));
+        }
+    };
+
     const toggleComments = async () => {
         setShowComments(!showComments);
         if (!showComments && comments.length === 0) {
@@ -520,6 +541,60 @@ export default function PostCard({ post, currentUser, onPostUpdated, onPostDelet
                     </div>
                 ) : (
                     <p>{localPost.content}</p>
+                )}
+
+                {/* Poll Rendering */}
+                {localPost.type === 'Poll' && localPost.pollOptions && (
+                    <div className="mt-4 p-4 bg-[var(--color-surface-lighter)] border border-[var(--color-border)] rounded-xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h4 className="font-bold text-[var(--color-text-main)] flex items-center gap-2">
+                                <span className="material-symbols-outlined text-blue-500">ballot</span>
+                                Bình chọn
+                            </h4>
+                            {localPost.pollEndsAt && (
+                                <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                    Hết hạn: {formatDateTime(localPost.pollEndsAt)}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            {localPost.pollOptions.map((option, idx) => {
+                                const totalVotes = localPost.pollOptions!.reduce((acc, opt) => acc + (opt.voterIds?.length || 0), 0);
+                                const vCount = option.voterIds?.length || 0;
+                                const percentage = totalVotes > 0 ? Math.round((vCount / totalVotes) * 100) : 0;
+                                const hasVoted = option.voterIds?.includes(currentUser?.id || '');
+                                const isExpired = localPost.pollEndsAt ? new Date(localPost.pollEndsAt) < new Date() : false;
+
+                                return (
+                                    <button
+                                        key={idx}
+                                        disabled={isExpired}
+                                        onClick={() => handleVote(idx)}
+                                        className={`relative w-full text-left p-3 rounded-lg border transition-all overflow-hidden group ${hasVoted ? 'border-blue-500 bg-blue-50/10' : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-slate-400'
+                                            } ${isExpired ? 'cursor-not-allowed opacity-80' : ''}`}
+                                    >
+                                        {/* Progress Bar Background */}
+                                        <div
+                                            className={`absolute left-0 top-0 bottom-0 transition-all duration-700 ${hasVoted ? 'bg-blue-500/10' : 'bg-slate-100'}`}
+                                            style={{ width: `${percentage}%` }}
+                                        />
+                                        <div className="relative z-10 flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                {hasVoted && <span className="material-symbols-outlined text-blue-500 text-lg">check_circle</span>}
+                                                <span className={`font-medium ${hasVoted ? 'text-blue-600' : 'text-[var(--color-text-main)]'}`}>{option.text}</span>
+                                            </div>
+                                            <div className="text-sm font-bold text-slate-500">
+                                                {percentage}% ({vCount})
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div className="mt-3 text-[11px] text-slate-500 text-center">
+                            Tổng cộng: {localPost.pollOptions.reduce((acc, opt) => acc + (opt.voterIds?.length || 0), 0)} bình chọn
+                        </div>
+                    </div>
                 )}
 
                 {localPost.linkInfo && (

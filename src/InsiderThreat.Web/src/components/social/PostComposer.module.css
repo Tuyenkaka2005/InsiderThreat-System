@@ -63,3 +63,58 @@
         grid-template-columns: 1fr;
     }
 }
+
+.pollSection {
+    padding: 12px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    margin: 8px 16px;
+    border: 1px dashed var(--border-color);
+}
+
+.pollHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.pollTitle {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.pollClose {
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 16px;
+    transition: color 0.2s;
+}
+
+.pollClose:hover {
+    color: #ff4d4f;
+}
+
+.pollOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pollOptionInput {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.removeOption {
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 16px;
+    transition: color 0.2s;
+}
+
+.removeOption:hover {
+    color: #ff4d4f;
+}

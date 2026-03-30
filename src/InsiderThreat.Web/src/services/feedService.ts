@@ -36,7 +36,10 @@ export const feedService = {
         allowedRoles: string[] = [],
         allowedDepartments: string[] = [],
         isUrgent: boolean = false,
-        urgentReason?: string
+        urgentReason?: string,
+        pollOptions?: string[],
+        multipleChoice: boolean = false,
+        pollDurationDays?: number
     ) => {
         const response = await api.post<Post>('/api/SocialFeed/posts', {
             content,
@@ -47,7 +50,10 @@ export const feedService = {
             allowedRoles,
             allowedDepartments,
             isUrgent,
-            urgentReason
+            urgentReason,
+            pollOptions,
+            multipleChoice,
+            pollDurationDays
         });
         return response;
     },
@@ -74,6 +80,10 @@ export const feedService = {
 
     reactToPost: async (postId: string, type: string) => {
         return api.post<{ success: boolean; reactions: Record<string, string[]> }>(`/api/SocialFeed/posts/${postId}/react`, { type });
+    },
+
+    votePoll: async (postId: string, optionIndex: number) => {
+        return api.post<{ success: boolean; pollOptions: any[] }>(`/api/SocialFeed/posts/${postId}/vote`, optionIndex);
     },
 
     getComments: async (postId: string) => {
