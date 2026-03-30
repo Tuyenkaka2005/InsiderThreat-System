@@ -228,7 +228,7 @@ export default function TimelineTab() {
             case 'done': return '#10b981';
             case 'inprogress': return '#3b82f6';
             case 'inreview': return '#faad14';
-            default: return '#30363d';
+            default: return 'var(--color-border)'; // Dynamic color
         }
     };
 

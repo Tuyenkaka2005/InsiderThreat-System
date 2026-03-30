@@ -16,7 +16,19 @@ interface Project {
     privacy: 'PRIVATE' | 'PUBLIC';
     category: string;
     coverImage?: string;
+    status: string;
+    memberAvatars?: string[];
+    startDate?: string;
+    endDate?: string;
+    createdAt?: string;
 }
+
+const KANBAN_COLUMNS = [
+    { id: 'New', title: 'Dự án mới', status: 'New', colorClass: 'kanban-col-new' },
+    { id: 'InProgress', title: 'Đang thực hiện', status: 'InProgress', colorClass: 'kanban-col-progress' },
+    { id: 'OnHold', title: 'Tạm dừng', status: 'OnHold', colorClass: 'kanban-col-hold' },
+    { id: 'Completed', title: 'Hoàn thành', status: 'Completed', colorClass: 'kanban-col-done' }
+];
 
 export default function ProjectsPage() {
     const { t } = useTranslation();
@@ -32,6 +44,11 @@ export default function ProjectsPage() {
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [searchUserQuery, setSearchUserQuery] = useState('');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    
+    // View and Filter State
+    const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+    const [privacyFilter, setPrivacyFilter] = useState('Tất cả quyền');
+    const [timeFilter, setTimeFilter] = useState('Tuần này');
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -40,30 +57,46 @@ export default function ProjectsPage() {
     }, []);
 
     useEffect(() => {
-        if (showCreate) {
-            userService.getAllUsers().then(setAllUsers).catch(console.error);
-        }
-    }, [showCreate]);
-
-    useEffect(() => {
-        const loadProjects = async () => {
+        const fetchInitialData = async () => {
             try {
+                // Fetch users first so we can map avatars
+                const users = await userService.getAllUsers();
+                setAllUsers(users);
+
                 const fetchedProjects = await api.get<any[]>('/api/groups?isProject=true');
-                const realProjects = fetchedProjects.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    description: p.description,
-                    members: p.memberIds?.length || 1,
-                    category: 'Dự án',
-                    privacy: (p.privacy || 'PUBLIC').toUpperCase() as 'PUBLIC' | 'PRIVATE',
-                    coverImage: p.coverUrl || 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=200&fit=crop'
-                }));
+                
+                const realProjects = fetchedProjects.map(p => {
+                    // Match member IDs to fetched user objects
+                    const memberIds = p.memberIds || [];
+                    const matchedUsers = memberIds.map((id: string) => users.find(u => u.id === id)).filter(Boolean) as User[];
+                    
+                    const avatars = matchedUsers.slice(0, 3).map(u => 
+                        u.avatarUrl?.startsWith('http') ? u.avatarUrl 
+                        : (u.avatarUrl ? `${API_BASE_URL}${u.avatarUrl}` : `https://ui-avatars.com/api/?name=${u.fullName || u.username}&background=random&color=fff&size=32`)
+                    );
+                    
+                    return {
+                        id: p.id,
+                        name: p.name,
+                        description: p.description,
+                        members: memberIds.length || 1,
+                        category: 'Dự án',
+                        privacy: (p.privacy || 'PUBLIC').toUpperCase() as 'PUBLIC' | 'PRIVATE',
+                        coverImage: p.coverUrl || 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=200&fit=crop',
+                        status: p.status || 'New',
+                        startDate: p.projectStartDate,
+                        endDate: p.projectEndDate,
+                        createdAt: p.createdAt,
+                        memberAvatars: avatars.length > 0 ? avatars : [`https://ui-avatars.com/api/?name=P&background=random&color=fff&size=32`]
+                    };
+                });
                 setProjects(realProjects);
             } catch (err) {
-                console.error("Failed to fetch projects", err);
+                console.error("Failed to fetch initial page data", err);
             }
         };
-        loadProjects();
+
+        fetchInitialData();
     }, []);
 
     const handleAccessProject = (projectId: string) => {
@@ -83,6 +116,67 @@ export default function ProjectsPage() {
             alert('Xóa dự án thất bại.');
         }
     };
+
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, projectId: string) => {
+        e.dataTransfer.setData('projectId', projectId);
+    };
+
+    const handleDrop = async (e: React.DragEvent<HTMLDivElement>, newStatus: string) => {
+        e.preventDefault();
+        const projectId = e.dataTransfer.getData('projectId');
+        if (!projectId) return;
+
+        const projectToMove = projects.find(p => p.id === projectId);
+        if (!projectToMove || projectToMove.status === newStatus) return;
+
+        // Optimistic UI update
+        setProjects(prevProjects => 
+            prevProjects.map(p => p.id === projectId ? { ...p, status: newStatus } : p)
+        );
+
+        try {
+            await api.patch(`/api/groups/${projectId}`, { status: newStatus });
+        } catch (err) {
+            console.error("Failed to update project status", err);
+            // Revert on failure
+            setProjects(prevProjects => 
+                prevProjects.map(p => p.id === projectId ? { ...p, status: projectToMove.status } : p)
+            );
+            alert("Không thể cập nhật trạng thái dự án.");
+        }
+    };
+
+    const getFilteredProjects = () => {
+        let filtered = [...projects];
+
+        // Privacy Filter
+        if (privacyFilter === 'Công khai') {
+            filtered = filtered.filter(p => p.privacy === 'PUBLIC');
+        } else if (privacyFilter === 'Riêng tư') {
+            filtered = filtered.filter(p => p.privacy === 'PRIVATE');
+        }
+
+        // Time Filter (Simplistic mock logic for now, in real app would use date comparisons)
+        if (timeFilter === 'Tuần này') {
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            filtered = filtered.filter(p => {
+                const created = p.createdAt ? new Date(p.createdAt) : new Date();
+                return created >= oneWeekAgo;
+            });
+        } else if (timeFilter === 'Tháng này') {
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            filtered = filtered.filter(p => {
+                const created = p.createdAt ? new Date(p.createdAt) : new Date();
+                return created >= startOfMonth;
+            });
+        }
+
+        return filtered;
+    };
+
+    const displayProjects = getFilteredProjects();
 
     const filteredUsers = searchUserQuery 
         ? allUsers.filter(u => 
@@ -106,56 +200,229 @@ export default function ProjectsPage() {
             <div className="groupsPage-main-wrapper">
                 <div className="groupsPage">
                     {/* Header */}
-                    <div className="groupsHeader">
+                    <div className="groupsHeader" style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: '16px', marginBottom: '24px' }}>
                         <div>
-                            <h1 className="groupsTitle">Dự án</h1>
-                            <p className="groupsSubtitle">Quản lý và theo dõi tiến độ công việc theo từng dự án lớn.</p>
+                            <h1 className="groupsTitle">Dự án / Tất cả dự án</h1>
+                            <p className="groupsSubtitle">Quản lý và theo dõi tiến độ công việc theo Kanban.</p>
                         </div>
-                        <button className="createGroupBtn" onClick={() => setShowCreate(true)}>
-                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>rocket_launch</span>
-                            TẠO DỰ ÁN MỚI
-                        </button>
+                        {/* We hide the old create button here, now moved to toolbar */}
                     </div>
 
-                    {/* "Your Projects" Section */}
-                    <div className="sectionTitle">Dự án của bạn ({projects.length})</div>
-                    <div className="groupsGrid">
-                        {projects.map(project => (
-                            <div key={project.id} className="groupCard">
-                                <div className="groupCoverWrap">
-                                    {project.coverImage ? (
-                                        <img src={project.coverImage} alt={project.name} className="groupCoverImg" />
-                                    ) : (
-                                        <div className="groupCoverPlaceholder">
-                                            <span className="material-symbols-outlined">rocket_launch</span>
-                                        </div>
-                                    )}
-                                    <span className={`privacyBadge ${project.privacy === 'PRIVATE' ? 'badgePrivate' : 'badgePublic'}`}>
-                                        {project.privacy}
-                                    </span>
-                                    <button 
-                                        className="deleteGroupBtn" 
-                                        onClick={(e) => handleDeleteProject(e, project)}
-                                        title="Xóa dự án"
-                                    >
-                                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
-                                    </button>
-                                </div>
-                                <div className="groupBody">
-                                    <div className="groupName">{project.name}</div>
-                                    <div className="groupMeta">
-                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>group</span>
-                                        {project.members} THÀNH VIÊN
-                                        {project.category && <> • {project.category}</>}
-                                    </div>
-                                    <div className="groupDesc">{project.description}</div>
-                                    <button className="accessBtn" onClick={() => handleAccessProject(project.id)}>
-                                        TRUY CẬP
-                                    </button>
-                                </div>
+                    {/* Top Control Bar Area */}
+                    <div className="boardToolbar">
+                        <div className="viewToggles">
+                            <button 
+                                className={`viewBtn ${viewMode === 'list' ? 'active' : ''}`}
+                                onClick={() => setViewMode('list')}
+                            >
+                                <span className="material-symbols-outlined">view_list</span> List View
+                            </button>
+                            <button 
+                                className={`viewBtn ${viewMode === 'board' ? 'active' : ''}`}
+                                onClick={() => setViewMode('board')}
+                            >
+                                <span className="material-symbols-outlined">grid_view</span> Board View
+                            </button>
+                        </div>
+                        <div className="filterControls">
+                            <div className="filterGroup">
+                                <span className="material-symbols-outlined">person</span>
+                                <select 
+                                    className="filterSelect"
+                                    value={privacyFilter}
+                                    onChange={(e) => setPrivacyFilter(e.target.value)}
+                                >
+                                    <option>Tất cả quyền</option>
+                                    <option>Công khai</option>
+                                    <option>Riêng tư</option>
+                                </select>
                             </div>
-                        ))}
+                            <div className="filterGroup">
+                                <select 
+                                    className="filterSelect"
+                                    value={timeFilter}
+                                    onChange={(e) => setTimeFilter(e.target.value)}
+                                >
+                                    <option>Tất cả</option>
+                                    <option>Tuần này</option>
+                                    <option>Tháng này</option>
+                                </select>
+                            </div>
+                            <button className="createCardBtn" onClick={() => setShowCreate(true)}>
+                                <span>+ TẠO DỰ ÁN MỚI</span>
+                            </button>
+                        </div>
                     </div>
+
+                    {/* Content Area - Switch between Board and List */}
+                    {viewMode === 'board' ? (
+                        <div className="kanbanBoard">
+                            {KANBAN_COLUMNS.map(col => {
+                                const columnProjects = displayProjects.filter(p => p.status === col.status);
+                                return (
+                                    <div key={col.id} className="kanbanColumn">
+                                        <div className="kanbanColumnHeader">
+                                            <div className="kColTitle">
+                                                <span className="material-symbols-outlined" style={{fontSize: 16}}>add</span>
+                                                {col.title}
+                                            </div>
+                                            <div className={`kColBadge ${col.colorClass}`}>{columnProjects.length}</div>
+                                        </div>
+                                        <div 
+                                            className="kanbanColumnBody"
+                                            onDragOver={(e) => e.preventDefault()}
+                                            onDrop={(e) => handleDrop(e, col.status)}
+                                        >
+                                            {columnProjects.map(project => (
+                                                <div 
+                                                    key={project.id} 
+                                                    className="kanbanCard" 
+                                                    onClick={() => handleAccessProject(project.id)}
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, project.id)}
+                                                >
+                                                    <div className="kCardTopBar">
+                                                        <div className="kCardTags">
+                                                            <span className={`kTag kTagStatus ${col.colorClass}`}>
+                                                                <span className="material-symbols-outlined" style={{fontSize: 12}}>interests</span>
+                                                                {col.title}
+                                                            </span>
+                                                            <span className={`kTag kTagPrivacy ${project.privacy === 'PRIVATE' ? 'tagPrivate' : 'tagPublic'}`}>
+                                                                | {project.privacy === 'PRIVATE' ? 'Private' : 'Public'}
+                                                            </span>
+                                                        </div>
+                                                        <button className="kCardMenuBtn" onClick={(e) => { e.stopPropagation(); handleDeleteProject(e, project); }} title="Xóa dự án">
+                                                            <span className="material-symbols-outlined">delete</span>
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="kCardMain">
+                                                        <div className="kCardIconWrapper">
+                                                            <span className="material-symbols-outlined">rocket_launch</span>
+                                                        </div>
+                                                        <div className="kCardInfo">
+                                                            <div className="kCardTitle">{project.name}</div>
+                                                            <div className="kCardId">ID: PRJ-{project.id?.substring(0, 4).toUpperCase()}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="kCardDatesWrapper" style={{ minHeight: '44px' }}>
+                                                        <div className="kCardDateRow">
+                                                            <span className="material-symbols-outlined" style={{fontSize: 14}}>event_note</span>
+                                                            <span>Tạo ngày: {project.createdAt ? new Date(project.createdAt).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN')}</span>
+                                                        </div>
+                                                        
+                                                        <div className="kCardDateRow">
+                                                            <span className="material-symbols-outlined" style={{fontSize: 14}}>calendar_today</span>
+                                                            {(project.startDate || project.endDate) ? (
+                                                                <span>Hạn: {project.startDate ? new Date(project.startDate).toLocaleDateString('vi-VN') : '...'} - {project.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : '...'}</span>
+                                                            ) : (
+                                                                <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '11px' }}>
+                                                                    Chưa thiết lập hạn
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="kCardFooter">
+                                                        <div className="kCardMembers">
+                                                            <div className="kCardAvatars">
+                                                                {project.memberAvatars?.map((avatar, i) => (
+                                                                    <img key={i} src={avatar} alt="Member" className="kCardAvatarImg" />
+                                                                ))}
+                                                            </div>
+                                                            {project.members} Thành viên
+                                                        </div>
+                                                        <div className="kCardPrice">
+                                                            <button className="kAccessBtn">Truy cập</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="listViewContainer">
+                            <table className="projectsListTable">
+                                <thead>
+                                    <tr>
+                                        <th>Tên dự án</th>
+                                        <th>Ngày khởi tạo</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thành viên</th>
+                                        <th>Thời hạn</th>
+                                        <th>Quyền</th>
+                                        <th>Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {displayProjects.map(project => (
+                                        <tr key={project.id} onClick={() => handleAccessProject(project.id)} className="clickableRow">
+                                            <td>
+                                                <div className="listProjectTitle">
+                                                    <span className="material-symbols-outlined projIcon">rocket_launch</span>
+                                                    <div>
+                                                        <div className="pName">{project.name}</div>
+                                                        <div className="pId">PRJ-{project.id?.substring(0, 4).toUpperCase()}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div style={{ fontWeight: 500, color: '#4b5563' }}>
+                                                    {project.createdAt ? new Date(project.createdAt).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN')}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span className={`listStatusBadge ${KANBAN_COLUMNS.find(c => c.status === project.status)?.colorClass}`}>
+                                                    {KANBAN_COLUMNS.find(c => c.status === project.status)?.title}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div className="listMembers">
+                                                    <div className="listAvatars">
+                                                        {project.memberAvatars?.map((av, i) => (
+                                                            <img key={i} src={av} alt="M" />
+                                                        ))}
+                                                    </div>
+                                                    <span>{project.members} CTV</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="listDates">
+                                                    {project.startDate ? new Date(project.startDate).toLocaleDateString('vi-VN') : '...'} - {project.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : '...'}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span className={`privacyTag ${project.privacy === 'PRIVATE' ? 'isPrivate' : 'isPublic'}`}>
+                                                    {project.privacy === 'PRIVATE' ? 'Riêng tư' : 'Công khai'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div className="listActions">
+                                                    <button className="rowActionBtn" onClick={(e) => { e.stopPropagation(); handleDeleteProject(e, project); }}>
+                                                        <span className="material-symbols-outlined">delete</span>
+                                                    </button>
+                                                    <button className="rowActionBtn access" onClick={(e) => { e.stopPropagation(); handleAccessProject(project.id); }}>
+                                                        <span className="material-symbols-outlined">login</span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {displayProjects.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                                                Không có dự án nào khớp với bộ lọc.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
 
                     {/* Create Project Modal */}
                     {showCreate && (
@@ -293,7 +560,14 @@ export default function ProjectsPage() {
                                                     members: p.memberIds?.length || 1,
                                                     category: 'Dự án',
                                                     privacy: (p.privacy || 'PRIVATE').toUpperCase() as 'PUBLIC' | 'PRIVATE',
-                                                    coverImage: p.coverUrl || `https://picsum.photos/seed/${Date.now()}/400/200`
+                                                    coverImage: p.coverUrl || `https://picsum.photos/seed/${Date.now()}/400/200`,
+                                                    status: p.status || 'New',
+                                                    startDate: p.projectStartDate,
+                                                    endDate: p.projectEndDate,
+                                                    createdAt: p.createdAt || new Date().toISOString(),
+                                                    memberAvatars: Array.from({length: Math.min(p.memberIds?.length || 1, 3)}).map((_, i) => 
+                                                        `https://ui-avatars.com/api/?name=M${i+1}&background=random&color=fff&size=32`
+                                                    )
                                                 };
                                                 
                                                 setProjects([newProject, ...projects]);

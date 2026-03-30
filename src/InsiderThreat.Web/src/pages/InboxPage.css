@@ -186,3 +186,53 @@
         margin-right: 12px;
     }
 }
+
+/* Floating 'Tin nhắn' Button */
+.inbox-chat-button {
+    position: fixed;
+    bottom: 24px;
+    right: 90px; /* Sit to the left of the AI button (which is at right: 24px) */
+    background: #262626; /* Instagram-like Dark */
+    color: #ffffff;
+    padding: 10px 24px;
+    border-radius: 100px; /* Perfect pill shape */
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    z-index: 1000;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-weight: 600;
+    font-size: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.inbox-chat-button:hover {
+    transform: translateY(-4px);
+    background: #333333;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.chat-button-icon {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+}
+
+.inbox-chat-button:hover .chat-button-icon {
+    transform: rotate(-10deg) scale(1.1);
+}
+
+/* Position adjustment for mobile to clear navigation bar */
+@media (max-width: 768px) {
+    .inbox-chat-button {
+        bottom: calc(var(--bottom-nav-height) + 80px);
+        right: 16px;
+        padding: 8px 20px;
+        font-size: 14px;
+    }
+}
+
+/* Restore global AI chat bubble visibility */
+/* (Previously we had hiding logic here, now removed) */

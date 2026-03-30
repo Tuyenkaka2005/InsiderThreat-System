@@ -85,11 +85,12 @@ export default function InboxPage() {
     };
 
     return (
-        <div className="inbox-container">
+        <div className="inbox-container inbox-page">
             {!isMobile && <LeftSidebar defaultCollapsed={true} />}
             
             <div className="inbox-main-wrapper">
                 <main className="inbox-content animate-in">
+                    {/* ... Existing header and list content ... */}
                     <header className="inbox-header">
                         <div className="header-left">
                             <Title level={2} className="inbox-title">Inbox</Title>
@@ -166,6 +167,14 @@ export default function InboxPage() {
                 </main>
             </div>
             
+            {/* Floating 'Tin nhắn' Button */}
+            <div className="inbox-chat-button" onClick={() => navigate('/chat')}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="chat-button-icon">
+                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path>
+                </svg>
+                <span>Tin nhắn</span>
+            </div>
+
             {isMobile && <BottomNavigation />}
         </div>
     );

@@ -10,9 +10,17 @@ interface SynchroHeaderProps {
     breadcrumb: { label: string; active?: boolean }[];
     members?: { id: string; fullName: string; username: string; avatarUrl: string }[];
     onInviteClick?: () => void;
+    status?: string;
+    privacy?: string;
 }
 
-export default function SynchroHeader({ breadcrumb, members = [], onInviteClick }: SynchroHeaderProps) {
+export default function SynchroHeader({ 
+    breadcrumb, 
+    members = [], 
+    onInviteClick, 
+    status, 
+    privacy 
+}: SynchroHeaderProps) {
     return (
         <header className={styles.header}>
             <div className={styles.breadcrumbWrapper}>
@@ -20,6 +28,12 @@ export default function SynchroHeader({ breadcrumb, members = [], onInviteClick 
                     <React.Fragment key={index}>
                         <div className={`${styles.breadcrumbItem} ${item.active ? styles.active : ''}`}>
                             {item.label}
+                            {item.active && (status || privacy) && (
+                                <div className={styles.headerBadges}>
+                                    {status && <span className={`${styles.badge} ${styles['badge' + status]}`}>{status}</span>}
+                                    {privacy && <span className={`${styles.badge} ${styles.badgePrivacy}`}>{privacy}</span>}
+                                </div>
+                            )}
                         </div>
                         {index < breadcrumb.length - 1 && (
                             <RightOutlined className={styles.separator} />

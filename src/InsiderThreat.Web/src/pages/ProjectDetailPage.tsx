@@ -28,12 +28,18 @@ export default function ProjectDetailPage() {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [groupName, setGroupName] = useState<string>('');
+    const [projectStatus, setProjectStatus] = useState<string>('');
+    const [projectPrivacy, setProjectPrivacy] = useState<string>('');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [members, setMembers] = useState<any[]>([]);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [searchUserQuery, setSearchUserQuery] = useState('');
     const [showSidebar, setShowSidebar] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editForm, setEditForm] = useState({
+        name: '', description: '', startDate: '', endDate: '', privacy: 'Public'
+    });
 
     const fetchMembers = async () => {
         try {
@@ -49,6 +55,15 @@ export default function ProjectDetailPage() {
             try {
                 const res = await api.get<any>(`/api/groups/${id}`);
                 setGroupName(res.name);
+                setProjectStatus(res.status || 'New');
+                setProjectPrivacy(res.privacy || 'Public');
+                setEditForm({
+                    name: res.name || '',
+                    description: res.description || '',
+                    privacy: res.privacy || 'Public',
+                    startDate: res.projectStartDate ? new Date(res.projectStartDate).toISOString().split('T')[0] : '',
+                    endDate: res.projectEndDate ? new Date(res.projectEndDate).toISOString().split('T')[0] : ''
+                });
             } catch (err) {
                 console.error('Failed to fetch group name', err);
             }
@@ -131,6 +146,8 @@ export default function ProjectDetailPage() {
                             { label: 'Projects' },
                             { label: groupName || 'Loading...', active: true }
                         ]} 
+                        status={projectStatus}
+                        privacy={projectPrivacy}
                         members={members}
                         onInviteClick={() => {
                             if (!allUsers.length) {
@@ -156,7 +173,7 @@ export default function ProjectDetailPage() {
                                 ))}
                             </div>
                             <div className="project-actions">
-                                <button className="proj-action-btn">
+                                <button className="proj-action-btn" onClick={() => setShowEditModal(true)} title="Cấu hình dự án">
                                     <span className="material-symbols-outlined">settings</span>
                                 </button>
                                 {!['1', '2', '3', '4'].includes(id || '') && (
@@ -227,6 +244,94 @@ export default function ProjectDetailPage() {
                         </div>
                         <div className="modalActions">
                             <button className="btnCancel" onClick={() => setShowInviteModal(false)}>Đóng</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Project Settings Modal */}
+            {showEditModal && (
+                <div className="modalBackdrop" onClick={() => setShowEditModal(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()}>
+                        <h3 className="modalTitle">Cấu hình dự án</h3>
+                        <div className="formRow">
+                            <label className="formLabel">Tên dự án</label>
+                            <input
+                                className="formInput"
+                                value={editForm.name}
+                                onChange={e => setEditForm(prev => ({...prev, name: e.target.value}))}
+                                placeholder="Nhập tên dự án..."
+                            />
+                        </div>
+                        <div className="formRow">
+                            <label className="formLabel">Mô tả</label>
+                            <textarea
+                                className="formTextarea"
+                                value={editForm.description}
+                                onChange={e => setEditForm(prev => ({...prev, description: e.target.value}))}
+                                placeholder="Khái quát thông tin dự án..."
+                            />
+                        </div>
+                        <div className="formRowGroup">
+                            <div className="formRow">
+                                <label className="formLabel">Ngày bắt đầu</label>
+                                <input
+                                    type="date"
+                                    className="formInput"
+                                    value={editForm.startDate}
+                                    onChange={e => setEditForm(prev => ({...prev, startDate: e.target.value}))}
+                                />
+                            </div>
+                            <div className="formRow">
+                                <label className="formLabel">Ngày kết thúc</label>
+                                <input
+                                    type="date"
+                                    className="formInput"
+                                    value={editForm.endDate}
+                                    onChange={e => setEditForm(prev => ({...prev, endDate: e.target.value}))}
+                                />
+                            </div>
+                        </div>
+                        <div className="formRow">
+                            <label className="formLabel">Quyền riêng tư</label>
+                            <select
+                                className="formInput"
+                                value={editForm.privacy}
+                                onChange={e => setEditForm(prev => ({...prev, privacy: e.target.value}))}
+                            >
+                                <option value="Public">Công khai</option>
+                                <option value="Private">Riêng tư</option>
+                            </select>
+                        </div>
+                        <div className="modalActions">
+                            <button className="btnCancel" onClick={() => setShowEditModal(false)}>Hủy</button>
+                            <button 
+                                className="btnCreate"
+                                onClick={async () => {
+                                    if (!editForm.name.trim()) {
+                                        alert('Vui lòng không để trống tên dự án!');
+                                        return;
+                                    }
+                                    try {
+                                        await api.patch(`/api/groups/${id}`, {
+                                            name: editForm.name,
+                                            description: editForm.description,
+                                            privacy: editForm.privacy,
+                                            projectStartDate: editForm.startDate ? new Date(editForm.startDate).toISOString() : null,
+                                            projectEndDate: editForm.endDate ? new Date(editForm.endDate).toISOString() : null,
+                                        });
+                                        setGroupName(editForm.name);
+                                        setProjectPrivacy(editForm.privacy);
+                                        setShowEditModal(false);
+                                        // Optional: Fire a minor visually pleasing notification instead of alert if we had one
+                                    } catch (err) {
+                                        console.error('Update group settings failed', err);
+                                        alert('Lỗi cập nhật cấu hình dự án!');
+                                    }
+                                }}
+                            >
+                                Lưu thay đổi
+                            </button>
                         </div>
                     </div>
                 </div>

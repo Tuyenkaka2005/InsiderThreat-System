@@ -33,10 +33,17 @@
 
 /* --- Main Gantt Layout --- */
 .timeline-container {
-    background: var(--color-surface);
+    background: #f1f5f9; /* Changed to Light Gray for better tone matching */
     border: 1px solid var(--color-border);
     border-radius: 16px;
     overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+}
+
+:global(.dark) .timeline-container {
+    background: #0b0e14; /* Stay navy in dark mode */
+    border-color: #1e293b;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
 .timeline-body-wrapper {
@@ -49,6 +56,11 @@
     border-right: 1px solid var(--color-border);
     background: var(--color-surface-lighter);
     flex-shrink: 0;
+}
+
+:global(.dark) .tl-left-panel {
+    background: #111827;
+    border-right-color: #1e293b;
 }
 
 .tl-col-heading {
@@ -107,6 +119,11 @@
     display: flex;
     border-bottom: 1px solid var(--color-border);
     background: var(--color-surface-lighter);
+}
+
+:global(.dark) .tl-time-header {
+    background: #111827; /* Darker header for dark mode */
+    border-bottom-color: #1e293b;
 }
 
 .tl-time-col {

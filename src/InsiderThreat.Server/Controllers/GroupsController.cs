@@ -130,6 +130,15 @@ namespace InsiderThreat.Server.Controllers
                     .Find(filter)
                     .SortBy(g => g.Name)
                     .ToListAsync();
+
+                // Auto-restore any corrupted project names due to the previous patch bug
+                foreach(var g in groups) {
+                    if (string.IsNullOrEmpty(g.Name)) {
+                        g.Name = "Dự án (Khôi phục)";
+                        await _groups.UpdateOneAsync(x => x.Id == g.Id, Builders<Group>.Update.Set(x => x.Name, g.Name).Set(x => x.Status, "New"));
+                    }
+                }
+
                 return Ok(groups);
             }
             catch (Exception ex)
@@ -172,6 +181,7 @@ namespace InsiderThreat.Server.Controllers
                     AdminIds = new List<string> { userId },
                     MemberIds = request.MemberIds ?? new List<string> { userId },
                     IsProject = request.IsProject,
+                    Status = request.Status ?? "New",
                     ProjectStartDate = request.ProjectStartDate,
                     ProjectEndDate = request.ProjectEndDate,
                     CreatedAt = DateTime.UtcNow
@@ -186,19 +196,27 @@ namespace InsiderThreat.Server.Controllers
             }
         }
 
-        // PATCH: api/Groups/{id}
         [HttpPatch("{id}")]
         public async Task<IActionResult> UpdateGroup(string id, [FromBody] UpdateGroupRequest request)
         {
-            var update = Builders<Group>.Update
-                .Set(g => g.Name, request.Name)
-                .Set(g => g.Description, request.Description)
-                .Set(g => g.ProjectStartDate, request.ProjectStartDate)
-                .Set(g => g.ProjectEndDate, request.ProjectEndDate)
-                .Set(g => g.Milestones, request.Milestones)
-                .Set(g => g.UpdatedAt, DateTime.UtcNow);
+            var updateBuilder = Builders<Group>.Update;
+            var updates = new List<UpdateDefinition<Group>>();
 
+            if (request.Name != null) updates.Add(updateBuilder.Set(g => g.Name, request.Name));
+            if (request.Description != null) updates.Add(updateBuilder.Set(g => g.Description, request.Description));
+            if (request.ProjectStartDate.HasValue) updates.Add(updateBuilder.Set(g => g.ProjectStartDate, request.ProjectStartDate));
+            // if we want to support clearing dates, we'd need a different approach, but this is safe for patches
+            if (request.ProjectEndDate.HasValue) updates.Add(updateBuilder.Set(g => g.ProjectEndDate, request.ProjectEndDate));
+            if (request.Milestones != null) updates.Add(updateBuilder.Set(g => g.Milestones, request.Milestones));
+            if (request.IsPriority.HasValue) updates.Add(updateBuilder.Set(g => g.IsPriority, request.IsPriority.Value));
+            if (!string.IsNullOrEmpty(request.Status)) updates.Add(updateBuilder.Set(g => g.Status, request.Status));
+            if (!string.IsNullOrEmpty(request.Privacy)) updates.Add(updateBuilder.Set(g => g.Privacy, request.Privacy));
+
+            updates.Add(updateBuilder.Set(g => g.UpdatedAt, DateTime.UtcNow));
+
+            var update = updateBuilder.Combine(updates);
             await _groups.UpdateOneAsync(g => g.Id == id, update);
+
             return Ok(new { message = "Cập nhật thành công" });
         }
 
@@ -601,6 +619,7 @@ namespace InsiderThreat.Server.Controllers
         public string? Privacy { get; set; }
         public List<string>? MemberIds { get; set; }
         public bool IsProject { get; set; }
+        public string? Status { get; set; }
         public DateTime? ProjectStartDate { get; set; }
         public DateTime? ProjectEndDate { get; set; }
         public List<ProjectMilestone>? Milestones { get; set; }
@@ -610,9 +629,12 @@ namespace InsiderThreat.Server.Controllers
     {
         public string? Name { get; set; }
         public string? Description { get; set; }
+        public string? Status { get; set; }
+        public string? Privacy { get; set; }
         public DateTime? ProjectStartDate { get; set; }
         public DateTime? ProjectEndDate { get; set; }
         public List<ProjectMilestone>? Milestones { get; set; }
+        public bool? IsPriority { get; set; }
     }
 
     public class AddMemberRequest

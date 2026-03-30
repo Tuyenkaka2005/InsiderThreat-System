@@ -232,14 +232,20 @@
 
 /* ─── Task Timeline (Mock) ─── */
 .task-timeline-wrapper {
-    background: #0f172a; /* Deep dark blue for premium look */
+    background: #f1f5f9; /* Light gray for light mode */
     border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--color-border);
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     position: relative;
     overflow: hidden;
+}
+
+:global(.dark) .task-timeline-wrapper {
+    background: #0f172a; /* Deep dark blue for premium look */
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .task-timeline-wrapper::before {
@@ -249,6 +255,10 @@
     left: 0;
     right: 0;
     height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-border), transparent);
+}
+
+:global(.dark) .task-timeline-wrapper::before {
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
 }
 

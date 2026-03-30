@@ -65,7 +65,7 @@ export const ChatWidget: React.FC = () => {
     };
 
     return (
-        <div className={styles.widgetContainer}>
+        <div className={`${styles.widgetContainer} chat-widget-global`}>
             {/* Floating Button */}
             {!isOpen && (
                 <Tooltip title="Chat với AI" placement="left">

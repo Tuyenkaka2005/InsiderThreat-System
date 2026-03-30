@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { message, Modal, Avatar } from 'antd';
+import { message, Modal, Avatar, List, Checkbox, Spin } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { authService } from '../services/auth';
 import { attendanceService } from '../services/attendanceService';
 import { useTheme } from '../context/ThemeContext';
 import ThemeToggle from './ThemeToggle';
 import LanguageToggle from './LanguageToggle';
+import { api } from '../services/api';
 import styles from './LeftSidebar.module.css';
 
 interface LeftSidebarProps {
@@ -19,7 +20,27 @@ export default function LeftSidebar({ defaultCollapsed = false }: LeftSidebarPro
     const { t } = useTranslation();
 
     const [user, setUser] = useState(authService.getCurrentUser());
+    const [allProjects, setAllProjects] = useState<any[]>([]);
+    const [isFavouriteExpanded, setIsFavouriteExpanded] = useState(true);
     const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const fetchProjects = async () => {
+        try {
+            setLoading(true);
+            const fetchedProjects = await api.get<any[]>('/api/groups?isProject=true');
+            setAllProjects(fetchedProjects);
+        } catch (error) {
+            console.error('Failed to fetch projects for sidebar', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchProjects();
+    }, []);
 
     useEffect(() => {
         const handleUserUpdate = (e: any) => {
@@ -45,11 +66,26 @@ export default function LeftSidebar({ defaultCollapsed = false }: LeftSidebarPro
         ...(isAdmin ? [{ icon: 'security', label: t('nav.monitor_logs', 'Agent System'), path: '/monitor-logs' }] : []),
     ];
 
-    const favouriteItems = [
-        { icon: 'list', label: 'ABC Projects - Dashboard', path: '/groups/1' },
-        { icon: 'list', label: 'Kiara Projects - Website', path: '/groups/2' },
-        { icon: 'list', label: 'Dribbble Shot', path: '/groups/3' },
-    ];
+    const favouriteItems = allProjects.filter((p: any) => p.isPriority).map((p: any) => ({
+        id: p.id,
+        icon: 'list',
+        label: p.name,
+        path: `/projects/${p.id}`
+    }));
+
+    const togglePriority = async (projectId: string, currentStatus: boolean) => {
+        try {
+            await api.patch(`/api/groups/${projectId}`, { isPriority: !currentStatus });
+            // Update local state to reflect change immediately
+            setAllProjects((prev: any[]) => prev.map((p: any) => 
+                p.id === projectId ? { ...p, isPriority: !currentStatus } : p
+            ));
+            message.success(t('nav.priority_updated', 'Đã cập nhật dự án ưu tiên'));
+        } catch (err) {
+            console.error('Failed to toggle priority', err);
+            message.error(t('nav.priority_error', 'Lỗi khi cập nhật trạng thái ưu tiên'));
+        }
+    };
 
     const handleNavigation = async (item: any) => {
         if (item.special && item.path === '/attendance') {
@@ -106,33 +142,100 @@ export default function LeftSidebar({ defaultCollapsed = false }: LeftSidebarPro
                                 className={`${styles.navItem} ${isActive ? styles.active : ''}`}
                                 onClick={() => handleNavigation(item)}
                             >
-                                <span className={`material-symbols-outlined ${styles.navIcon}`}>{item.icon}</span>
+                                <div className={styles.iconWrapper}>
+                                    <span className={`material-symbols-outlined ${styles.navIcon}`}>{item.icon}</span>
+                                    {item.badge && item.badge > 0 && (
+                                        <span className={styles.notificationBadgeOverlay}>{item.badge}</span>
+                                    )}
+                                </div>
                                 {!isCollapsed && <span className={styles.navLabel}>{item.label}</span>}
-                                {!isCollapsed && item.badge && <span className={styles.navBadge}>{item.badge}</span>}
+                                {!isCollapsed && item.badge && !['mail', 'inbox'].includes(item.icon) && (
+                                    <span className={styles.navBadge}>{item.badge}</span>
+                                )}
                             </button>
                         );
                     })}
 
                     {!isCollapsed && (
                         <>
-                            <div className={styles.sectionHeader}>
-                                <span><span className="material-symbols-outlined" style={{fontSize: 14}}>expand_less</span> Favourite</span>
-                                <span className="material-symbols-outlined" style={{fontSize: 16, cursor: 'pointer'}}>add</span>
-                            </div>
-                            {favouriteItems.map(item => (
-                                <button
-                                    key={item.path}
-                                    className={`${styles.navItem} ${styles.favouriteItem}`}
-                                    onClick={() => handleNavigation(item)}
+                            <div className={styles.sectionHeader} onClick={() => setIsFavouriteExpanded(!isFavouriteExpanded)} style={{ cursor: 'pointer' }}>
+                                <span>
+                                    <span className={`material-symbols-outlined ${styles.toggleIcon} ${!isFavouriteExpanded ? styles.rotated : ''}`} style={{fontSize: 14}}>
+                                        expand_less
+                                    </span> 
+                                    Dự án ưu tiên
+                                </span>
+                                <span 
+                                    className="material-symbols-outlined" 
+                                    style={{fontSize: 16, cursor: 'pointer'}}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsModalOpen(true);
+                                    }}
+                                    title="Chọn dự án ưu tiên"
                                 >
-                                    <span className={`material-symbols-outlined ${styles.navIcon}`}>{item.icon}</span>
-                                    <span className={styles.navLabel}>{item.label}</span>
-                                </button>
-                            ))}
+                                    add
+                                </span>
+                            </div>
+                            <div className={`${styles.favouriteList} ${!isFavouriteExpanded ? styles.collapsedList : ''}`}>
+                                {favouriteItems.length === 0 ? (
+                                    <div className={styles.emptyPriorityTip}>
+                                        Chưa có dự án ưu tiên nào.
+                                    </div>
+                                ) : (
+                                    favouriteItems.map((item: any) => (
+                                        <button
+                                            key={item.path}
+                                            className={`${styles.navItem} ${styles.favouriteItem}`}
+                                            onClick={() => handleNavigation(item)}
+                                        >
+                                            <div className={styles.iconWrapper}>
+                                                <span className={`material-symbols-outlined ${styles.navIcon}`}>{item.icon}</span>
+                                            </div>
+                                            <span className={styles.navLabel}>{item.label}</span>
+                                        </button>
+                                    ))
+                                )}
+                            </div>
                         </>
                     )}
                 </div>
             </nav>
+
+            <Modal
+                title="Chọn Dự Án Ưu Tiên"
+                open={isModalOpen}
+                onCancel={() => setIsModalOpen(false)}
+                footer={null}
+                width={500}
+                className={styles.priorityModal}
+            >
+                <div style={{ maxHeight: '400px', overflowY: 'auto', padding: '8px 0' }}>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '20px' }}><Spin /></div>
+                    ) : (
+                        <List
+                            dataSource={allProjects}
+                            renderItem={(item: any) => (
+                                <List.Item
+                                    actions={[
+                                        <Checkbox 
+                                            checked={item.isPriority} 
+                                            onChange={() => togglePriority(item.id, !!item.isPriority)}
+                                        />
+                                    ]}
+                                >
+                                    <List.Item.Meta
+                                        avatar={<Avatar icon={<span className="material-symbols-outlined">rocket_launch</span>} />}
+                                        title={item.name}
+                                        description={item.description || "Không có mô tả"}
+                                    />
+                                </List.Item>
+                            )}
+                        />
+                    )}
+                </div>
+            </Modal>
 
             {/* Settings & Help Center & Logout */}
             <div className={styles.sidebarFooter}>

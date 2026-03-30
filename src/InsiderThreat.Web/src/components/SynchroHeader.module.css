@@ -27,6 +27,55 @@
     padding: 6px 12px;
     border-radius: 8px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.headerBadges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badgeNew {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badgeInProgress {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badgeOnHold {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badgeCompleted {
+    background: rgba(139, 92, 246, 0.15);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.badgePrivacy {
+    background: rgba(107, 114, 128, 0.1);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    font-weight: 500;
 }
 
 .separator {

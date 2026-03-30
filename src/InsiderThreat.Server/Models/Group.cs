@@ -52,6 +52,13 @@ namespace InsiderThreat.Server.Models
         [BsonElement("isProject")]
         public bool IsProject { get; set; } = false;
 
+        [BsonElement("isPriority")]
+        [JsonPropertyName("isPriority")]
+        public bool IsPriority { get; set; } = false;
+
+        [BsonElement("status")]
+        public string Status { get; set; } = "New"; // New, InProgress, OnHold, Completed
+
         [BsonElement("projectStartDate")]
         public DateTime? ProjectStartDate { get; set; }
 
