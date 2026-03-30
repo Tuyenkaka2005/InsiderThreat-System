@@ -49,11 +49,8 @@ function LoginPage() {
             }
 
             const role = response.user.role?.trim().toLowerCase();
-            if (role === 'admin' || role === 'giám đốc' || role === 'director') {
-                navigate('/dashboard');
-            } else {
-                navigate('/workspace');
-            }
+            // Tất cả user (bao gồm Admin/Giám đốc) đều vào trang workspace theo yêu cầu của bạn
+            navigate('/workspace');
         } catch (error: any) {
             const errMsg = error.response?.data?.message || t('auth.login_failed_desc', 'Login failed! Please check your credentials.');
             setErrorMessage(errMsg);

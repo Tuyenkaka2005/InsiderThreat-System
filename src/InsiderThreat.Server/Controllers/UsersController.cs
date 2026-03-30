@@ -97,9 +97,23 @@ public class UsersController : ControllerBase
         return CreatedAtAction(nameof(GetUser), new { id = newUser.Id }, newUser);
     }
 
+    public class UpdateUserDto
+    {
+        public string? FullName { get; set; }
+        public string? Role { get; set; }
+        public string? Department { get; set; }
+        public string? Email { get; set; }
+        public string? Position { get; set; }
+        public string? Bio { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? AvatarUrl { get; set; }
+        public string? ManagerId { get; set; }
+        public string? PasswordHash { get; set; }
+    }
+
     // PUT: api/users/{id}
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateUser(string id, User updatedUser)
+    public async Task<IActionResult> UpdateUser(string id, UpdateUserDto updatedUser)
     {
         _logger.LogInformation($"UpdateUser called for ID: {id}");
         _logger.LogInformation($"Received Data - FullName: {updatedUser.FullName}, Role: {updatedUser.Role}, Email: {updatedUser.Email}, AvatarUrl: {updatedUser.AvatarUrl}");
@@ -122,7 +136,12 @@ public class UsersController : ControllerBase
         if (!string.IsNullOrEmpty(updatedUser.AvatarUrl)) user.AvatarUrl = updatedUser.AvatarUrl;
 
         // Cập nhật người quản lý (ManagerId)
-        user.ManagerId = updatedUser.ManagerId;
+        // If ManagerId is explicitly set, update it. If we want to allow clearing manager, we might need a specific check, but for now we follow the existing behavior.
+        // Wait, the existing code: user.ManagerId = updatedUser.ManagerId; 
+        // With UpdateUserDto, ManagerId is nullable.
+        // If they send `managerId: ""` we can clear it. Wait, the frontend sends `{ managerId: managerId || "" }`.
+        // So we should update it if it's explicitly part of the request, or we can just always assign it if it's not null.
+        if (updatedUser.ManagerId != null) user.ManagerId = updatedUser.ManagerId;
 
         // user.Username thường không cho đổi để tránh conflict ID hệ thống khác
 

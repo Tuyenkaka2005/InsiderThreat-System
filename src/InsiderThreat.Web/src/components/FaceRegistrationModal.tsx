@@ -5,6 +5,7 @@ import * as faceapi from '@vladmandic/face-api';
 import { loadFaceApiModels, getFaceDetectorOptions } from '../services/faceApi';
 import { api } from '../services/api';
 import { useTranslation } from 'react-i18next';
+import { authService } from '../services/auth';
 import { LivenessDetector } from '../services/livenessService';
 import { validateVideoDevices } from '../services/deviceValidator';
 
@@ -145,8 +146,17 @@ function FaceRegistrationModal({ visible, onCancel, userId, userName }: FaceRegi
                 return;
             }
 
-            const descriptor = Array.from(finalDetection.descriptor);
+            const descriptor = Array.from(finalDetection.descriptor) as number[];
             await api.put(`/api/users/${userId}/face-embeddings`, descriptor);
+
+            // 🔄 Đồng bộ session nếu người được đăng ký chính là user hiện tại
+            const currentUser = authService.getCurrentUser();
+            if (currentUser && currentUser.id === userId) {
+                authService.dispatchUserUpdate({
+                    ...currentUser,
+                    faceEmbeddings: descriptor
+                });
+            }
 
             setPhase('done');
             message.success(t('face.success', 'Đăng ký Face ID bảo mật thành công!'));

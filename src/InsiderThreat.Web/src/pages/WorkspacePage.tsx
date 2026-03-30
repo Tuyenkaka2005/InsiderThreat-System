@@ -35,8 +35,17 @@ dayjs.extend(relativeTime);
 export default function WorkspacePage() {
     const { t } = useTranslation();
     const { message } = App.useApp();
-    const currentUser = authService.getCurrentUser();
+    const [currentUser, setCurrentUser] = useState<any>(authService.getCurrentUser());
     const navigate = useNavigate();
+
+    // Listen to user profile updates
+    useEffect(() => {
+        const handleUserUpdate = (e: any) => {
+            setCurrentUser(e.detail);
+        };
+        window.addEventListener('auth-user-updated', handleUserUpdate);
+        return () => window.removeEventListener('auth-user-updated', handleUserUpdate);
+    }, []);
 
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -257,7 +266,7 @@ export default function WorkspacePage() {
                                         <HistoryOutlined /> {t('workspace.btn_attendance', 'Điểm danh')}
                                     </div>
                                     {isManagerial && (
-                                        <Badge count={pendingLeaveCount} offset={[0, 0]} overflowCount={99}>
+                                        <Badge count={pendingLeaveCount} offset={[0, 0]} overflowCount={99} style={{ display: 'block' }}>
                                             <div className="action-card-glass" onClick={() => navigate('/leave-approvals')} style={{ background: 'rgba(59, 130, 246, 0.2)', borderColor: 'rgba(59, 130, 246, 0.4)' }}>
                                                 <CheckCircleOutlined /> {t('workspace.btn_approvals', 'Duyệt nghỉ phép')}
                                             </div>
@@ -350,8 +359,8 @@ export default function WorkspacePage() {
                         {/* Security Sidebar */}
                         <div className="space-y-6">
                             <div className="glass-panel fade-in-up security-badge-section" style={{ animationDelay: '0.6s' }}>
-                                <div className={`security-ring ${currentUser?.faceEmbeddings ? 'verified' : ''}`}>
-                                    {currentUser?.faceEmbeddings ? (
+                                <div className={`security-ring ${currentUser?.faceEmbeddings && currentUser.faceEmbeddings.length > 0 ? 'verified' : ''}`}>
+                                    {currentUser?.faceEmbeddings && currentUser.faceEmbeddings.length > 0 ? (
                                         <SafetyCertificateOutlined className="status-check-icon" />
                                     ) : (
                                         <ExclamationCircleOutlined className="status-check-icon text-orange-400" />
@@ -359,12 +368,12 @@ export default function WorkspacePage() {
                                 </div>
                                 <h3 className="font-bold text-lg">Trạng thái định danh</h3>
                                 <p className="text-sm text-gray-500 mt-1 mb-4">
-                                    {currentUser?.faceEmbeddings 
+                                    {currentUser?.faceEmbeddings && currentUser.faceEmbeddings.length > 0 
                                         ? 'Tài khoản của bạn đã được xác thực Face ID mức độ cao.' 
                                         : 'Vui lòng thiết lập Face ID trong hồ sơ để tăng cường bảo mật.'}
                                 </p>
-                                <Button type={currentUser?.faceEmbeddings ? "default" : "primary"} block shape="round" onClick={() => navigate('/profile')}>
-                                    {currentUser?.faceEmbeddings ? 'Quản lý bảo mật' : 'Thiết lập ngay'}
+                                <Button type={currentUser?.faceEmbeddings && currentUser.faceEmbeddings.length > 0 ? "default" : "primary"} block shape="round" onClick={() => navigate('/profile')}>
+                                    {currentUser?.faceEmbeddings && currentUser.faceEmbeddings.length > 0 ? 'Quản lý bảo mật' : 'Thiết lập ngay'}
                                 </Button>
                             </div>
 

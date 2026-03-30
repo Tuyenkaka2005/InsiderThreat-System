@@ -101,7 +101,8 @@ function FaceLoginPage() {
             if (response.token) {
                 message.success(t('auth.login_success', 'Login successful!'));
                 authService.setSession(response.user, response.token);
-                navigate('/feed');
+                // Chuyển hướng về workspace theo yêu cầu của bạn
+                navigate('/workspace');
             } else {
                 const errorMsg = t('auth.face_not_recognized', '❌ Khuôn mặt không khớp! Bạn chưa đăng ký Face ID hoặc khuôn mặt không được nhận diện.');
                 setErrorMessage(errorMsg);
