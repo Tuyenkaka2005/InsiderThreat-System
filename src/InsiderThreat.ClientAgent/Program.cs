@@ -8,7 +8,7 @@ if (args.Contains("--restore-usb"))
     return;
 }
 
-// builder.Services.AddHostedService<UsbService>();
+builder.Services.AddHostedService<UsbService>();
 
 var host = builder.Build();
 host.Run();
