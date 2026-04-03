@@ -410,10 +410,12 @@ export default function ChatPage() {
                     senderContent: plainText
                 } as any);
             } else {
-                // E2EE: Get receiver's public key
-                let receiverPublicKey = selectedUser.publicKey;
-                if (!receiverPublicKey) {
-                    receiverPublicKey = await chatService.getUserPublicKey(selectedUser.id);
+                // E2EE: Always fetch fresh public key from server to avoid stale cache
+                let receiverPublicKey: string | null = null;
+                try {
+                    receiverPublicKey = (await chatService.getUserPublicKey(selectedUser.id)) ?? null;
+                } catch {
+                    receiverPublicKey = selectedUser.publicKey ?? null;
                 }
 
                 // If receiver has public key, encrypt. Otherwise send plaintext
@@ -568,9 +570,12 @@ export default function ChatPage() {
             let encryptedForReceiver = plainText;
             let encryptedForSender: string | undefined;
 
-            let receiverPublicKey = selectedUser.publicKey;
-            if (!receiverPublicKey) {
-                receiverPublicKey = await chatService.getUserPublicKey(selectedUser.id);
+            // Always fetch fresh public key from server
+            let receiverPublicKey: string | null = null;
+            try {
+                receiverPublicKey = (await chatService.getUserPublicKey(selectedUser.id)) ?? null;
+            } catch {
+                receiverPublicKey = selectedUser.publicKey ?? null;
             }
 
             if (receiverPublicKey) {

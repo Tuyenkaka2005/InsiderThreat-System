@@ -109,38 +109,42 @@ export const cryptoService = {
         }
     },
 
-    // Store keys in localStorage
-    saveKeys: (publicKey: string, privateKey: string) => {
-        localStorage.setItem('chat_public_key', publicKey);
-        localStorage.setItem('chat_private_key', privateKey);
+    // Store keys in localStorage — keyed by userId to avoid cross-account conflicts
+    saveKeys: (userId: string, publicKey: string, privateKey: string) => {
+        localStorage.setItem(`chat_public_key_${userId}`, publicKey);
+        localStorage.setItem(`chat_private_key_${userId}`, privateKey);
     },
 
-    loadKeys: () => {
+    loadKeys: (userId: string) => {
         return {
-            publicKey: localStorage.getItem('chat_public_key'),
-            privateKey: localStorage.getItem('chat_private_key')
+            publicKey: localStorage.getItem(`chat_public_key_${userId}`),
+            privateKey: localStorage.getItem(`chat_private_key_${userId}`)
         };
     },
 
-    // Initialize E2EE keys: generate if not exists, upload public key to server
+    // Initialize E2EE keys: generate if not exists, always re-upload public key to keep server in sync
     initializeKeys: async (userId: string, uploadPublicKey: (userId: string, publicKey: string) => Promise<any>): Promise<{ publicKey: string; privateKey: CryptoKey }> => {
-        const stored = cryptoService.loadKeys();
+        const stored = cryptoService.loadKeys(userId);
 
         if (stored.publicKey && stored.privateKey) {
-            // Keys exist — import the private key and return
+            // Keys exist locally — import private key and re-upload public key to ensure server is in sync
             const privateKey = await cryptoService.importKey(stored.privateKey, 'private');
+            // Re-upload silently to keep server public key up-to-date (handles server DB resets, etc.)
+            uploadPublicKey(userId, stored.publicKey).catch(err =>
+                console.warn('[E2EE] Failed to re-sync public key with server:', err)
+            );
             return { publicKey: stored.publicKey, privateKey };
         }
 
-        // First time: Generate new key pair
+        // No local keys — Generate new key pair
         console.log('[E2EE] Generating new RSA key pair for user', userId);
         const keyPair = await cryptoService.generateKeyPair();
 
         const publicKeyBase64 = await cryptoService.exportKey(keyPair.publicKey);
         const privateKeyBase64 = await cryptoService.exportKey(keyPair.privateKey);
 
-        // Save to localStorage
-        cryptoService.saveKeys(publicKeyBase64, privateKeyBase64);
+        // Save to localStorage (keyed by userId)
+        cryptoService.saveKeys(userId, publicKeyBase64, privateKeyBase64);
 
         // Upload public key to server
         await uploadPublicKey(userId, publicKeyBase64);
