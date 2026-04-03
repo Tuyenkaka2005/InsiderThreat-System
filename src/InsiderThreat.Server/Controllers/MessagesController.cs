@@ -111,6 +111,12 @@ public class MessagesController : ControllerBase
     [HttpGet("group/{groupId}")]
     public async Task<ActionResult<List<Message>>> GetGroupMessages(string groupId)
     {
+        // 🔒 Kiểm tra nếu groupId không phải là ObjectId hợp lệ thì trả về rỗng thay vì lỗi 500
+        if (!MongoDB.Bson.ObjectId.TryParse(groupId, out _))
+        {
+            return Ok(new List<Message>());
+        }
+
         var filter = Builders<Message>.Filter.Eq(m => m.GroupId, groupId);
         var sort = Builders<Message>.Sort.Ascending(m => m.Timestamp);
         var messages = await _messagesCollection.Find(filter).Sort(sort).ToListAsync();

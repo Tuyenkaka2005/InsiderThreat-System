@@ -5,11 +5,14 @@ using InsiderThreat.Server.Models;
 using InsiderThreat.Shared;
 using Microsoft.AspNetCore.Authorization;
 using MongoDB.Bson;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace InsiderThreat.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Route("api/documents")]
     [Authorize]
     public class DocumentLibraryController : ControllerBase
     {
@@ -321,6 +324,45 @@ namespace InsiderThreat.Server.Controllers
                 "Nhân viên" => 1,
                 _ => 1
             };
+        }
+
+        [HttpGet("download/{id}")]
+        public async Task<IActionResult> DownloadFileByGridFSId(string id)
+        {
+            if (!ObjectId.TryParse(id, out var fileObjectId))
+                return BadRequest("Invalid file ID format");
+
+            try
+            {
+                using var encryptedStream = await _gridFS.OpenDownloadStreamAsync(fileObjectId);
+                var outputStream = new MemoryStream();
+
+                var fileInfo = await _gridFS.Find(Builders<GridFSFileInfo>.Filter.Eq("_id", fileObjectId)).FirstOrDefaultAsync();
+                if (fileInfo == null) return NotFound();
+
+                bool isEncrypted = fileInfo.Metadata != null && fileInfo.Metadata.Contains("isEncrypted") && fileInfo.Metadata["isEncrypted"].AsBoolean;
+
+                if (isEncrypted)
+                {
+                    await _encryptionService.DecryptStreamAsync(encryptedStream, outputStream);
+                }
+                else
+                {
+                    await encryptedStream.CopyToAsync(outputStream);
+                }
+
+                outputStream.Position = 0;
+                return File(outputStream, fileInfo.Metadata != null && fileInfo.Metadata.Contains("contentType") ? fileInfo.Metadata["contentType"].AsString : "application/octet-stream", fileInfo.Filename);
+            }
+            catch (GridFSFileNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error downloading file {id} from GridFS");
+                return StatusCode(500, "Internal server error during file retrieval");
+            }
         }
     }
 

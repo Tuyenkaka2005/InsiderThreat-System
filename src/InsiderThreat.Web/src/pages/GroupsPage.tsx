@@ -16,11 +16,13 @@ interface Group {
     privacy: 'PRIVATE' | 'PUBLIC';
     category: string;
     coverImage?: string;
+    adminIds?: string[];
 }
 
 export default function GroupsPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
     
     const MOCK_GROUPS: Group[] = [
         {
@@ -31,6 +33,7 @@ export default function GroupsPage() {
             privacy: 'PRIVATE',
             category: t('groups.cat_department', 'Phòng ban'),
             coverImage: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=200&fit=crop',
+            adminIds: []
         },
         {
             id: '2',
@@ -40,6 +43,7 @@ export default function GroupsPage() {
             privacy: 'PUBLIC',
             category: t('groups.cat_hobby', 'Sở thích'),
             coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=200&fit=crop',
+            adminIds: []
         },
         {
             id: '3',
@@ -49,6 +53,7 @@ export default function GroupsPage() {
             privacy: 'PUBLIC',
             category: t('groups.cat_expertise', 'Chuyên môn'),
             coverImage: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=200&fit=crop',
+            adminIds: []
         },
         {
             id: '4',
@@ -58,6 +63,7 @@ export default function GroupsPage() {
             privacy: 'PRIVATE',
             category: t('groups.cat_department', 'Phòng ban'),
             coverImage: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=200&fit=crop',
+            adminIds: []
         },
     ];
 
@@ -97,7 +103,8 @@ export default function GroupsPage() {
                         members: p.memberIds?.length || 1,
                         category: p.type === 'Team' ? 'Nhóm' : 'Cộng đồng',
                         privacy: (p.privacy || 'PUBLIC').toUpperCase() as 'PUBLIC' | 'PRIVATE',
-                        coverImage: p.coverUrl || 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=200&fit=crop'
+                        coverImage: p.coverUrl || 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=200&fit=crop',
+                        adminIds: p.adminIds || []
                     }));
                 setGroups([...realGroups, ...MOCK_GROUPS]);
             } catch (err) {
@@ -176,7 +183,7 @@ export default function GroupsPage() {
                                     <span className={`privacyBadge ${group.privacy === 'PRIVATE' ? 'badgePrivate' : 'badgePublic'}`}>
                                         {group.privacy}
                                     </span>
-                                    {!['1', '2', '3', '4'].includes(group.id) && (
+                                    {!['1', '2', '3', '4'].includes(group.id) && group.adminIds?.includes(currentUser.id) && (
                                         <button 
                                             className="deleteGroupBtn" 
                                             onClick={(e) => handleDeleteGroup(e, group)}

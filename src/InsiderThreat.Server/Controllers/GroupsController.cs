@@ -575,7 +575,7 @@ namespace InsiderThreat.Server.Controllers
             try
             {
                 var fileId = await _gridFS.UploadFromStreamAsync(file.FileName, file.OpenReadStream());
-                var fileUrl = $"/api/documents/download/{fileId}"; // Assuming an existing download endpoint or I'll add one
+                var fileUrl = $"/api/DocumentLibrary/download/{fileId}";
 
                 return Ok(new
                 {
@@ -703,6 +703,36 @@ namespace InsiderThreat.Server.Controllers
             var u = await _users.Find(x => x.Id == request.UserId).FirstOrDefaultAsync();
             await LogActivity(id, "member", "added member:", u?.FullName ?? request.UserId);
             return Ok(new { message = "Added" });
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteGroup(string id)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var group = await _groups.Find(g => g.Id == id).FirstOrDefaultAsync();
+            if (group == null) return NotFound();
+
+            // Permission check: Only admins of the group can delete it
+            if (!group.AdminIds.Contains(userId))
+            {
+                return Forbid();
+            }
+
+            try
+            {
+                await _groups.DeleteOneAsync(g => g.Id == id);
+                
+                // Cleanup: Delete related tasks
+                await _tasks.DeleteManyAsync(t => t.GroupId == id);
+                
+                return Ok(new { message = "Xóa nhóm thành công" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
         }
     }
 

@@ -133,7 +133,7 @@ export default function ProjectSidebar({ open, onClose, projectName }: ProjectSi
             placement="right"
             onClose={onClose}
             open={open}
-            width={400}
+            size="default"
             closable={false}
             styles={{ mask: { background: 'rgba(0,0,0,0.05)', backdropFilter: 'blur(4px)' } }}
         >

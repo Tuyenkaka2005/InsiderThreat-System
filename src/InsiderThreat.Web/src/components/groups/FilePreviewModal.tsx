@@ -32,7 +32,13 @@ const useFileBlob = (fileUrl: string) => {
         const load = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(fileUrl, {
+                
+                // Chuẩn hóa URL nếu là đường dẫn tương đối
+                const normalizedUrl = fileUrl.startsWith('http') 
+                    ? fileUrl 
+                    : `${API_BASE_URL}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+
+                const response = await fetch(normalizedUrl, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!response.ok) throw new Error('Không thể tải tài liệu (401/404)');
