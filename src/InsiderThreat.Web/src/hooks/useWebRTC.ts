@@ -37,6 +37,7 @@ export function useWebRTC() {
     const [isWaiting, setIsWaiting] = useState(false);
     const [isJoinRejected, setIsJoinRejected] = useState(false);
     const [mutedByHost, setMutedByHost] = useState<Set<string>>(new Set());
+    const [screenSharingPeers, setScreenSharingPeers] = useState<Set<string>>(new Set());
 
     const connectionRef = useRef<signalR.HubConnection | null>(null);
     const peersRef = useRef<Map<string, PeerState>>(new Map());
@@ -200,6 +201,16 @@ export function useWebRTC() {
         conn.off('ParticipantMuted');
         conn.off('AllMuted');
         conn.off('AllUnmuted');
+        conn.off('ParticipantScreenSharingChanged');
+
+        conn.on('ParticipantScreenSharingChanged', (connectionId: string, isSharing: boolean) => {
+            setScreenSharingPeers(prev => {
+                const s = new Set(prev);
+                if (isSharing) s.add(connectionId);
+                else s.delete(connectionId);
+                return s;
+            });
+        });
 
         conn.on('ReceiveTranscript', (_connectionId: string, displayName: string, text: string, timestamp: string) => {
             setTranscripts(prev => [...prev, { speaker: displayName, text, timestamp }]);
@@ -496,6 +507,7 @@ export function useWebRTC() {
 
             setDisplayStream(localStreamRef.current);
             setIsScreenSharing(false);
+            connectionRef.current?.invoke('SetScreenSharing', false).catch(() => { });
         } else {
             try {
                 const screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -518,6 +530,7 @@ export function useWebRTC() {
 
                 setDisplayStream(screenStream);
                 setIsScreenSharing(true);
+                connectionRef.current?.invoke('SetScreenSharing', true).catch(() => { });
 
                 screenTrack.onended = () => {
                     const camTrack = cameraTrackRef.current;
@@ -530,6 +543,7 @@ export function useWebRTC() {
                     screenStreamRef.current = null;
                     setDisplayStream(localStreamRef.current);
                     setIsScreenSharing(false);
+                    connectionRef.current?.invoke('SetScreenSharing', false).catch(() => { });
                 };
             } catch {
                 console.log('[WebRTC] Screen share cancelled by user');
@@ -635,6 +649,7 @@ export function useWebRTC() {
         mutedByHost,
         isRoomHost,
         isTranscriptActive,
+        screenSharingPeers,
         createRoom,
         joinRoom,
         leaveRoom,

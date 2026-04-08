@@ -49,14 +49,33 @@ export default function MeetPage() {
         sendChatMessage, raiseHand, lowerHand,
         muteParticipant, muteAll, unmuteAll,
         approveParticipant, rejectParticipant,
+        screenSharingPeers,
     } = useWebRTC();
 
-    const inMeeting = isConnected && roomCode;
+    const inMeeting = !!roomCode;
     const myName = user?.fullName || user?.username || t('meet.lbl_you', 'Bạn');
     const isHandRaised = raisedHands.has(myConnectionId.current);
 
-    // Pin state
+    // Auto-pin someone when they start screen sharing
     const [pinnedId, setPinnedId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (screenSharingPeers.size > 0) {
+            // Pick the first peer sharing screen (usually only one)
+            const peerId = Array.from(screenSharingPeers)[0];
+            if (pinnedId !== peerId) setPinnedId(peerId);
+        } else if (isScreenSharing) {
+            if (pinnedId !== 'local') setPinnedId('local');
+        } else {
+            // Only unpin if the pinned user was the one who was sharing
+            if (pinnedId === 'local' && !isScreenSharing) {
+                setPinnedId(null);
+            } else if (pinnedId && !screenSharingPeers.has(pinnedId)) {
+                // If it was another peer, check if they are still in the room and still sharing
+                setPinnedId(null);
+            }
+        }
+    }, [screenSharingPeers, isScreenSharing, pinnedId]);
 
     // Right panel
     const [rightPanel, setRightPanel] = useState<'participants' | 'chat' | 'transcript' | null>(null);

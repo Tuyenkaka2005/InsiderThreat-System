@@ -255,6 +255,13 @@ public class VideoHub : Hub
         await Clients.Group(roomCode).SendAsync("AllUnmuted");
     }
 
+    // ===== SCREEN SHARING =====
+    public async Task SetScreenSharing(bool isSharing)
+    {
+        if (!_connectionToRoom.TryGetValue(Context.ConnectionId, out var roomCode)) return;
+        await Clients.OthersInGroup(roomCode).SendAsync("ParticipantScreenSharingChanged", Context.ConnectionId, isSharing);
+    }
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         // Remove from waiting list if disconnected while waiting
