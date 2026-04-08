@@ -26,7 +26,14 @@ export default function MeetPage() {
     const { t } = useTranslation();
     const [inputCode, setInputCode] = useState('');
     const [loading, setLoading] = useState(false);
-    const [requireApproval, setRequireApproval] = useState(false);
+    const [requireApproval, setRequireApproval] = useState(() => {
+        return localStorage.getItem('meet_require_approval') === 'true';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('meet_require_approval', requireApproval.toString());
+    }, [requireApproval]);
+
     const user = authService.getCurrentUser();
     const myConnectionId = useRef<string>('');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -444,15 +451,10 @@ export default function MeetPage() {
                                 {/* Videos */}
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                                     {pinnedId ? (
-                                        <div className={styles.spotlightLayout}>
-                                            {allPeers.filter(p => p.connectionId === pinnedId).map(peer => (
-                                                <RemoteVideo key={peer.connectionId} peer={peer} streamId={peer.remoteStream.id}
-                                                    isPinned onPin={() => setPinnedId(null)} large
-                                                    hasRaisedHand={raisedHands.has(peer.connectionId)}
-                                                    isMuted={mutedByHost.has(peer.connectionId)} />
-                                            ))}
-                                            <div className={styles.thumbnailRow}>
-                                                <div className={styles.videoTile} style={{ minHeight: 100 }}>
+                                        <div className={isMobile ? styles.spotlightLayout : styles.spotlightSidebarLayout}>
+                                            {/* Thumbnails Sidebar (Left) */}
+                                            <div className={isMobile ? styles.thumbnailRow : styles.sidebarThumbnails}>
+                                                <div className={styles.videoTile}>
                                                     <video ref={localVideoRef} autoPlay muted playsInline className={styles.videoElement} />
                                                     {!isVideoEnabled && <div className={styles.videoOff}><VideoCameraOutlined style={{ fontSize: 20, color: '#fff' }} /></div>}
                                                     <span className={styles.nameTag}>{myName}</span>
@@ -464,6 +466,31 @@ export default function MeetPage() {
                                                         isMuted={mutedByHost.has(peer.connectionId)} />
                                                 ))}
                                             </div>
+
+                                            {/* Pinned Video (Center/Right) */}
+                                            {pinnedId === 'local' ? (
+                                                <div className={styles.videoTileLarge}>
+                                                    <video ref={localVideoRef} autoPlay muted playsInline className={styles.videoElement} />
+                                                    {!isVideoEnabled && <div className={styles.videoOff}><VideoCameraOutlined style={{ fontSize: 48, color: '#fff' }} /></div>}
+                                                    <span className={styles.nameTag}>{myName} (Chia sẻ màn hình)</span>
+                                                    <Tooltip title="Bỏ ghim">
+                                                        <button onClick={() => setPinnedId(null)} style={{
+                                                            position: 'absolute', top: 12, right: 12,
+                                                            background: '#1890ff', border: 'none', borderRadius: 6, padding: '6px 12px',
+                                                            color: '#fff', cursor: 'pointer', zIndex: 10
+                                                        }}>
+                                                            <PushpinFilled style={{ fontSize: 16 }} />
+                                                        </button>
+                                                    </Tooltip>
+                                                </div>
+                                            ) : (
+                                                allPeers.filter(p => p.connectionId === pinnedId).map(peer => (
+                                                    <RemoteVideo key={peer.connectionId} peer={peer} streamId={peer.remoteStream.id}
+                                                        isPinned onPin={() => setPinnedId(null)} large
+                                                        hasRaisedHand={raisedHands.has(peer.connectionId)}
+                                                        isMuted={mutedByHost.has(peer.connectionId)} />
+                                                ))
+                                            )}
                                         </div>
                                     ) : (
                                         <div className={styles.videoGrid}>

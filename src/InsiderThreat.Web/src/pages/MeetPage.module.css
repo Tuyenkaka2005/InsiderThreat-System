@@ -108,6 +108,32 @@
     overflow: hidden;
 }
 
+.spotlightSidebarLayout {
+    display: flex;
+    flex-direction: row; /* Thumbnails on left, main on right */
+    flex: 1;
+    padding: 8px;
+    gap: 12px;
+    overflow: hidden;
+}
+
+.sidebarThumbnails {
+    display: flex;
+    flex-direction: column;
+    width: 220px;
+    flex-shrink: 0;
+    gap: 8px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.sidebarThumbnails .videoTile {
+    width: 100%;
+    height: 140px;
+    min-height: 140px;
+    flex-shrink: 0;
+}
+
 .videoTileLarge {
     position: relative;
     background: #1a1a1a;
