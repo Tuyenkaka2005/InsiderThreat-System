@@ -48,9 +48,11 @@ function LoginPage() {
                 return;
             }
 
-            const role = response.user.role?.trim().toLowerCase();
-            // Tất cả user (bao gồm Admin/Giám đốc) đều vào trang workspace theo yêu cầu của bạn
-            navigate('/workspace');
+            // Kích hoạt sự kiện storage thủ công để App.tsx cập nhật isLoggedIn ngay lập tức
+            window.dispatchEvent(new Event('storage'));
+
+            // Chuyển hướng trực tiếp tới trang Bảng tin (Feed) theo yêu cầu
+            navigate('/feed');
         } catch (error: any) {
             const errMsg = error.response?.data?.message || t('auth.login_failed_desc', 'Login failed! Please check your credentials.');
             setErrorMessage(errMsg);

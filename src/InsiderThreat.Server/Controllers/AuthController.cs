@@ -623,6 +623,7 @@ public class AuthController : ControllerBase
         };
 
         var tokenHandler = new JwtSecurityTokenHandler();
+        tokenHandler.OutboundClaimTypeMap.Clear();
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
