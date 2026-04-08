@@ -318,24 +318,7 @@ function WatchdogPage() {
             <style>{`
                 .offline-row td { opacity: 0.6; }
             `}</style>
-            {window.innerWidth < 1024 && (
-                <BottomNavigation 
-                    activeKey="watchdog"
-                    items={[
-                        { icon: 'newspaper', label: t('dashboard.nav_feed', 'Feed'), path: '/feed' },
-                        { icon: 'person_search', label: t('dashboard.menu_users', 'User Management'), path: '/dashboard?tab=users' },
-                        { icon: 'forum', label: t('dashboard.menu_posts', 'Post Management'), path: '/dashboard?tab=posts' },
-                        { icon: 'report_problem', label: t('dashboard.menu_reports', 'Báo cáo vi phạm'), path: '/dashboard?tab=reports' },
-                        { icon: 'usb', label: t('dashboard.menu_usb', 'USB Management'), path: '/dashboard?tab=usb' },
-                        { icon: 'folder_managed', label: t('dashboard.menu_documents', 'Document Logs'), path: '/dashboard?tab=documents' },
-                        { icon: 'fact_check', label: t('dashboard.menu_attendance', 'Attendance'), path: '/dashboard?tab=attendance' },
-                        { icon: 'monitoring', label: t('dashboard.menu_monitor', 'Giám sát Hành vi'), path: '/monitor-logs' },
-                        { icon: 'security', label: t('dashboard.menu_watchdog', 'Watchdog'), path: '/watchdog', key: 'watchdog' },
-                    ]}
-                />
-            )}
-        </div>
-    );
+            </div>    );
 }
 
 export default WatchdogPage;

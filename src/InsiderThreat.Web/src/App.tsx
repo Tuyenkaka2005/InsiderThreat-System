@@ -125,8 +125,8 @@ function App() {
               <Route path="/library" element={<PrivateRoute><LibraryPage /></PrivateRoute>} />
               <Route path="/attendance" element={<PrivateRoute><SocialAttendancePage /></PrivateRoute>} />
               <Route path="/meet" element={<PrivateRoute><MeetPage /></PrivateRoute>} />
-              <Route path="/monitor-logs" element={<PrivateRoute><MonitorLogsPage /></PrivateRoute>} />
-              <Route path="/watchdog" element={<PrivateRoute><WatchdogPage /></PrivateRoute>} />
+              <Route path="/monitor-logs" element={<PrivateRoute><DashboardPage defaultTab="monitor-logs" /></PrivateRoute>} />
+              <Route path="/watchdog" element={<PrivateRoute><DashboardPage defaultTab="watchdog" /></PrivateRoute>} />
               <Route path="/security-approvals" element={<PrivateRoute><SecurityApprovalsPage /></PrivateRoute>} />
               <Route path="/org-chart" element={<PrivateRoute><OrgChartPage /></PrivateRoute>} />
               <Route path="/my-leave" element={<PrivateRoute><MyLeavePage /></PrivateRoute>} />

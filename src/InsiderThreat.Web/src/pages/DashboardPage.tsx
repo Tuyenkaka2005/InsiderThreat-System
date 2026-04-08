@@ -28,6 +28,8 @@ import PostManagementPage from './PostManagementPage';
 import DocumentsPage from './DocumentsPage';
 import AttendancePage from './AttendancePage';
 import ReportsPage from './ReportsPage';
+import MonitorLogsPage from './MonitorLogsPage';
+import WatchdogPage from './WatchdogPage';
 import BottomNavigation from '../components/BottomNavigation';
 import './DashboardPage.css';
 
@@ -35,10 +37,10 @@ import './DashboardPage.css';
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
 
-function DashboardPage() {
+function DashboardPage({ defaultTab }: { defaultTab?: string }) {
     const [collapsed, setCollapsed] = useState(false);
     const [searchParams] = useSearchParams();
-    const initialTab = searchParams.get('tab') || 'usb';
+    const initialTab = defaultTab || searchParams.get('tab') || 'usb';
     const [selectedKey, setSelectedKey] = useState(initialTab);
     const navigate = useNavigate();
     const user = authService.getCurrentUser();
@@ -50,11 +52,18 @@ function DashboardPage() {
         }
     }, [user, navigate]);
 
+    useEffect(() => {
+        if (defaultTab) {
+            setSelectedKey(defaultTab);
+        } else if (searchParams.get('tab')) {
+            setSelectedKey(searchParams.get('tab') || 'usb');
+        }
+    }, [defaultTab, searchParams]);
+
     // Navigate to external routes when menu items are selected
     useEffect(() => {
         if (selectedKey === 'feed') navigate('/feed');
-        if (selectedKey === 'watchdog') navigate('/watchdog');
-        if (selectedKey === 'monitor-logs') navigate('/monitor-logs');
+        // Do not navigate away for monitor-logs and watchdog, handle them locally instead
     }, [selectedKey, navigate]);
 
     const handleLogout = () => {
@@ -231,6 +240,18 @@ function DashboardPage() {
                 return (
                     <div className="content-wrapper">
                         <AttendancePage />
+                    </div>
+                );
+            case 'monitor-logs':
+                return (
+                    <div className="content-wrapper">
+                        <MonitorLogsPage />
+                    </div>
+                );
+            case 'watchdog':
+                return (
+                    <div className="content-wrapper">
+                        <WatchdogPage />
                     </div>
                 );
             default:
