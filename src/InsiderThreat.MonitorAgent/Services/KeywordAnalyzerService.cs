@@ -160,9 +160,9 @@ public class KeywordAnalyzerService
             .Replace("ỳ", "y").Replace("ý", "y").Replace("ỷ", "y").Replace("ỹ", "y").Replace("ỵ", "y")
             .Replace("đ", "d");
 
-        // Strip Telex tone marks at word boundaries (s, f, r, x, j after vowels)
-        // This handles raw Telex keyboard buffer like "nghir" → "nghi", "viecj" → "viec"
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"([aeiouy])([sfrxj])(?=\s|$|[^a-z])", "$1");
+        // Strip Telex tone marks at word boundaries (s, f, r, x, j after vowels or valid ending consonants c,m,n,t,p,g,h)
+        // This handles raw Telex keyboard buffer like "nghir" → "nghi", "vieecj" → "vieec"
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"([aeiouycmntpgh])([sfrxj])(?=\s|$|[^a-z])", "$1");
 
         // Handle doubled chars from Telex: aa→a, ee→e, oo→o, dd→d
         result = System.Text.RegularExpressions.Regex.Replace(result, @"([aeioud])\1", "$1");
